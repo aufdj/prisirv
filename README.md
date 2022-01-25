@@ -19,13 +19,13 @@ Sorting Methods:
   mod      Sort by last modification time
   
 EXAMPLE:
-  Compress file [\\foo\\bar.txt] and directory [baz] into solid archive, 
+  Compress file [\foo\bar.txt] and directory [baz] into solid archive, 
   sorting files by creation time:
 
-    prisirv c -sld -sort crtd \\foo\\bar.txt \\baz
+    prisirv c -sld -sort crtd \foo\bar.txt \baz
 
   Decompress the archive:
 
-    prisirv d -s \\foo.lpaq
+    prisirv d -s \foo.lpaq
 </pre>
 
