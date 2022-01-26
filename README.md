@@ -26,6 +26,6 @@ EXAMPLE:
 
   Decompress the archive:
 
-    prisirv d -s \foo.lpaq
+    prisirv d -sld \foo.pri
 </pre>
 
