@@ -147,11 +147,15 @@ fn new_output_file(capacity: usize, file_name: &Path) -> BufWriter<File> {
     )
 }
 fn new_dir(path: &String) {
-    match create_dir(Path::new(path)) {
+    let path = Path::new(path);
+    match create_dir(path) {
         Ok(_) => {},
         Err(err) => {
             match err.kind() {
-                ErrorKind::AlreadyExists => {},
+                ErrorKind::AlreadyExists => {
+                    println!("Directory {} already exists.", path.display());
+                    std::process::exit(1);
+                },
                 ErrorKind::InvalidInput  => {
                     println!("Invalid directory name.");
                 },
@@ -919,10 +923,10 @@ fn compress_file(file_in_path: &Path, dir_out: &String) -> u64 {
     
     // Create output file path from current output directory
     // and input file name without extension
-    // i.e. foo/bar.txt -> foo/bar.lpaq
+    // i.e. foo/bar.txt -> foo/bar.pri
     let file_out_path = 
         PathBuf::from(
-            &format!("{}\\{}.lpaq",  
+            &format!("{}\\{}.pri",  
             dir_out, file_name_no_ext(file_in_path))
         );  
 
@@ -952,7 +956,7 @@ fn decompress_file(file_in_path: &Path, dir_out: &String) -> u64 {
     // Create output file path from current output directory,
     // input file name without extension, and file's original
     // extension (stored in header)
-    // i.e. foo/bar.lpaq -> foo/bar.txt
+    // i.e. foo/bar.pri -> foo/bar.txt
     let file_out_path =
         PathBuf::from(
             &format!("{}\\{}.{}",
@@ -1012,15 +1016,17 @@ fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool) {
     // directory and input directory name; if current output
     // directory is root, replace rather than nest
     let mut dir_out = 
-        if root { dir_out.to_string() } 
+        if root { dir_out.to_string() }
         else { 
             format!("{}\\{}", 
             dir_out, file_name_ext(dir_in)) 
         };
-    new_dir(&dir_out);
-
+    if !Path::new(&dir_out).is_dir() {
+        new_dir(&dir_out);
+    }
+    
     // Sort files and directories
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
         dir_in.read_dir().unwrap()
         .map(|d| d.unwrap().path())
         .partition(|f| f.is_file());
@@ -1029,10 +1035,10 @@ fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool) {
     for file_in in files.iter() {
         let time = Instant::now();
         println!("Decompressing {}", file_in.display());
-        let file_in_size  = file_len(&file_in); 
+        let file_in_size  = file_len(&file_in);
         let file_out_size = decompress_file(&file_in, &dir_out);
-        println!("{} bytes -> {} bytes in {:.2?}\n", 
-            file_in_size, file_out_size, time.elapsed());  
+        println!("{} bytes -> {} bytes in {:.2?}\n",
+            file_in_size, file_out_size, time.elapsed());
     }
     for dir_in in dirs.iter() {
         decompress_dir(&dir_in, &mut dir_out, false); 
@@ -1098,7 +1104,8 @@ fn compress_file_solid(enc: &mut Encoder, mta: &mut Metadata, curr_file: usize) 
         enc.compress_block(&file_in.buffer());
         mta.files[curr_file].1 += 1;
     }
-    println!("Total archive size: {}\n", enc.file_out.stream_position().unwrap());
+    println!("Total archive size: {}\n", 
+    enc.file_out.stream_position().unwrap());
 }
 fn decompress_file_solid(dec: &mut Decoder, mta: &mut Metadata, dir_out: &String, curr_file: usize) {
     let file_out_name =
@@ -1142,14 +1149,15 @@ fn main() {
          \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
                                                                                  ");
         println!();
-        println!("Prisirv is a context mixing archiver");
+        println!("Prisirv is a context mixing archiver based on lpaq1");
         println!("Source code available at https://github.com/aufdj/prisirv");
         println!();
-        println!("USAGE: PROG_NAME [c|d] [-s] [-sort [..]] [files|dirs]");
+        println!("USAGE: PROG_NAME [c|d] [-out [path]] [-sld] [-sort [..]] [files|dirs]");
         println!();
         println!("OPTIONS:");
         println!("   c      Compress");
         println!("   d      Decompress");
+        println!("  -out    Specify output path");
         println!("  -sld    Create solid archive");
         println!("  -sort   Sort files (solid archives only)");
         println!();
@@ -1161,18 +1169,25 @@ fn main() {
         println!("          -sort mod      Sort by last modification time");
         println!();
         println!("EXAMPLE:");
-        println!("  Compress file [\\foo\\bar.txt] and directory [baz] into solid archive, \n  sorting files by creation time:");
+        println!("  Compress file [\\foo\\bar.txt] and directory [baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
         println!();
-        println!("      prisirv c -sld -sort crtd \\foo\\bar.txt \\baz");
+        println!("      prisirv c -out arch -sld -sort crtd \\foo\\bar.txt \\baz");
         println!();
         println!("  Decompress the archive:");
         println!();
-        println!("      prisirv d -s \\foo.lpaq");
+        println!("      prisirv d -s \\foo.pri");
         std::process::exit(0);
     }
 
     // Get mode
     let mode = args.next().unwrap();
+
+    // Get user specified output path
+    let mut user_out = String::new();
+    if args.peek().unwrap() == "-out" {
+        args.next();
+        user_out = args.next().unwrap();
+    }
 
     // Determine if solid or non-solid archive
     let mut solid = false;
@@ -1198,18 +1213,40 @@ fn main() {
         }
     }
 
-    let mut dir_out;
-    
+    let mut dir_out = String::new();
+
     if solid {
         let mut enc;
         let mut dec;
         let mut mta: Metadata = Metadata::new();
         match mode.as_str() {
             "c" => {
-                // Create archive with same name as first file/dir
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() || arg.is_dir() {
-                    dir_out = format!("{}.lpaq", file_path_no_ext(&arg));
+                    // Use first input file name if user doesn't specify a path
+                    if user_out.is_empty() {
+                        dir_out = format!("{}.pri", file_path_no_ext(&arg));
+                    }
+                    else {
+                        // An -out option containing \'s will be treated as an absolute path.
+                        // An -out option with no \'s creates a new archive inside the same directory as the first input.
+                        // i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
+                        // while option '-out arch' creates archive \foo\arch.
+                        if user_out.contains("\\") {
+                            dir_out = format!("{}.pri", user_out);
+                        }
+                        else {
+                            let s: Vec<String> = 
+                                file_path_ext(&arg)
+                                .split("\\").skip(1)
+                                .map(|s| s.to_string())
+                                .collect();
+                            for i in s.iter().take(s.len()-1) {
+                                dir_out.push_str(format!("\\{}", i).as_str());
+                            }
+                            dir_out = format!("{}\\{}.pri", dir_out, user_out);
+                        }   
+                    }
                     enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)));
                 }
                 else {
@@ -1284,7 +1321,26 @@ fn main() {
             "d" => {
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() {
-                    dir_out = format!("{}_d", file_path_no_ext(&arg));
+                    // Use first input file name if user doesn't specify a path
+                    if user_out.is_empty() {
+                        dir_out = format!("{}_d", file_path_no_ext(&arg));
+                    }
+                    else {
+                        if user_out.contains("\\") {
+                            dir_out = format!("{}_d", user_out);
+                        }
+                        else {
+                            let s: Vec<String> = 
+                                file_path_ext(&arg)
+                                .split("\\").skip(1)
+                                .map(|s| s.to_string())
+                                .collect();
+                            for i in s.iter().take(s.len()-1) {
+                                dir_out.push_str(format!("\\{}", i).as_str());
+                            }
+                            dir_out = format!("{}\\{}_d", dir_out, user_out);
+                        }   
+                    }
                     new_dir(&dir_out);
                     dec = Decoder::new(new_input_file(4096, &arg));
                 }
@@ -1292,6 +1348,7 @@ fn main() {
                     println!("No solid archives found.");
                     std::process::exit(1);
                 }
+
                 mta = dec.read_header();
 
                 // Seek to end of file metadata
@@ -1343,7 +1400,26 @@ fn main() {
                 // Create archive with same name as first file/dir
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() || arg.is_dir() {
-                    dir_out = format!("{}_lpaq", file_path_no_ext(&arg));
+                    // Use first input file name if user doesn't specify a path
+                    if user_out.is_empty() {
+                        dir_out = format!("{}_pri", file_path_no_ext(&arg));
+                    }
+                    else {
+                        if user_out.contains("\\") {
+                            dir_out = format!("{}_pri", user_out);
+                        }
+                        else {
+                            let s: Vec<String> = 
+                                file_path_ext(&arg)
+                                .split("\\").skip(1)
+                                .map(|s| s.to_string())
+                                .collect();
+                            for i in s.iter().take(s.len()-1) {
+                                dir_out.push_str(format!("\\{}", i).as_str());
+                            }
+                            dir_out = format!("{}\\{}_pri", dir_out, user_out);
+                        }   
+                    }
                     new_dir(&dir_out);
                 }
                 else {
@@ -1371,13 +1447,27 @@ fn main() {
                 // Create archive with same name as first file/dir
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() || arg.is_dir() {
-                    dir_out = format!("{}_d", file_path_no_ext(&arg));
-                    /*
-                    dir_out = 
-                        file_path_no_ext(&arg)
-                        .strip_suffix("_lpaq").unwrap()
-                        .to_string();
-                    */
+                    // Use first input file name if user doesn't specify a path
+                    if user_out.is_empty() {
+                        dir_out = format!("{}_d", file_path_no_ext(&arg));
+                    }
+                    else {
+                        if user_out.contains("\\") {
+                            dir_out = format!("{}_d", user_out);
+                        }
+                        else {
+                            let s: Vec<String> = 
+                                file_path_ext(&arg)
+                                .split("\\").skip(1)
+                                .map(|s| s.to_string())
+                                .collect();
+                            for i in s.iter().take(s.len()-1) {
+                                dir_out.push_str(format!("\\{}", i).as_str());
+                            }
+                            dir_out = format!("{}\\{}_d", dir_out, user_out);
+                        }   
+                    }
+                    println!("creating directory {} in main()", dir_out);
                     new_dir(&dir_out);
                 }
                 else {
