@@ -1175,7 +1175,7 @@ fn main() {
         println!();
         println!("  Decompress the archive:");
         println!();
-        println!("      prisirv d -s \\foo.pri");
+        println!("      prisirv d -sld \\foo.pri");
         std::process::exit(0);
     }
 
