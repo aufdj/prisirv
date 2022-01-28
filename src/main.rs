@@ -268,6 +268,56 @@ fn decompress_file_solid(dec: &mut Decoder, mta: &mut Metadata, dir_out: &String
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------
 
+#[derive(PartialEq, Eq)]
+enum Format {
+    Archive,
+    Extract,
+    ArchiveSolid,
+    ExtractSolid,
+}
+
+fn format_dir_out(fmt: Format, user_out: &String, arg: &PathBuf) -> String {
+    let mut dir_out = String::new();
+    if user_out.is_empty() {
+        dir_out = match fmt {
+            Format::Archive =>      format!("{}_pri", file_path_no_ext(&arg)),
+            Format::Extract =>      format!("{}_d",   file_path_no_ext(&arg)),
+            Format::ArchiveSolid => format!("{}.pri", file_path_no_ext(&arg)),
+            Format::ExtractSolid => format!("{}_d",   file_path_no_ext(&arg)),
+        }    
+    }
+    else {
+        // An -out option containing \'s will be treated as an absolute path.
+        // An -out option with no \'s creates a new archive inside the same directory as the first input.
+        // i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
+        // while option '-out arch' creates archive \foo\arch.
+        if user_out.contains("\\") {
+            dir_out = match fmt {
+                Format::Archive =>      format!("{}_pri", user_out),
+                Format::Extract =>      format!("{}_d",   user_out),
+                Format::ArchiveSolid => format!("{}.pri", user_out),
+                Format::ExtractSolid => format!("{}_d",   user_out),
+            }    
+        }
+        else {
+            let s: Vec<String> = 
+                file_path_ext(&arg)
+                .split("\\").skip(1)
+                .map(|s| s.to_string())
+                .collect();
+            for cmpnt in s.iter().take(s.len()-1) {
+                dir_out.push_str(format!("\\{}", cmpnt).as_str());
+            }
+            dir_out = match fmt {
+                Format::Archive =>      format!("{}\\{}_pri", dir_out, user_out),
+                Format::Extract =>      format!("{}\\{}_d",   dir_out, user_out),
+                Format::ArchiveSolid => format!("{}\\{}.pri", dir_out, user_out),
+                Format::ExtractSolid => format!("{}\\{}_d",   dir_out, user_out),
+            }    
+        }   
+    }
+    dir_out
+}
 
 fn main() {
     // Get arguments, skipping over program name
@@ -357,30 +407,7 @@ fn main() {
             "c" => {
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() || arg.is_dir() {
-                    // Use first input file name if user doesn't specify a path
-                    if user_out.is_empty() {
-                        dir_out = format!("{}.pri", file_path_no_ext(&arg));
-                    }
-                    else {
-                        // An -out option containing \'s will be treated as an absolute path.
-                        // An -out option with no \'s creates a new archive inside the same directory as the first input.
-                        // i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
-                        // while option '-out arch' creates archive \foo\arch.
-                        if user_out.contains("\\") {
-                            dir_out = format!("{}.pri", user_out);
-                        }
-                        else {
-                            let s: Vec<String> = 
-                                file_path_ext(&arg)
-                                .split("\\").skip(1)
-                                .map(|s| s.to_string())
-                                .collect();
-                            for i in s.iter().take(s.len()-1) {
-                                dir_out.push_str(format!("\\{}", i).as_str());
-                            }
-                            dir_out = format!("{}\\{}.pri", dir_out, user_out);
-                        }   
-                    }   
+                    dir_out = format_dir_out(Format::ArchiveSolid, &user_out, &arg);
                 }
                 else {
                     println!("No files or directories found.");
@@ -456,26 +483,7 @@ fn main() {
             "d" => {
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() {
-                    // Use first input file name if user doesn't specify a path
-                    if user_out.is_empty() {
-                        dir_out = format!("{}_d", file_path_no_ext(&arg));
-                    }
-                    else {
-                        if user_out.contains("\\") {
-                            dir_out = format!("{}_d", user_out);
-                        }
-                        else {
-                            let s: Vec<String> = 
-                                file_path_ext(&arg)
-                                .split("\\").skip(1)
-                                .map(|s| s.to_string())
-                                .collect();
-                            for i in s.iter().take(s.len()-1) {
-                                dir_out.push_str(format!("\\{}", i).as_str());
-                            }
-                            dir_out = format!("{}\\{}_d", dir_out, user_out);
-                        }   
-                    }
+                    dir_out = format_dir_out(Format::ExtractSolid, &user_out, &arg);
                     new_dir(&dir_out);
                 }
                 else {
@@ -535,26 +543,7 @@ fn main() {
                 // Create archive with same name as first file/dir
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() || arg.is_dir() {
-                    // Use first input file name if user doesn't specify a path
-                    if user_out.is_empty() {
-                        dir_out = format!("{}_pri", file_path_no_ext(&arg));
-                    }
-                    else {
-                        if user_out.contains("\\") {
-                            dir_out = format!("{}_pri", user_out);
-                        }
-                        else {
-                            let s: Vec<String> = 
-                                file_path_ext(&arg)
-                                .split("\\").skip(1)
-                                .map(|s| s.to_string())
-                                .collect();
-                            for i in s.iter().take(s.len()-1) {
-                                dir_out.push_str(format!("\\{}", i).as_str());
-                            }
-                            dir_out = format!("{}\\{}_pri", dir_out, user_out);
-                        }   
-                    }
+                    dir_out = format_dir_out(Format::Archive, &user_out, &arg);
                     new_dir(&dir_out);
                 }
                 else {
@@ -582,27 +571,7 @@ fn main() {
                 // Create archive with same name as first file/dir
                 let arg = PathBuf::from(&args.peek().unwrap());
                 if arg.is_file() || arg.is_dir() {
-                    // Use first input file name if user doesn't specify a path
-                    if user_out.is_empty() {
-                        dir_out = format!("{}_d", file_path_no_ext(&arg));
-                    }
-                    else {
-                        if user_out.contains("\\") {
-                            dir_out = format!("{}_d", user_out);
-                        }
-                        else {
-                            let s: Vec<String> = 
-                                file_path_ext(&arg)
-                                .split("\\").skip(1)
-                                .map(|s| s.to_string())
-                                .collect();
-                            for i in s.iter().take(s.len()-1) {
-                                dir_out.push_str(format!("\\{}", i).as_str());
-                            }
-                            dir_out = format!("{}\\{}_d", dir_out, user_out);
-                        }   
-                    }
-                    println!("creating directory {} in main()", dir_out);
+                    dir_out = format_dir_out(Format::Extract, &user_out, &arg);
                     new_dir(&dir_out);
                 }
                 else {
