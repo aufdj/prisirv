@@ -3,7 +3,7 @@
 Prisirv is a context mixing archiver based on lpaq1.
 
 <pre>
-USAGE: PROG_NAME [c|d] [-sld] [-sort [..]] [files|dirs]
+USAGE: PROG_NAME [c|d] [-out [path]] [-sld] [-sort [..]] [files|dirs]
 
 OPTIONS:
    c       Compress
