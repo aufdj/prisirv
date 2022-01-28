@@ -34,11 +34,11 @@ const MEM: usize = 1 << 23;
 fn file_name_no_ext(path: &Path) -> &str {
     path.file_name().unwrap()
     .to_str().unwrap()
-    .split(".").next().unwrap()
+    .split('.').next().unwrap()
 }
 fn file_path_no_ext(path: &Path) -> &str {
     path.to_str().unwrap()
-    .split(".").next().unwrap()
+    .split('.').next().unwrap()
 }
 // Get file name or path with extension 
 fn file_name_ext(path: &Path) -> &str {
@@ -54,7 +54,7 @@ fn file_len(path: &Path) -> u64 {
 
 
 // Non-solid archiving --------------------------------------------------------------------------------------------------------------------
-fn compress_file(file_in_path: &Path, dir_out: &String) -> u64 {
+fn compress_file(file_in_path: &Path, dir_out: &str) -> u64 {
     let mut mta: Metadata = Metadata::new();
     
     // Create output file path from current output directory
@@ -77,7 +77,7 @@ fn compress_file(file_in_path: &Path, dir_out: &String) -> u64 {
     loop {
         if file_in.fill_buffer() == BufferState::Empty { break; }
         mta.f_bl_sz = file_in.buffer().len();
-        enc.compress_block(&file_in.buffer());
+        enc.compress_block(file_in.buffer());
         mta.bl_c += 1;
     } 
     
@@ -85,7 +85,7 @@ fn compress_file(file_in_path: &Path, dir_out: &String) -> u64 {
     enc.write_header(&mta);
     file_len(&file_out_path)
 }
-fn decompress_file(file_in_path: &Path, dir_out: &String) -> u64 {
+fn decompress_file(file_in_path: &Path, dir_out: &str) -> u64 {
     let mut dec = Decoder::new(new_input_file(4096, file_in_path));
     let mta: Metadata = dec.read_header();
 
@@ -138,8 +138,8 @@ fn compress_dir(dir_in: &Path, dir_out: &mut String) {
     for file_in in files.iter() {
         let time = Instant::now();
         println!("Compressing {}", file_in.display());
-        let file_in_size  = file_len(&file_in); 
-        let file_out_size = compress_file(&file_in, &dir_out);
+        let file_in_size  = file_len(file_in); 
+        let file_out_size = compress_file(file_in, &dir_out);
         println!("{} bytes -> {} bytes in {:.2?}\n", 
             file_in_size, file_out_size, time.elapsed());  
     }
@@ -171,13 +171,13 @@ fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool) {
     for file_in in files.iter() {
         let time = Instant::now();
         println!("Decompressing {}", file_in.display());
-        let file_in_size  = file_len(&file_in);
-        let file_out_size = decompress_file(&file_in, &dir_out);
+        let file_in_size  = file_len(file_in);
+        let file_out_size = decompress_file(file_in, &dir_out);
         println!("{} bytes -> {} bytes in {:.2?}\n",
             file_in_size, file_out_size, time.elapsed());
     }
     for dir_in in dirs.iter() {
-        decompress_dir(&dir_in, &mut dir_out, false); 
+        decompress_dir(dir_in, &mut dir_out, false); 
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------
@@ -192,23 +192,23 @@ enum Sort {   // Sort By:
     Accessed, // Last Access Time
     Modified, // Last Modification Time
 }
-fn sort_ext(f1: &String, f2: &String) -> Ordering {
+fn sort_ext(f1: &str, f2: &str) -> Ordering {
         (Path::new(f1).extension().unwrap())
     .cmp(Path::new(f2).extension().unwrap())
 }
-fn sort_prtdir(f1: &String, f2: &String) -> Ordering {
+fn sort_prtdir(f1: &str, f2: &str) -> Ordering {
         (Path::new(f1).parent().unwrap())
     .cmp(Path::new(f2).parent().unwrap())
 }
-fn sort_created(f1: &String, f2: &String) -> Ordering {
+fn sort_created(f1: &str, f2: &str) -> Ordering {
          (Path::new(f1).metadata().unwrap().created().unwrap())
     .cmp(&Path::new(f2).metadata().unwrap().created().unwrap())
 }
-fn sort_accessed(f1: &String, f2: &String) -> Ordering {
+fn sort_accessed(f1: &str, f2: &str) -> Ordering {
          (Path::new(f1).metadata().unwrap().accessed().unwrap())
     .cmp(&Path::new(f2).metadata().unwrap().accessed().unwrap())
 }
-fn sort_modified(f1: &String, f2: &String) -> Ordering {
+fn sort_modified(f1: &str, f2: &str) -> Ordering {
          (Path::new(f1).metadata().unwrap().modified().unwrap())
     .cmp(&Path::new(f2).metadata().unwrap().modified().unwrap())
 }
@@ -237,13 +237,13 @@ fn compress_file_solid(enc: &mut Encoder, mta: &mut Metadata, curr_file: usize) 
     loop {
         if file_in.fill_buffer() == BufferState::Empty { break; }
         mta.files[curr_file].2 = file_in.buffer().len();
-        enc.compress_block(&file_in.buffer());
+        enc.compress_block(file_in.buffer());
         mta.files[curr_file].1 += 1;
     }
     println!("Total archive size: {}\n", 
     enc.file_out.stream_position().unwrap());
 }
-fn decompress_file_solid(dec: &mut Decoder, mta: &mut Metadata, dir_out: &String, curr_file: usize) {
+fn decompress_file_solid(dec: &mut Decoder, mta: &mut Metadata, dir_out: &str, curr_file: usize) {
     let file_out_name =
         format!("{}\\{}",
             dir_out,
@@ -276,14 +276,14 @@ enum Format {
     ExtractSolid,
 }
 
-fn format_dir_out(fmt: Format, user_out: &String, arg: &PathBuf) -> String {
+fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_pri", file_path_no_ext(&arg)),
-            Format::Extract =>      format!("{}_d",   file_path_no_ext(&arg)),
-            Format::ArchiveSolid => format!("{}.pri", file_path_no_ext(&arg)),
-            Format::ExtractSolid => format!("{}_d",   file_path_no_ext(&arg)),
+            Format::Archive =>      format!("{}_pri", file_path_no_ext(arg)),
+            Format::Extract =>      format!("{}_d",   file_path_no_ext(arg)),
+            Format::ArchiveSolid => format!("{}.pri", file_path_no_ext(arg)),
+            Format::ExtractSolid => format!("{}_d",   file_path_no_ext(arg)),
         }    
     }
     else {
@@ -291,7 +291,7 @@ fn format_dir_out(fmt: Format, user_out: &String, arg: &PathBuf) -> String {
         // An -out option with no \'s creates a new archive inside the same directory as the first input.
         // i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
         // while option '-out arch' creates archive \foo\arch.
-        if user_out.contains("\\") {
+        if user_out.contains('\\') {
             dir_out = match fmt {
                 Format::Archive =>      format!("{}_pri", user_out),
                 Format::Extract =>      format!("{}_d",   user_out),
@@ -301,8 +301,8 @@ fn format_dir_out(fmt: Format, user_out: &String, arg: &PathBuf) -> String {
         }
         else {
             let s: Vec<String> = 
-                file_path_ext(&arg)
-                .split("\\").skip(1)
+                file_path_ext(arg)
+                .split('\\').skip(1)
                 .map(|s| s.to_string())
                 .collect();
             for cmpnt in s.iter().take(s.len()-1) {
@@ -416,7 +416,7 @@ fn main() {
 
                 // Sort files and directories
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-                    args.map(|f| PathBuf::from(f))
+                    args.map(PathBuf::from)
                     .partition(|f| f.is_file());
 
                 // Add file paths and lengths to metadata
@@ -552,14 +552,14 @@ fn main() {
                 }
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-                    args.map(|f| PathBuf::from(f))
+                    args.map(PathBuf::from)
                     .partition(|f| f.is_file());
             
                 for file_in in files.iter() {
                     let time = Instant::now();
                     println!("Compressing {}", file_in.display());
-                    let file_in_size  = file_len(&file_in); 
-                    let file_out_size = compress_file(&file_in, &dir_out);
+                    let file_in_size  = file_len(file_in); 
+                    let file_out_size = compress_file(file_in, &dir_out);
                     println!("{} bytes -> {} bytes in {:.2?}\n", 
                     file_in_size, file_out_size, time.elapsed());  
                 }
@@ -580,14 +580,14 @@ fn main() {
                 }
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-                    args.map(|f| PathBuf::from(f))
+                    args.map(PathBuf::from)
                     .partition(|f| f.is_file());
             
                 for file_in in files.iter() {
                     let time = Instant::now();
                     println!("Decompressing {}", file_in.display());
-                    let file_in_size  = file_len(&file_in); 
-                    let file_out_size = decompress_file(&file_in, &dir_out);
+                    let file_in_size  = file_len(file_in); 
+                    let file_out_size = decompress_file(file_in, &dir_out);
                     println!("{} bytes -> {} bytes in {:.2?}\n", 
                     file_in_size, file_out_size, time.elapsed());  
                 }

@@ -139,7 +139,7 @@ pub fn new_output_file(capacity: usize, file_name: &Path) -> BufWriter<File> {
         capacity, File::create(file_name).unwrap()
     )
 }
-pub fn new_dir(path: &String) {
+pub fn new_dir(path: &str) {
     let path = Path::new(path);
     match create_dir(path) {
         Ok(_) => {},

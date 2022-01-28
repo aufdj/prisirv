@@ -50,8 +50,8 @@ impl Predictor {
     // Set state pointer 'sp[i]' to beginning of new state array
     pub fn update_state_ptrs(&mut self, cxt: [u32; 6], nibble: u32) {
         unsafe {
-            for i in 1..6 {
-                self.sp[i] = self.ht.hash(cxt[i]+nibble).add(1);
+            for (i, cxt) in cxt.iter().enumerate().skip(1) {
+                self.sp[i] = self.ht.hash(cxt + nibble).add(1);
             }
         }
     }
