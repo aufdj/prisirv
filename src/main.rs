@@ -10,6 +10,7 @@ mod predictor;
 mod encoder;
 mod decoder;
 
+
 use std::{
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
@@ -18,13 +19,13 @@ use std::{
     env,  
 };
 use crate::{
-    buffered_io::{
-    BufferedRead, BufferedWrite, BufferState,
-    new_input_file, new_output_file, new_dir
-    },
     encoder::Encoder,
     decoder::Decoder,
-    metadata::Metadata
+    metadata::Metadata,
+    buffered_io::{
+        BufferedRead, BufferedWrite, BufferState,
+        new_input_file, new_output_file, new_dir
+    },
 };
 
 const MEM: usize = 1 << 23;
@@ -120,7 +121,7 @@ fn decompress_file(file_in_path: &Path, dir_out: &str) -> u64 {
     file_out.flush_buffer();
     file_len(&file_out_path)
 }
-fn compress_dir(dir_in: &Path, dir_out: &mut String) {
+fn compress_dir(dir_in: &Path, dir_out: &mut String, quiet: bool) {
     // Create new nested directory from current output 
     // directory and input directory name 
     let mut dir_out = 
@@ -137,17 +138,17 @@ fn compress_dir(dir_in: &Path, dir_out: &mut String) {
     // Compress files first, then directories
     for file_in in files.iter() {
         let time = Instant::now();
-        println!("Compressing {}", file_in.display());
+        if !quiet { println!("Compressing {}", file_in.display()); }
         let file_in_size  = file_len(file_in); 
         let file_out_size = compress_file(file_in, &dir_out);
-        println!("{} bytes -> {} bytes in {:.2?}\n", 
-            file_in_size, file_out_size, time.elapsed());  
+        if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+            file_in_size, file_out_size, time.elapsed()); }
     }
     for dir_in in dirs.iter() {
-        compress_dir(dir_in, &mut dir_out); 
+        compress_dir(dir_in, &mut dir_out, quiet); 
     }
 }
-fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool) {
+fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool, quiet: bool) {
     // Create new nested directory from current output 
     // directory and input directory name; if current output
     // directory is root, replace rather than nest
@@ -170,20 +171,21 @@ fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool) {
     // Decompress files first, then directories
     for file_in in files.iter() {
         let time = Instant::now();
-        println!("Decompressing {}", file_in.display());
+        if !quiet { println!("Decompressing {}", file_in.display()); }
         let file_in_size  = file_len(file_in);
         let file_out_size = decompress_file(file_in, &dir_out);
-        println!("{} bytes -> {} bytes in {:.2?}\n",
-            file_in_size, file_out_size, time.elapsed());
+        if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n",
+            file_in_size, file_out_size, time.elapsed()); }
     }
     for dir_in in dirs.iter() {
-        decompress_dir(dir_in, &mut dir_out, false); 
+        decompress_dir(dir_in, &mut dir_out, false, quiet); 
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------
 
 
 // Solid archiving ------------------------------------------------------------------------------------------------------------------------
+#[derive(Debug)]
 enum Sort {   // Sort By:
     None,     // No sorting
     Ext,      // Extension
@@ -193,8 +195,8 @@ enum Sort {   // Sort By:
     Modified, // Last Modification Time
 }
 fn sort_ext(f1: &str, f2: &str) -> Ordering {
-        (Path::new(f1).extension().unwrap())
-    .cmp(Path::new(f2).extension().unwrap())
+         (Path::new(f1).extension().unwrap().to_ascii_lowercase())
+    .cmp(&Path::new(f2).extension().unwrap().to_ascii_lowercase())
 }
 fn sort_prtdir(f1: &str, f2: &str) -> Ordering {
         (Path::new(f1).parent().unwrap())
@@ -229,7 +231,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
         }
     }
 }
-fn compress_file_solid(enc: &mut Encoder, mta: &mut Metadata, curr_file: usize) {
+fn compress_file_solid(enc: &mut Encoder, mta: &mut Metadata, curr_file: usize) -> u64 {
     // Create input file with buffer = block size
     let mut file_in = new_input_file(mta.bl_sz, Path::new(&mta.files[curr_file].0));
 
@@ -240,8 +242,7 @@ fn compress_file_solid(enc: &mut Encoder, mta: &mut Metadata, curr_file: usize) 
         enc.compress_block(file_in.buffer());
         mta.files[curr_file].1 += 1;
     }
-    println!("Total archive size: {}\n", 
-    enc.file_out.stream_position().unwrap());
+    enc.file_out.stream_position().unwrap()
 }
 fn decompress_file_solid(dec: &mut Decoder, mta: &mut Metadata, dir_out: &str, curr_file: usize) {
     let file_out_name =
@@ -276,6 +277,11 @@ enum Format {
     ExtractSolid,
 }
 
+
+// An -out option containing \'s will be treated as an absolute path.
+// An -out option with no \'s creates a new archive inside the same directory as the first input.
+// i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
+// while option '-out arch' creates archive \foo\arch.
 fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
@@ -287,10 +293,6 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
         }    
     }
     else {
-        // An -out option containing \'s will be treated as an absolute path.
-        // An -out option with no \'s creates a new archive inside the same directory as the first input.
-        // i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
-        // while option '-out arch' creates archive \foo\arch.
         if user_out.contains('\\') {
             dir_out = match fmt {
                 Format::Archive =>      format!("{}_pri", user_out),
@@ -300,6 +302,7 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
             }    
         }
         else {
+            // Replace final path component with user option
             let s: Vec<String> = 
                 file_path_ext(arg)
                 .split('\\').skip(1)
@@ -319,12 +322,7 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
     dir_out
 }
 
-fn main() {
-    // Get arguments, skipping over program name
-    let mut args = env::args().skip(1).peekable();
-
-    // Print program info
-    if args.peek() == None {
+fn print_program_info() {
         println!();
         println!("      ______   ______     ________  ______    ________  ______    __   __     
      /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
@@ -338,7 +336,7 @@ fn main() {
         println!("Prisirv is a context mixing archiver based on lpaq1");
         println!("Source code available at https://github.com/aufdj/prisirv");
         println!();
-        println!("USAGE: PROG_NAME [c|d] [-out [path]] [-sld] [-sort [..]] [files|dirs]");
+        println!("USAGE: PROG_NAME [c|d] [-out [path]] [-sld] [-sort [..]] [-i [files|dirs]] [-q]");
         println!();
         println!("OPTIONS:");
         println!("   c      Compress");
@@ -346,6 +344,8 @@ fn main() {
         println!("  -out    Specify output path");
         println!("  -sld    Create solid archive");
         println!("  -sort   Sort files (solid archives only)");
+        println!("  -i      Denotes list of input files/dirs");
+        println!("  -q      Suppresses output other than errors");
         println!();
         println!("      Sorting Methods:");
         println!("          -sort ext      Sort by extension");
@@ -355,69 +355,156 @@ fn main() {
         println!("          -sort mod      Sort by last modification time");
         println!();
         println!("EXAMPLE:");
-        println!("  Compress file [\\foo\\bar.txt] and directory [baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
+        println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
         println!();
-        println!("      prisirv c -out arch -sld -sort crtd \\foo\\bar.txt \\baz");
+        println!("      prisirv c -out arch -sld -sort crtd -i \\foo\\bar.txt \\baz");
         println!();
         println!("  Decompress the archive:");
         println!();
-        println!("      prisirv d -sld \\foo.pri");
+        println!("      prisirv d -sld -i \\foo\\arch.pri");
         std::process::exit(0);
+}
+
+enum Parse {
+    Mode,
+    DirOut,
+    Solid,
+    Sort,
+    Inputs,
+    Quiet,
+}
+
+fn main() {
+    let args = env::args().skip(1);
+
+    if args.len() == 0 {
+        print_program_info();
     }
 
-    // Get mode
-    let mode = args.next().unwrap();
+    #[allow(unused_assignments)]
+    let mut dir_out = String::new();
 
-    // Get user specified output path
-    let mut user_out = String::new();
-    if args.peek().unwrap() == "-out" {
-        args.next();
-        user_out = args.next().unwrap();
-    }
-
-    // Determine if solid or non-solid archive
+    // Initialize settings
+    let mut parser = Parse::Mode;
     let mut solid = false;
-    if args.peek().unwrap() == "-sld" { 
-        solid = true;
-        args.next();
-    }
-
-    // Select sorting option
     let mut sort = Sort::None;
-    if args.peek().unwrap() == "-sort" { 
-        args.next();
-        sort = match args.next().unwrap().as_str() {
-            "ext"    => Sort::Ext,
-            "prtdir" => Sort::PrtDir,
-            "crtd"   => Sort::Created,
-            "accd"   => Sort::Accessed,
-            "mod"    => Sort::Modified,
-            _ => { 
-                println!("Not a valid sort criteria.");
-                std::process::exit(1);
+    let mut user_out = String::new();
+    let mut mode = "c";
+    let mut quiet = false;
+    let mut inputs: Vec<String> = Vec::new();
+
+    for arg in args {
+        match arg.as_str() {
+            "-out" => {
+                parser = Parse::DirOut;
+                continue;
+            },     
+            "-sort" => {
+                parser = Parse::Sort;
+                continue;
+            }, 
+            "-i" => {
+                parser = Parse::Inputs;
+                continue;
+            },
+            "-sld" => {
+                parser = Parse::Solid;
+            },
+            "-q" => {
+                parser = Parse::Quiet;
+            }
+            "-help" => {
+                print_program_info();
+            }
+            _ => {},
+        }
+        match parser {
+            Parse::Mode => {
+                match arg.as_str() {
+                    "c" => mode = "c",
+                    "d" => mode = "d",
+                    _ => {
+                        println!("Error.");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Parse::DirOut => {
+                user_out = arg;
+            }
+            Parse::Sort => {
+                sort = match arg.as_str() {
+                    "ext"    => Sort::Ext,
+                    "prtdir" => Sort::PrtDir,
+                    "crtd"   => Sort::Created,
+                    "accd"   => Sort::Accessed,
+                    "mod"    => Sort::Modified,
+                    _ => { 
+                        println!("No valid sort criteria found.");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Parse::Inputs => {
+                inputs.push(arg);
+            }
+            Parse::Solid => {
+                solid = true;
+            }
+            Parse::Quiet => {
+                quiet = true;
             }
         }
     }
 
-    let mut dir_out = String::new();
+    // Filter invalid inputs
+    let inputs: Vec<PathBuf> = 
+        inputs.iter()
+        .map(PathBuf::from)
+        .filter(|i| i.is_file() || i.is_dir())
+        .collect();
+    
+    // Format output directory
+    dir_out = match mode {
+        "c" => {
+            if solid { format_dir_out(Format::ArchiveSolid, &user_out, &inputs[0]) }
+            else     { format_dir_out(Format::Archive,      &user_out, &inputs[0]) }
+        }
+        "d" => {
+            if solid { format_dir_out(Format::ExtractSolid, &user_out, &inputs[0]) }
+            else     { format_dir_out(Format::Extract,      &user_out, &inputs[0]) }
+        }
+        _ => String::new(),
+    };
+    
+    if !quiet {
+        println!();
+        println!("//////////////////////////////////////////////////////////////");
+        println!(
+            "Creating {} archive {} of inputs:\n{:#?},\nsorting by {}.",
+            if solid { "solid" } else { "non-solid" },
+            dir_out, 
+            inputs,
+            match sort {
+                Sort::None     => "none",
+                Sort::Ext      => "extension",
+                Sort::PrtDir   => "parent directory",
+                Sort::Created  => "creation time",
+                Sort::Accessed => "last accessed time",
+                Sort::Modified => "last modified time",
+            }
+        );
+        println!("//////////////////////////////////////////////////////////////");
+        println!();
+    }
 
     if solid {
         let mut mta: Metadata = Metadata::new();
-        match mode.as_str() {
+        match mode {
             "c" => {
-                let arg = PathBuf::from(&args.peek().unwrap());
-                if arg.is_file() || arg.is_dir() {
-                    dir_out = format_dir_out(Format::ArchiveSolid, &user_out, &arg);
-                }
-                else {
-                    println!("No files or directories found.");
-                    std::process::exit(1);
-                }
-
                 // Sort files and directories
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-                    args.map(PathBuf::from)
-                    .partition(|f| f.is_file());
+                    inputs.into_iter().partition(|f| f.is_file());
 
                 // Add file paths and lengths to metadata
                 for file in files.iter() {
@@ -446,8 +533,9 @@ fn main() {
                 let mut enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)));
                 
                 for curr_file in 0..mta.files.len() {
-                    println!("Compressing {}", mta.files[curr_file].0);
-                    compress_file_solid(&mut enc, &mut mta, curr_file);
+                    if !quiet { println!("Compressing {}", mta.files[curr_file].0); }
+                    let archive_size = compress_file_solid(&mut enc, &mut mta, curr_file);
+                    if !quiet { println!("Total archive size: {}\n", archive_size); }
                 }
                 enc.flush();
                 
@@ -481,28 +569,20 @@ fn main() {
                 enc.write_header(&mta);
             }
             "d" => {
-                let arg = PathBuf::from(&args.peek().unwrap());
-                if arg.is_file() {
-                    dir_out = format_dir_out(Format::ExtractSolid, &user_out, &arg);
-                    new_dir(&dir_out);
-                }
-                else {
-                    println!("No solid archives found.");
-                    std::process::exit(1);
-                }
+                new_dir(&dir_out);
 
-                let mut dec = Decoder::new(new_input_file(4096, &arg));
+                let mut dec = Decoder::new(new_input_file(4096, &inputs[0]));
                 mta = dec.read_header();
 
                 // Seek to end of file metadata
                 dec.file_in.seek(SeekFrom::Start(mta.f_ptr as u64)).unwrap();
 
-                // Parse files and lengths
                 let mut path: Vec<u8> = Vec::new();
 
                 // Get number of files
                 let num_files = dec.file_in.read_usize();
 
+                // Parse files and lengths
                 for _ in 0..num_files {
                     // Get length of next path
                     let len = dec.file_in.read_byte();
@@ -527,83 +607,56 @@ fn main() {
                 dec.init_x();
                 
                 for curr_file in 0..mta.files.len() {
-                    println!("Decompressing {}", mta.files[curr_file].0);
+                    if !quiet { println!("Decompressing {}", mta.files[curr_file].0); }
                     decompress_file_solid(&mut dec, &mut mta, &dir_out, curr_file);
                 }
             }
             _ => {
-                println!("To Compress: c input");
-                println!("To Decompress: d input");
+                println!("Couldn't parse input. For help, type PROG_NAME.");
             }
         }
     }
     else {
-        match mode.as_str() {
+        match mode {
             "c" => {
-                // Create archive with same name as first file/dir
-                let arg = PathBuf::from(&args.peek().unwrap());
-                if arg.is_file() || arg.is_dir() {
-                    dir_out = format_dir_out(Format::Archive, &user_out, &arg);
-                    new_dir(&dir_out);
-                }
-                else {
-                    println!("No files or directories found.");
-                    std::process::exit(1);
-                }
+                new_dir(&dir_out);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-                    args.map(PathBuf::from)
-                    .partition(|f| f.is_file());
+                    inputs.into_iter().partition(|f| f.is_file());
             
                 for file_in in files.iter() {
                     let time = Instant::now();
-                    println!("Compressing {}", file_in.display());
+                    if !quiet { println!("Compressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
                     let file_out_size = compress_file(file_in, &dir_out);
-                    println!("{} bytes -> {} bytes in {:.2?}\n", 
-                    file_in_size, file_out_size, time.elapsed());  
+                    if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                        file_in_size, file_out_size, time.elapsed()); }
                 }
                 for dir_in in dirs.iter() {
-                    compress_dir(dir_in, &mut dir_out);      
+                    compress_dir(dir_in, &mut dir_out, quiet);      
                 }
             }
             "d" => {
-                // Create archive with same name as first file/dir
-                let arg = PathBuf::from(&args.peek().unwrap());
-                if arg.is_file() || arg.is_dir() {
-                    dir_out = format_dir_out(Format::Extract, &user_out, &arg);
-                    new_dir(&dir_out);
-                }
-                else {
-                    println!("No files or directories found.");
-                    std::process::exit(1);
-                }
+                new_dir(&dir_out);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-                    args.map(PathBuf::from)
-                    .partition(|f| f.is_file());
+                    inputs.into_iter().partition(|f| f.is_file());
             
                 for file_in in files.iter() {
                     let time = Instant::now();
-                    println!("Decompressing {}", file_in.display());
+                    if !quiet { println!("Decompressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
                     let file_out_size = decompress_file(file_in, &dir_out);
-                    println!("{} bytes -> {} bytes in {:.2?}\n", 
-                    file_in_size, file_out_size, time.elapsed());  
+                    if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                        file_in_size, file_out_size, time.elapsed()); } 
                 }
                 for dir_in in dirs.iter() {
-                    decompress_dir(dir_in, &mut dir_out, true);      
+                    decompress_dir(dir_in, &mut dir_out, true, quiet);      
                 }
             }
             _ => {
-                println!("To Compress: c input");
-                println!("To Decompress: d input");
+                println!("Couldn't parse input. For help, type PROG_NAME.");
             }
         }
-    }        
+    }     
 }
-
-
-
-
-
