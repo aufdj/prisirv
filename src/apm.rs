@@ -11,7 +11,6 @@ pub struct Apm {
 impl Apm {
     pub fn new(n: usize) -> Apm {
         Apm {
-            //s:         Stretch::new(),
             bin:       0,
             num_cxts:  n,
             bin_map:   repeat( // Map 0..33 to values in closure, create n copies
