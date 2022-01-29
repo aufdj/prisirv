@@ -1,3 +1,5 @@
+use crate::tables::STRETCH_TABLE;
+
 // Logistic Functions -------------------------------------------------------------------------------------------------- Logistic Functions
 // Returns p = 1/(1 + exp(-d))
 // d = (-2047..2047), p = (0..4095)
@@ -15,6 +17,13 @@ pub fn squash(d: i32) -> i32 {
 
 // Returns p = ln(d/(1-d)) (Inverse of squash)
 // d = (0..4095), p = (-2047..2047)
+pub fn stretch(p: i32) -> i32 {
+    assert!(p < 4096);
+    STRETCH_TABLE[p as usize] as i32
+}
+
+
+/* Code for generating stretch table
 pub struct Stretch {
     stretch_table: [i16; 4096],
 }
@@ -34,9 +43,6 @@ impl Stretch {
         st.stretch_table[4095] = 2047;
         st
     }
-    pub fn stretch(&self, p: i32) -> i32 {
-        assert!(p < 4096);
-        self.stretch_table[p as usize] as i32
-    }
 }
+*/
 // ----------------------------------------------------------------------------------------------------------------------------------------

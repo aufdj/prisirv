@@ -1,10 +1,9 @@
 use std::iter::repeat;
 
-use crate::logistic::{Stretch, squash};
+use crate::logistic::{stretch, squash};
 
 // Adaptive Probability Map -------------------------------------------------------------------------------------- Adaptive Probability Map
 pub struct Apm {
-    s:         Stretch,  // For computing stretch(), or ln(d/(1-d))
     bin:       usize,    // A value used for interpolating a new prediction
     num_cxts:  usize,    // Number of possible contexts i.e 256 for order-0
     bin_map:   Vec<u16>, // Table mapping values 0..=32 to squashed 16 bit values
@@ -12,7 +11,7 @@ pub struct Apm {
 impl Apm {
     pub fn new(n: usize) -> Apm {
         Apm {
-            s:         Stretch::new(),
+            //s:         Stretch::new(),
             bin:       0,
             num_cxts:  n,
             bin_map:   repeat( // Map 0..33 to values in closure, create n copies
@@ -28,8 +27,8 @@ impl Apm {
         assert!(cxt < self.num_cxts as u32);
         self.update(bit, rate);
         
-        pr = self.s.stretch(pr); // -2047 to 2047
-        let i_w = pr & 127;      // Interpolation weight (33 points)
+        pr = stretch(pr);   // -2047 to 2047
+        let i_w = pr & 127; // Interpolation weight (33 points)
         
         // Compute set of bins from context, and singular bin from prediction
         self.bin = (((pr + 2048) >> 7) + ((cxt as i32) * 33)) as usize;

@@ -9,6 +9,7 @@ mod metadata;
 mod predictor;
 mod encoder;
 mod decoder;
+mod tables;
 
 
 use std::{

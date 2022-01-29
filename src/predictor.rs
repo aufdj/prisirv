@@ -3,10 +3,15 @@ use crate::{
     hash_table::HashTable, 
     apm::Apm, 
     mixer::Mixer, 
-    logistic::Stretch, 
-    statemap::{StateMap, next_state}, 
+    logistic::stretch, 
+    statemap::StateMap, 
+    tables::STATE_TABLE,
     MEM
 };
+
+fn next_state(state: u8, bit: i32) -> u8 {
+    STATE_TABLE[state as usize][bit as usize]
+}
 
 // Predictor -------------------------------------------------------------------------------------------------------------------- Predictor
 pub struct Predictor {
@@ -22,7 +27,6 @@ pub struct Predictor {
     apm1:  Apm,           // Adaptive Probability Map for refining Mixer output
     apm2:  Apm,           //
     mxr:   Mixer,         // For weighted averaging of independent predictions
-    s:     Stretch,       // Computes stretch(d), or ln(d/(1-d))
     sm:    Vec<StateMap>, // 6 State Maps
 }
 impl Predictor {
@@ -33,8 +37,8 @@ impl Predictor {
             bits:  0,            apm1:  Apm::new(256),
             pr:    2048,         apm2:  Apm::new(16384),
             h:     [0; 6],       mxr:   Mixer::new(7, 80),
-            sp:    [&mut 0; 6],  s:     Stretch::new(),
-            t0:    [0; 65_536],  sm:    vec![StateMap::new(256); 6],
+            sp:    [&mut 0; 6],  sm:    vec![StateMap::new(256); 6],
+            t0:    [0; 65_536],  
         };
         for i in 0..6 {
             p.sp[i] = &mut p.t0[0];
@@ -151,7 +155,7 @@ impl Predictor {
         unsafe {
             for i in 0..6 {
                 self.mxr.add(
-                    self.s.stretch(
+                    stretch(
                         self.sm[i].p(bit, *self.sp[i] as i32)
                     )
                 );

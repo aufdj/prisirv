@@ -1,5 +1,5 @@
 use crate::{
-    logistic::Stretch,
+    logistic::stretch,
     statemap::StateMap,
     mixer::Mixer,
     MEM
@@ -21,7 +21,6 @@ pub struct MatchModel {
     hash_s:   usize,
     hash_l:   usize,
     buf_pos:  usize,
-    s:        Stretch,
 }
 impl MatchModel {
     pub fn new() -> MatchModel {
@@ -29,7 +28,7 @@ impl MatchModel {
             mch_ptr:  0,    hash_s:   0,
             mch_len:  0,    hash_l:   0,
             cxt:      1,    buf_pos:  0,
-            bits:     0,    s:        Stretch::new(),
+            bits:     0,    
             sm:       StateMap::new(56 << 8),
             buf:      vec![0; BUF_END + 1],
             ht:       vec![0;  HT_END + 1],
@@ -73,7 +72,7 @@ impl MatchModel {
             self.mch_len = 0;
         }
 
-        mxr.add(self.s.stretch(self.sm.p(bit, cxt as i32)));
+        mxr.add(stretch(self.sm.p(bit, cxt as i32)));
 
         if self.bits == 0 {
             self.ht[self.hash_s] = self.buf_pos as u32;
