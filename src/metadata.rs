@@ -1,4 +1,8 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    cmp::min,
+    ffi::OsStr,
+};
 
 #[derive(Debug)]
 pub struct Metadata {
@@ -25,8 +29,16 @@ impl Metadata {
     }
     // Set metadata extension field
     pub fn set_ext(&mut self, path: &Path) {
-        for byte in path.extension().unwrap()
-        .to_str().unwrap().as_bytes().iter().rev() {
+        // Handle no extension
+        let ext = match path.extension() {
+            Some(ext) => { ext }, 
+            None => OsStr::new(""),
+        };
+        // Get extension as byte slice, truncated to 8 bytes
+        let mut ext = ext.to_str().unwrap().as_bytes();
+        ext = &ext[..min(ext.len(), 8)];
+
+        for byte in ext.iter().rev() {
             self.ext = (self.ext << 8) | *byte as usize;
         }
     }
