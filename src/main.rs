@@ -181,159 +181,317 @@ fn print_program_info() {
 }
 
 
-// Non-solid archiving --------------------------------------------------------------------------------------------------------------------
-fn compress_file(file_in_path: &Path, dir_out: &str, dup: u32) -> u64 {
-    let mut mta: Metadata = Metadata::new();
-    
-    // Create output file path from current output directory
-    // and input file name without extension
-    // i.e. foo/bar.txt -> foo/bar.pri
-    let mut file_out_path = 
-        PathBuf::from(
-            &format!("{}\\{}.pri",  
-            dir_out, file_name_no_ext(file_in_path))
-        ); 
-
-    // Modify file path if it already exists due to extension change
-    // i.e foo/bar.txt -> foo/bar.pri
-    //     foo/bar.bin -> foo/bar.pri -> foo/bar(1).pri
-    if file_out_path.exists() {
-        file_out_path = 
-        PathBuf::from(
-            &format!("{}({}).pri", 
-            file_path_no_ext(&file_out_path), dup)
-        );
-    }
-
-    // Create input file with buffer = block size
-    let mut file_in = new_input_file(mta.bl_sz, file_in_path);
-    let mut enc = Encoder::new(new_output_file(4096, &file_out_path));
-    
-    // Set metadata extension field
-    mta.set_ext(file_in_path);
-
-    // Compress
-    loop {
-        if file_in.fill_buffer() == BufferState::Empty { break; }
-        mta.f_bl_sz = file_in.buffer().len();
-        enc.compress_block(file_in.buffer());
-        mta.bl_c += 1;
-    }
-    
-    enc.flush();
-    enc.write_header(&mta);
-    file_len(&file_out_path)
+struct Archiver {
+    dup: u32,
+    quiet: bool,
 }
-fn decompress_file(file_in_path: &Path, dir_out: &str) -> u64 {
-    let mut dec = Decoder::new(new_input_file(4096, file_in_path));
-    let mta: Metadata = dec.read_header();
-
-    // Create output file path from current output directory,
-    // input file name without extension, and file's original
-    // extension (stored in header)
-    // i.e. foo/bar.pri -> foo/bar.txt
-    let file_out_path = 
-        // No extension
-        if mta.get_ext().is_empty() {
-            PathBuf::from(
-                &format!("{}\\{}",
-                dir_out,
-                file_name_no_ext(file_in_path))
-            )
+impl Archiver {
+    fn new(quiet: bool) -> Archiver {
+        Archiver {
+            dup: 1,
+            quiet,
         }
-        else {
-            PathBuf::from(
-                &format!("{}\\{}.{}",
-                dir_out,
-                file_name_no_ext(file_in_path),
-                mta.get_ext())
-            )
-        };
-        
-    let mut file_out = new_output_file(4096, &file_out_path);
-    
-    // Call after reading header
-    dec.init_x();
+    }
+    // Non-solid archiving --------------------------------------------------------------------------------------------------------------------
+    fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
+        let mut mta: Metadata = Metadata::new();
 
-    // Decompress
-    for _ in 0..(mta.bl_c - 1) {
-        let block = dec.decompress_block(mta.bl_sz);
+        // Create output file path from current output directory
+        // and input file name without extension
+        // i.e. foo/bar.txt -> foo/bar.pri
+        let mut file_out_path = 
+            PathBuf::from(
+                &format!("{}\\{}.pri",  
+                dir_out, file_name_no_ext(file_in_path))
+            ); 
+
+        // Modify file path if it already exists due to extension change
+        // i.e foo/bar.txt -> foo/bar.pri
+        //     foo/bar.bin -> foo/bar.pri -> foo/bar(1).pri
+        if file_out_path.exists() {
+            file_out_path = 
+            PathBuf::from(
+                &format!("{}({}).pri", 
+                file_path_no_ext(&file_out_path), self.dup)
+            );
+            self.dup += 1;
+        }
+
+        // Create input file with buffer = block size
+        let mut file_in = new_input_file(mta.bl_sz, file_in_path);
+        let mut enc = Encoder::new(new_output_file(4096, &file_out_path));
+
+        // Set metadata extension field
+        mta.set_ext(file_in_path);
+
+        // Compress
+        loop {
+            if file_in.fill_buffer() == BufferState::Empty { break; }
+            mta.f_bl_sz = file_in.buffer().len();
+            enc.compress_block(file_in.buffer());
+            mta.bl_c += 1;
+        }
+
+        enc.flush();
+        enc.write_header(&mta);
+        file_len(&file_out_path)
+    }
+    fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
+        let mut dec = Decoder::new(new_input_file(4096, file_in_path));
+        let mta: Metadata = dec.read_header();
+
+        // Create output file path from current output directory,
+        // input file name without extension, and file's original
+        // extension (stored in header)
+        // i.e. foo/bar.pri -> foo/bar.txt
+        let file_out_path = 
+            // No extension
+            if mta.get_ext().is_empty() {
+                PathBuf::from(
+                    &format!("{}\\{}",
+                    dir_out,
+                    file_name_no_ext(file_in_path))
+                )
+            }
+            else {
+                PathBuf::from(
+                    &format!("{}\\{}.{}",
+                    dir_out,
+                    file_name_no_ext(file_in_path),
+                    mta.get_ext())
+                )
+            };
+
+        let mut file_out = new_output_file(4096, &file_out_path);
+        
+        // Call after reading header
+        dec.init_x();
+
+        // Decompress
+        for _ in 0..(mta.bl_c - 1) {
+            let block = dec.decompress_block(mta.bl_sz);
+            for byte in block.iter() {
+                file_out.write_byte(*byte);
+            }
+        }
+        let block = dec.decompress_block(mta.f_bl_sz);
         for byte in block.iter() {
             file_out.write_byte(*byte);
         }
-    }
-    let block = dec.decompress_block(mta.f_bl_sz);
-    for byte in block.iter() {
-        file_out.write_byte(*byte);
-    }
 
-    file_out.flush_buffer();
-    file_len(&file_out_path)
-}
-fn compress_dir(dir_in: &Path, dir_out: &mut String, quiet: bool, dup: u32) {
-    // Create new nested directory from current output 
-    // directory and input directory name 
-    let mut dir_out = 
-        format!("{}\\{}", 
-        dir_out, file_name_ext(dir_in));
-    new_dir(&dir_out);
-
-    // Sort files and directories
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-        dir_in.read_dir().unwrap()
-        .map(|d| d.unwrap().path())
-        .partition(|f| f.is_file());
-
-    // Compress files first, then directories
-    for file_in in files.iter() {
-        let time = Instant::now();
-        if !quiet { println!("Compressing {}", file_in.display()); }
-        let file_in_size  = file_len(file_in); 
-        let file_out_size = compress_file(file_in, &dir_out, dup);
-        if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
-            file_in_size, file_out_size, time.elapsed()); }
+        file_out.flush_buffer();
+        file_len(&file_out_path)
     }
-    for dir_in in dirs.iter() {
-        compress_dir(dir_in, &mut dir_out, quiet, dup); 
-    }
-}
-fn decompress_dir(dir_in: &Path, dir_out: &mut String, root: bool, quiet: bool) {
-    // Create new nested directory from current output 
-    // directory and input directory name; if current output
-    // directory is root, replace rather than nest
-    let mut dir_out = 
-        if root { dir_out.to_string() }
-        else { 
+    fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
+        // Create new nested directory from current output 
+        // directory and input directory name 
+        let mut dir_out = 
             format!("{}\\{}", 
-            dir_out, file_name_ext(dir_in)) 
-        };
-    if !Path::new(&dir_out).is_dir() {
+            dir_out, file_name_ext(dir_in));
         new_dir(&dir_out);
-    }
-    
-    // Sort files and directories
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| d.unwrap().path())
-        .partition(|f| f.is_file());
 
-    // Decompress files first, then directories
-    for file_in in files.iter() {
-        let time = Instant::now();
-        if !quiet { println!("Decompressing {}", file_in.display()); }
-        let file_in_size  = file_len(file_in);
-        let file_out_size = decompress_file(file_in, &dir_out);
-        if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n",
-            file_in_size, file_out_size, time.elapsed()); }
+        // Sort files and directories
+        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+            dir_in.read_dir().unwrap()
+            .map(|d| d.unwrap().path())
+            .partition(|f| f.is_file());
+
+        // Compress files first, then directories
+        for file_in in files.iter() {
+            let time = Instant::now();
+            if !self.quiet { println!("Compressing {}", file_in.display()); }
+            let file_in_size  = file_len(file_in); 
+            let file_out_size = self.compress_file(file_in, &dir_out);
+            if !self.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                file_in_size, file_out_size, time.elapsed()); }
+        }
+        for dir_in in dirs.iter() {
+            self.compress_dir(dir_in, &mut dir_out); 
+        }
     }
-    for dir_in in dirs.iter() {
-        decompress_dir(dir_in, &mut dir_out, false, quiet); 
+    fn decompress_dir(&self, dir_in: &Path, dir_out: &mut String, root: bool) {
+        // Create new nested directory from current output 
+        // directory and input directory name; if current output
+        // directory is root, replace rather than nest
+        let mut dir_out = 
+            if root { dir_out.to_string() }
+            else { 
+                format!("{}\\{}", 
+                dir_out, file_name_ext(dir_in)) 
+            };
+        if !Path::new(&dir_out).is_dir() {
+            new_dir(&dir_out);
+        }
+
+        // Sort files and directories
+        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+            dir_in.read_dir().unwrap()
+            .map(|d| d.unwrap().path())
+            .partition(|f| f.is_file());
+
+        // Decompress files first, then directories
+        for file_in in files.iter() {
+            let time = Instant::now();
+            if !self.quiet { println!("Decompressing {}", file_in.display()); }
+            let file_in_size  = file_len(file_in);
+            let file_out_size = self.decompress_file(file_in, &dir_out);
+            if !self.quiet { println!("{} bytes -> {} bytes in {:.2?}\n",
+                file_in_size, file_out_size, time.elapsed()); }
+        }
+        for dir_in in dirs.iter() {
+            self.decompress_dir(dir_in, &mut dir_out, false); 
+        }
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------
 
 
-// Solid archiving ------------------------------------------------------------------------------------------------------------------------
+// Solid Archiving ------------------------------------------------------------------------------------------------------------------------
+struct SolidArchiver {
+    enc: Encoder,
+    mta: Metadata,
+    quiet: bool
+}
+impl SolidArchiver {
+    fn new(enc: Encoder, mta: Metadata, quiet: bool) -> SolidArchiver {
+        SolidArchiver {
+            enc, mta, quiet,
+        }
+    }
+    fn create_archive(&mut self) {
+        for curr_file in 0..self.mta.files.len() {
+            if !self.quiet { println!("Compressing {}", self.mta.files[curr_file].0); }
+            let archive_size = self.compress_file_solid(curr_file);
+            if !self.quiet { println!("Total archive size: {}\n", archive_size); }
+        }
+        self.enc.flush();
+    }
+    fn compress_file_solid(&mut self, curr_file: usize) -> u64 {
+        // Create input file with buffer = block size
+        let mut file_in = 
+            new_input_file(
+                self.mta.bl_sz, 
+                Path::new(&self.mta.files[curr_file].0)
+            );
+
+        // Compress
+        loop {
+            if file_in.fill_buffer() == BufferState::Empty { break; }
+            self.mta.files[curr_file].2 = file_in.buffer().len();
+            self.enc.compress_block(file_in.buffer());
+            self.mta.files[curr_file].1 += 1;
+        }
+        self.enc.file_out.stream_position().unwrap()
+    }
+    fn write_metadata(&mut self) {
+        // Get index to end of file metadata
+        self.mta.f_ptr =
+        self.enc.file_out.stream_position()
+        .unwrap() as usize;
+
+        // Output number of files
+        self.enc.file_out.write_usize(self.mta.files.len());
+
+        for file in self.mta.files.iter() {
+            // Get path as byte slice, truncated if longer than 255 bytes
+            let path = &file.0.as_bytes()[..min(file.0.len(), 255)];
+
+            // Output length of file path (for parsing)
+            self.enc.file_out.write_byte(path.len() as u8);
+
+            // Output path
+            for byte in path.iter() {
+                self.enc.file_out.write_byte(*byte);
+            }
+
+            // Output block count and final block size
+            self.enc.file_out.write_usize(file.1);
+            self.enc.file_out.write_usize(file.2);
+        }
+
+        // Go back to beginning of file and write header
+        self.enc.file_out.rewind().unwrap();
+        self.enc.write_header(&self.mta);
+    }
+}
+
+struct SolidExtractor {
+    dec: Decoder,
+    mta: Metadata,
+    quiet: bool
+}
+impl SolidExtractor {
+    fn new(dec: Decoder, mta: Metadata, quiet: bool) -> SolidExtractor {
+        SolidExtractor {
+            dec, mta, quiet
+        }
+    }
+    fn extract_archive(&mut self, dir_out: &str) {
+        for curr_file in 0..self.mta.files.len() {
+            if !self.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
+            self.decompress_file_solid(dir_out, curr_file);
+        }
+    }
+    fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
+        let file_out_name =
+            format!("{}\\{}",
+                dir_out,
+                file_name_ext(
+                    Path::new(&self.mta.files[curr_file].0)
+                ),
+            );
+        let mut file_out = new_output_file(4096, Path::new(&file_out_name));
+
+        // Decompress
+        for _ in 0..((self.mta.files[curr_file].1) - 1) {
+            let block = self.dec.decompress_block(self.mta.bl_sz);
+            for byte in block.iter() {
+                file_out.write_byte(*byte);
+            }
+        }
+        let block = self.dec.decompress_block(self.mta.files[curr_file].2);
+        for byte in block.iter() {
+            file_out.write_byte(*byte);
+        }
+        file_out.flush_buffer();
+    }
+    fn read_metadata(&mut self) {
+        self.mta = self.dec.read_header();
+
+        // Seek to end of file metadata
+        self.dec.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
+        let mut path: Vec<u8> = Vec::new();
+
+        // Get number of files
+        let num_files = self.dec.file_in.read_usize();
+
+        // Parse files and lengths
+        for _ in 0..num_files {
+            // Get length of next path
+            let len = self.dec.file_in.read_byte();
+
+            // Get path, block count, final block size
+            for _ in 0..len {
+                path.push(self.dec.file_in.read_byte());
+            }
+            self.mta.files.push(
+                (path.iter().cloned()
+                    .map(|b| b as char)
+                    .collect::<String>(),
+                    self.dec.file_in.read_usize(),
+                    self.dec.file_in.read_usize())
+            );
+            path.clear();
+        }
+
+        // Seek back to beginning of compressed data
+        self.dec.file_in.seek(SeekFrom::Start(40)).unwrap();
+
+        self.dec.init_x();
+    }
+}
+// ----------------------------------------------------------------------------------------------------------------------------------------
+
 fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
         dir_in.read_dir().unwrap()
@@ -351,44 +509,6 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
         }
     }
 }
-fn compress_file_solid(enc: &mut Encoder, mta: &mut Metadata, curr_file: usize) -> u64 {
-    // Create input file with buffer = block size
-    let mut file_in = new_input_file(mta.bl_sz, Path::new(&mta.files[curr_file].0));
-
-    // Compress
-    loop {
-        if file_in.fill_buffer() == BufferState::Empty { break; }
-        mta.files[curr_file].2 = file_in.buffer().len();
-        enc.compress_block(file_in.buffer());
-        mta.files[curr_file].1 += 1;
-    }
-    enc.file_out.stream_position().unwrap()
-}
-fn decompress_file_solid(dec: &mut Decoder, mta: &mut Metadata, dir_out: &str, curr_file: usize) {
-    let file_out_name =
-        format!("{}\\{}",
-            dir_out,
-            file_name_ext(
-                Path::new(&mta.files[curr_file].0)
-            ),
-        );
-    let mut file_out = new_output_file(4096, Path::new(&file_out_name));
-
-    // Decompress
-    for _ in 0..((mta.files[curr_file].1) - 1) {
-        let block = dec.decompress_block(mta.bl_sz);
-        for byte in block.iter() {
-            file_out.write_byte(*byte);
-        }
-    }
-    let block = dec.decompress_block(mta.files[curr_file].2);
-    for byte in block.iter() {
-        file_out.write_byte(*byte);
-    }
-    file_out.flush_buffer();
-}
-// ----------------------------------------------------------------------------------------------------------------------------------------
-
 
 enum Parse {
     Mode,
@@ -537,7 +657,6 @@ fn main() {
                         (file_path_ext(file), 0, 0)
                     );
                 }
-                
                 // Walk through directories and gather rest of files
                 if !dirs.is_empty() {
                     for dir in dirs.iter() {
@@ -555,86 +674,20 @@ fn main() {
                     Sort::Modified => mta.files.sort_by(|f1, f2| sort_modified(&f1.0, &f2.0)),
                 }
 
-                let mut enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)));
-                
-                for curr_file in 0..mta.files.len() {
-                    if !quiet { println!("Compressing {}", mta.files[curr_file].0); }
-                    let archive_size = compress_file_solid(&mut enc, &mut mta, curr_file);
-                    if !quiet { println!("Total archive size: {}\n", archive_size); }
-                }
-                enc.flush();
-                
-                // Get index to end of file metadata
-                mta.f_ptr =
-                    enc.file_out.stream_position()
-                    .unwrap() as usize;
+                let enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)));
+                let mut sld_arch = SolidArchiver::new(enc, mta, quiet);
 
-                // Output number of files
-                enc.file_out.write_usize(mta.files.len());
-
-                for file in mta.files.iter() {
-                    // Get path as byte slice, truncated if longer than 255 bytes
-                    let path = &file.0.as_bytes()[..min(file.0.len(), 255)];
-
-                    // Output length of file path (for parsing)
-                    enc.file_out.write_byte(path.len() as u8);
-
-                    // Output path
-                    for byte in path.iter() {
-                        enc.file_out.write_byte(*byte);
-                    }
-
-                    // Output block count and final block size
-                    enc.file_out.write_usize(file.1);
-                    enc.file_out.write_usize(file.2);
-                }
-
-                // Go back to beginning of file and write header
-                enc.file_out.rewind().unwrap();
-                enc.write_header(&mta);
+                sld_arch.create_archive();
+                sld_arch.write_metadata();    
             }
             "d" => {
                 new_dir(&dir_out);
 
-                let mut dec = Decoder::new(new_input_file(4096, &inputs[0]));
-                mta = dec.read_header();
+                let dec = Decoder::new(new_input_file(4096, &inputs[0]));
+                let mut sld_extr = SolidExtractor::new(dec, mta, quiet);
 
-                // Seek to end of file metadata
-                dec.file_in.seek(SeekFrom::Start(mta.f_ptr as u64)).unwrap();
-
-                let mut path: Vec<u8> = Vec::new();
-
-                // Get number of files
-                let num_files = dec.file_in.read_usize();
-
-                // Parse files and lengths
-                for _ in 0..num_files {
-                    // Get length of next path
-                    let len = dec.file_in.read_byte();
-
-                    // Get path, block count, final block size
-                    for _ in 0..len {
-                        path.push(dec.file_in.read_byte());
-                    }
-                    mta.files.push(
-                        (path.iter().cloned()
-                            .map(|b| b as char)
-                            .collect::<String>(),
-                         dec.file_in.read_usize(),
-                         dec.file_in.read_usize())
-                    );
-                    path.clear();
-                }
-
-                // Seek back to beginning of compressed data
-                dec.file_in.seek(SeekFrom::Start(40)).unwrap();
-
-                dec.init_x();
-                
-                for curr_file in 0..mta.files.len() {
-                    if !quiet { println!("Decompressing {}", mta.files[curr_file].0); }
-                    decompress_file_solid(&mut dec, &mut mta, &dir_out, curr_file);
-                }
+                sld_extr.read_metadata();
+                sld_extr.extract_archive(&dir_out);    
             }
             _ => {
                 println!("Couldn't parse input. For help, type PROG_NAME.");
@@ -642,26 +695,24 @@ fn main() {
         }
     }
     else {
+        let mut arch = Archiver::new(quiet);
         match mode {
             "c" => {
                 new_dir(&dir_out);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
-            
-                // For tracking duplicate file names
-                let dup: u32 = 1;
 
                 for file_in in files.iter() {
                     let time = Instant::now();
                     if !quiet { println!("Compressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
-                    let file_out_size = compress_file(file_in, &dir_out, dup);
+                    let file_out_size = arch.compress_file(file_in, &dir_out);
                     if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                         file_in_size, file_out_size, time.elapsed()); }
                 }
                 for dir_in in dirs.iter() {
-                    compress_dir(dir_in, &mut dir_out, quiet, dup);      
+                    arch.compress_dir(dir_in, &mut dir_out);      
                 }
             }
             "d" => {
@@ -674,12 +725,12 @@ fn main() {
                     let time = Instant::now();
                     if !quiet { println!("Decompressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
-                    let file_out_size = decompress_file(file_in, &dir_out);
+                    let file_out_size = arch.decompress_file(file_in, &dir_out);
                     if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                         file_in_size, file_out_size, time.elapsed()); } 
                 }
                 for dir_in in dirs.iter() {
-                    decompress_dir(dir_in, &mut dir_out, true, quiet);      
+                    arch.decompress_dir(dir_in, &mut dir_out, true);      
                 }
             }
             _ => {
