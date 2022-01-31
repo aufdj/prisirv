@@ -64,7 +64,7 @@ enum Sort {   // Sort By:
     Accessed, // Last Access Time
     Modified, // Last Modification Time
 }
-fn sort_ext(f1: &str, f2: &str) -> Ordering {
+fn sort_ext(f1: &str, f2: &str) -> Ordering { // TODO: Handle files with no extension
          (Path::new(f1).extension().unwrap().to_ascii_lowercase())
     .cmp(&Path::new(f2).extension().unwrap().to_ascii_lowercase())
 }
@@ -139,13 +139,13 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
 
 fn print_program_info() {
     println!();
-    println!("      ______   ______     ________  ______    ________  ______    __   __     
- /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
- \\:::_ \\ \\\\:::_ \\ \\  \\__.::._\\/\\::::_\\/_ \\__.::._\\/\\:::_ \\ \\ \\:\\ \\\\ \\ \\   
-  \\:(_) \\ \\\\:(_) ) )_   \\::\\ \\  \\:\\/___/\\   \\::\\ \\  \\:(_) ) )_\\:\\ \\\\ \\ \\  
-   \\: ___\\/ \\: __ `\\ \\  _\\::\\ \\__\\_::._\\:\\  _\\::\\ \\__\\: __ `\\ \\\\:\\_/.:\\ \\ 
-    \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
-     \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
+    println!("     ______   ______     ________  ______    ________  ______    __   __     
+    /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
+    \\:::_ \\ \\\\:::_ \\ \\  \\__.::._\\/\\::::_\\/_ \\__.::._\\/\\:::_ \\ \\ \\:\\ \\\\ \\ \\   
+     \\:(_) \\ \\\\:(_) ) )_   \\::\\ \\  \\:\\/___/\\   \\::\\ \\  \\:(_) ) )_\\:\\ \\\\ \\ \\  
+      \\: ___\\/ \\: __ `\\ \\  _\\::\\ \\__\\_::._\\:\\  _\\::\\ \\__\\: __ `\\ \\\\:\\_/.:\\ \\ 
+       \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
+        \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
                                                                              ");
     println!();
     println!("Prisirv is a context mixing archiver based on lpaq1");
@@ -182,8 +182,8 @@ fn print_program_info() {
 
 
 struct Archiver {
-    dup: u32,
-    quiet: bool,
+    dup:    u32, // For handling duplicate file names
+    quiet:  bool,
 }
 impl Archiver {
     fn new(quiet: bool) -> Archiver {
@@ -236,6 +236,45 @@ impl Archiver {
         enc.write_header(&mta);
         file_len(&file_out_path)
     }
+    
+    fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
+        // Create new nested directory from current output 
+        // directory and input directory name 
+        let mut dir_out = 
+            format!("{}\\{}", 
+            dir_out, file_name_ext(dir_in));
+        new_dir(&dir_out);
+
+        // Sort files and directories
+        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+            dir_in.read_dir().unwrap()
+            .map(|d| d.unwrap().path())
+            .partition(|f| f.is_file());
+
+        // Compress files first, then directories
+        for file_in in files.iter() {
+            let time = Instant::now();
+            if !self.quiet { println!("Compressing {}", file_in.display()); }
+            let file_in_size  = file_len(file_in); 
+            let file_out_size = self.compress_file(file_in, &dir_out);
+            if !self.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                file_in_size, file_out_size, time.elapsed()); }
+        }
+        for dir_in in dirs.iter() {
+            self.compress_dir(dir_in, &mut dir_out); 
+        }
+    }  
+}
+
+struct Extractor {
+    quiet: bool,
+}
+impl Extractor {
+    fn new(quiet: bool) -> Extractor {
+        Extractor {
+            quiet,
+        }
+    }
     fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
         let mta: Metadata = dec.read_header();
@@ -282,33 +321,6 @@ impl Archiver {
         file_out.flush_buffer();
         file_len(&file_out_path)
     }
-    fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
-        // Create new nested directory from current output 
-        // directory and input directory name 
-        let mut dir_out = 
-            format!("{}\\{}", 
-            dir_out, file_name_ext(dir_in));
-        new_dir(&dir_out);
-
-        // Sort files and directories
-        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-            dir_in.read_dir().unwrap()
-            .map(|d| d.unwrap().path())
-            .partition(|f| f.is_file());
-
-        // Compress files first, then directories
-        for file_in in files.iter() {
-            let time = Instant::now();
-            if !self.quiet { println!("Compressing {}", file_in.display()); }
-            let file_in_size  = file_len(file_in); 
-            let file_out_size = self.compress_file(file_in, &dir_out);
-            if !self.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
-                file_in_size, file_out_size, time.elapsed()); }
-        }
-        for dir_in in dirs.iter() {
-            self.compress_dir(dir_in, &mut dir_out); 
-        }
-    }
     fn decompress_dir(&self, dir_in: &Path, dir_out: &mut String, root: bool) {
         // Create new nested directory from current output 
         // directory and input directory name; if current output
@@ -346,11 +358,13 @@ impl Archiver {
 // ----------------------------------------------------------------------------------------------------------------------------------------
 
 
+
+
 // Solid Archiving ------------------------------------------------------------------------------------------------------------------------
 struct SolidArchiver {
-    enc: Encoder,
-    mta: Metadata,
-    quiet: bool
+    enc:    Encoder,
+    mta:    Metadata,
+    quiet:  bool
 }
 impl SolidArchiver {
     fn new(enc: Encoder, mta: Metadata, quiet: bool) -> SolidArchiver {
@@ -416,9 +430,9 @@ impl SolidArchiver {
 }
 
 struct SolidExtractor {
-    dec: Decoder,
-    mta: Metadata,
-    quiet: bool
+    dec:    Decoder,
+    mta:    Metadata,
+    quiet:  bool
 }
 impl SolidExtractor {
     fn new(dec: Decoder, mta: Metadata, quiet: bool) -> SolidExtractor {
@@ -522,61 +536,40 @@ enum Parse {
 fn main() {
     let args = env::args().skip(1);
 
-    if args.len() == 0 {
-        print_program_info();
-    }
+    if args.len() == 0 { print_program_info(); }
 
     #[allow(unused_assignments)]
     let mut dir_out = String::new();
 
     // Initialize settings
     let mut parser = Parse::Mode;
-    let mut solid = false;
     let mut sort = Sort::None;
     let mut user_out = String::new();
-    let mut mode = "c";
-    let mut quiet = false;
     let mut inputs: Vec<String> = Vec::new();
-
+    let mut solid = false;
+    let mut quiet = false;
+    let mut mode = "c";
+    
     for arg in args {
         match arg.as_str() {
-            "-out" => {
-                parser = Parse::DirOut;
-                continue;
-            },     
             "-sort" => {
                 parser = Parse::Sort;
                 continue;
             }, 
-            "-i" => {
+            "-out" => {
+                parser = Parse::DirOut;
+                continue;
+            },     
+            "-i" => { 
                 parser = Parse::Inputs;
                 continue;
             },
-            "-sld" => {
-                parser = Parse::Solid;
-            },
-            "-q" => {
-                parser = Parse::Quiet;
-            }
-            "-help" => {
-                print_program_info();
-            }
+            "-sld" =>  parser = Parse::Solid,
+            "-q" =>    parser = Parse::Quiet,
+            "-help" => print_program_info(),
             _ => {},
         }
         match parser {
-            Parse::Mode => {
-                match arg.as_str() {
-                    "c" => mode = "c",
-                    "d" => mode = "d",
-                    _ => {
-                        println!("Error.");
-                        std::process::exit(1);
-                    }
-                }
-            }
-            Parse::DirOut => {
-                user_out = arg;
-            }
             Parse::Sort => {
                 sort = match arg.as_str() {
                     "ext"    => Sort::Ext,
@@ -584,21 +577,20 @@ fn main() {
                     "crtd"   => Sort::Created,
                     "accd"   => Sort::Accessed,
                     "mod"    => Sort::Modified,
-                    _ => { 
-                        println!("No valid sort criteria found.");
-                        std::process::exit(1);
-                    }
+                    _ => panic!("No valid sort criteria found."),
                 }
             }
-            Parse::Inputs => {
-                inputs.push(arg);
-            }
-            Parse::Solid => {
-                solid = true;
-            }
-            Parse::Quiet => {
-                quiet = true;
-            }
+            Parse::DirOut => user_out = arg,
+            Parse::Inputs => inputs.push(arg),
+            Parse::Solid =>  solid = true,
+            Parse::Quiet =>  quiet = true,
+            Parse::Mode => {
+                mode = match arg.as_str() {
+                    "c" => "c",
+                    "d" => "d",
+                    _ => panic!("Invalid mode."),
+                };
+            }   
         }
     }
 
@@ -626,7 +618,8 @@ fn main() {
         println!();
         println!("//////////////////////////////////////////////////////////////");
         println!(
-            "Creating {} archive {} of inputs:\n{:#?},\nsorting by {}.",
+            "{} {} archive {} of inputs:\n{:#?},\nsorting by {}.",
+            if mode == "c" { "Creating" } else { "Extracting" },
             if solid { "solid" } else { "non-solid" },
             dir_out, 
             inputs,
@@ -689,15 +682,13 @@ fn main() {
                 sld_extr.read_metadata();
                 sld_extr.extract_archive(&dir_out);    
             }
-            _ => {
-                println!("Couldn't parse input. For help, type PROG_NAME.");
-            }
+            _ => println!("Couldn't parse input. For help, type PROG_NAME."),
         }
     }
     else {
-        let mut arch = Archiver::new(quiet);
         match mode {
             "c" => {
+                let mut arch = Archiver::new(quiet);
                 new_dir(&dir_out);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
@@ -716,6 +707,7 @@ fn main() {
                 }
             }
             "d" => {
+                let extr = Extractor::new(quiet);
                 new_dir(&dir_out);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
@@ -725,17 +717,15 @@ fn main() {
                     let time = Instant::now();
                     if !quiet { println!("Decompressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
-                    let file_out_size = arch.decompress_file(file_in, &dir_out);
+                    let file_out_size = extr.decompress_file(file_in, &dir_out);
                     if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                         file_in_size, file_out_size, time.elapsed()); } 
                 }
                 for dir_in in dirs.iter() {
-                    arch.decompress_dir(dir_in, &mut dir_out, true);      
+                    extr.decompress_dir(dir_in, &mut dir_out, true);      
                 }
             }
-            _ => {
-                println!("Couldn't parse input. For help, type PROG_NAME.");
-            }
+            _ => println!("Couldn't parse input. For help, type PROG_NAME."),
         }
     }     
 }
