@@ -32,8 +32,6 @@ use crate::{
     },
 };
 
-const MEM: usize = 1 << 23;
-
 
 fn print_program_info() {
     println!();
@@ -49,23 +47,36 @@ fn print_program_info() {
     println!("Prisirv is a context mixing archiver based on lpaq1");
     println!("Source code available at https://github.com/aufdj/prisirv");
     println!();
-    println!("USAGE: PROG_NAME [c|d] [-out [path]] [-sld] [-sort [..]] [-i [files|dirs]] [-q]");
+    println!("USAGE: PROG_NAME [c|d] [-out [path]] [-mem [0..9]] [-sld] [-sort [..]] [-i [files|dirs]] [-q]");
+    println!();
+    println!("Option [c|d] must be first, all other options can be in any order.");
     println!();
     println!("OPTIONS:");
     println!("   c      Compress");
     println!("   d      Decompress");
     println!("  -out    Specify output path");
     println!("  -sld    Create solid archive");
+    println!("  -mem    Specifies memory usage");
     println!("  -sort   Sort files (solid archives only)");
     println!("  -i      Denotes list of input files/dirs");
     println!("  -q      Suppresses output other than errors");
     println!();
-    println!("      Sorting Methods:");
+    println!("      Sorting Methods (Default - none):");
     println!("          -sort ext      Sort by extension");
     println!("          -sort prtdir   Sort by parent directory");
     println!("          -sort crtd     Sort by creation time");
     println!("          -sort accd     Sort by last access time");
     println!("          -sort mod      Sort by last modification time");
+    println!();
+    println!("      Memory Options (Default - 3):");
+    println!("          -mem 0  6 MB   -mem 5  99 MB");
+    println!("          -mem 1  9 MB   -mem 6  195 MB");
+    println!("          -mem 2  15 MB  -mem 7  387 MB");
+    println!("          -mem 3  27 MB  -mem 8  771 MB");
+    println!("          -mem 4  51 MB  -mem 9  1539 MB");
+    println!();
+    println!("      Decompression requires same memory option used for compression.");
+    println!("      Any memory option specified for decompression will be overwritten.");
     println!();
     println!("EXAMPLE:");
     println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
@@ -209,6 +220,7 @@ enum Parse {
     Sort,
     Inputs,
     Quiet,
+    Mem,
 }
 
 fn main() {
@@ -227,6 +239,7 @@ fn main() {
     let mut solid = false;
     let mut quiet = false;
     let mut mode = "c";
+    let mut mem = 1 << 23;
     
     for arg in args {
         match arg.as_str() {
@@ -242,6 +255,10 @@ fn main() {
                 parser = Parse::Inputs;
                 continue;
             },
+            "-mem" => {
+                parser = Parse::Mem;
+                continue;
+            }
             "-sld" =>  parser = Parse::Solid,
             "-q" =>    parser = Parse::Quiet,
             "-help" => print_program_info(),
@@ -268,7 +285,13 @@ fn main() {
                     "d" => "d",
                     _ => panic!("Invalid mode."),
                 };
-            }   
+            }  
+            Parse::Mem => {
+                mem = match arg.parse::<usize>().unwrap() {
+                    opt @ 0..=9 => 1 << (20 + opt),
+                    _ => 1 << 23,
+                };
+            } 
         }
     }
 
@@ -296,7 +319,7 @@ fn main() {
         println!();
         println!("//////////////////////////////////////////////////////////////");
         println!(
-            "{} {} archive {} of inputs:\n{:#?},\nsorting by {}.",
+            "{} {} archive {} of inputs:\n{:#?},\nsorting by {}{}.",
             if mode == "c" { "Creating" } else { "Extracting" },
             if solid { "solid" } else { "non-solid" },
             dir_out, 
@@ -308,7 +331,10 @@ fn main() {
                 Sort::Created  => "creation time",
                 Sort::Accessed => "last accessed time",
                 Sort::Modified => "last modified time",
-            }
+            },
+            if mode == "c" {
+                format!(", using {} MB of memory", 3 + (mem >> 20) * 3)
+            } else { String::from("") }
         );
         println!("//////////////////////////////////////////////////////////////");
         println!();
@@ -318,23 +344,20 @@ fn main() {
         let mut mta: Metadata = Metadata::new();
         match mode {
             "c" => {
-                // Sort files and directories
+                // Group files and directories 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
                     inputs.into_iter().partition(|f| f.is_file());
 
-                // Add file paths and lengths to metadata
+                // Walk through directories and collect all files
                 for file in files.iter() {
                     mta.files.push(
                         (file_path_ext(file), 0, 0)
                     );
                 }
-                // Walk through directories and gather rest of files
-                if !dirs.is_empty() {
-                    for dir in dirs.iter() {
-                        collect_files(dir, &mut mta);
-                    }
+                for dir in dirs.iter() {
+                    collect_files(dir, &mut mta);
                 }
-
+                
                 // Sort files to potentially improve compression of solid archives
                 match sort {
                     Sort::None     => {},
@@ -345,7 +368,7 @@ fn main() {
                     Sort::Modified => mta.files.sort_by(|f1, f2| sort_modified(&f1.0, &f2.0)),
                 }
 
-                let enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)));
+                let enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)), mem);
                 let mut sld_arch = SolidArchiver::new(enc, mta, quiet);
 
                 sld_arch.create_archive();
@@ -366,7 +389,7 @@ fn main() {
     else {
         match mode {
             "c" => {
-                let mut arch = Archiver::new(quiet);
+                let mut arch = Archiver::new(quiet, mem);
                 new_dir(&dir_out);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 

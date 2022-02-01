@@ -22,12 +22,14 @@ use crate::{
 pub struct Archiver {
     dup:    u32, // For handling duplicate file names
     quiet:  bool,
+    mem:    usize,
 }
 impl Archiver {
-    pub fn new(quiet: bool) -> Archiver {
+    pub fn new(quiet: bool, mem: usize) -> Archiver {
         Archiver {
             dup: 1,
             quiet,
+            mem,
         }
     }
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
@@ -56,7 +58,7 @@ impl Archiver {
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
-        let mut enc = Encoder::new(new_output_file(4096, &file_out_path));
+        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem);
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
@@ -137,7 +139,6 @@ impl Extractor {
                     mta.get_ext())
                 )
             };
-
         let mut file_out = new_output_file(4096, &file_out_path);
         
         // Call after reading header
@@ -335,7 +336,7 @@ impl SolidExtractor {
         }
 
         // Seek back to beginning of compressed data
-        self.dec.file_in.seek(SeekFrom::Start(40)).unwrap();
+        self.dec.file_in.seek(SeekFrom::Start(48)).unwrap();
 
         self.dec.init_x();
     }

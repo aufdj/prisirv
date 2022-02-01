@@ -6,7 +6,6 @@ use crate::{
     logistic::stretch, 
     statemap::StateMap, 
     tables::STATE_TABLE,
-    MEM
 };
 
 fn next_state(state: u8, bit: i32) -> u8 {
@@ -30,10 +29,10 @@ pub struct Predictor {
     sm:    Vec<StateMap>, // 6 State Maps
 }
 impl Predictor {
-    pub fn new() -> Predictor {
+    pub fn new(mem: usize) -> Predictor {
         let mut p = Predictor {
-            cxt:   1,            mm:    MatchModel::new(),
-            cxt4:  0,            ht:    HashTable::new(MEM*2),
+            cxt:   1,            mm:    MatchModel::new(mem),
+            cxt4:  0,            ht:    HashTable::new(mem*2),
             bits:  0,            apm1:  Apm::new(256),
             pr:    2048,         apm2:  Apm::new(16384),
             h:     [0; 6],       mxr:   Mixer::new(7, 80),

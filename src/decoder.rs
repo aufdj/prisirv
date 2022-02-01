@@ -17,14 +17,15 @@ pub struct Decoder {
     x:            u32, // 4 byte sliding window of compressed data
 }
 impl Decoder {
-    pub fn new(file_in: BufReader<File>) -> Decoder {
+    pub fn new(mut file_in: BufReader<File>) -> Decoder {
+        let mem: usize = file_in.read_usize();
         Decoder {
             high: 0xFFFFFFFF,
             low: 0,
             x: 0,
-            predictor: Predictor::new(),
+            predictor: Predictor::new(mem),
             file_in,
-        }
+        }   
     }
     fn decompress_bit(&mut self) -> i32 {
         let mut p = self.predictor.p() as u32;
