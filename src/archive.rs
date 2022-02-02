@@ -293,10 +293,6 @@ impl SolidExtractor {
         }
     }
     pub fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
-        println!("dir_out: {}", dir_out);
-        println!("file path: {}", self.mta.files[curr_file].0);
-        println!();
-
         let file_out_name =
             format!("{}\\{}",
                 dir_out,

@@ -292,7 +292,6 @@ fn main() {
             } 
         }
     }
-    println!("mem: {}", mem);
 
     // Filter invalid inputs
     let inputs: Vec<PathBuf> = 
