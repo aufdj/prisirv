@@ -47,15 +47,24 @@ impl Archiver {
         // Modify file path if it already exists due to extension change
         // i.e foo/bar.txt -> foo/bar.pri
         //     foo/bar.bin -> foo/bar.pri -> foo/bar(1).pri
-        if file_out_path.exists() {
+        while file_out_path.exists() {
             file_out_path = 
-            PathBuf::from(
-                &format!("{}({}).pri", 
-                file_path_no_ext(&file_out_path), self.dup)
-            );
+            if self.dup == 1 {
+                PathBuf::from(
+                    &format!("{}({}).pri", 
+                    file_path_no_ext(&file_out_path), self.dup)
+                )
+            }
+            else {
+                let file_path = file_path_no_ext(&file_out_path);
+                PathBuf::from(
+                    &format!("{}({}).pri", 
+                    &file_path[..file_path.len()-3], self.dup)
+                )
+            };
             self.dup += 1;
         }
-
+        self.dup = 1;
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
         let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem);
@@ -284,6 +293,10 @@ impl SolidExtractor {
         }
     }
     pub fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
+        println!("dir_out: {}", dir_out);
+        println!("file path: {}", self.mta.files[curr_file].0);
+        println!();
+
         let file_out_name =
             format!("{}\\{}",
                 dir_out,
@@ -329,8 +342,8 @@ impl SolidExtractor {
                 (path.iter().cloned()
                     .map(|b| b as char)
                     .collect::<String>(),
-                    self.dec.file_in.read_usize(),
-                    self.dec.file_in.read_usize())
+                self.dec.file_in.read_usize(),
+                self.dec.file_in.read_usize())
             );
             path.clear();
         }

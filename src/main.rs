@@ -76,7 +76,7 @@ fn print_program_info() {
     println!("          -mem 4  51 MB  -mem 9  1539 MB");
     println!();
     println!("      Decompression requires same memory option used for compression.");
-    println!("      Any memory option specified for decompression will be overwritten.");
+    println!("      Any memory option specified for decompression will be ignored.");
     println!();
     println!("EXAMPLE:");
     println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
@@ -206,10 +206,8 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
             (file_path_ext(file), 0, 0)
         );
     }
-    if !dirs.is_empty() {
-        for dir in dirs.iter() {
-            collect_files(dir, mta);
-        }
+    for dir in dirs.iter() {
+        collect_files(dir, mta);
     }
 }
 
@@ -294,6 +292,7 @@ fn main() {
             } 
         }
     }
+    println!("mem: {}", mem);
 
     // Filter invalid inputs
     let inputs: Vec<PathBuf> = 
