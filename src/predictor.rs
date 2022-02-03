@@ -68,16 +68,16 @@ impl Predictor {
         self.h[4] =  self.h[4].wrapping_mul(11 << 5)   // Order 6
                      + cxt * 13 & 0x3FFFFFFF;
         
-        match self.cxt { // Unigram Word Order
+        self.h[5] = match self.cxt { // Unigram Word Order
             65..=90 => {
                 self.cxt += 32; // Fold to lowercase
-                self.h[5] = (self.h[5] + self.cxt).wrapping_mul(7 << 3);
-            }
-            97..=122 => {
-                self.h[5] = (self.h[5] + self.cxt).wrapping_mul(7 << 3);
+                (self.h[5] + self.cxt).wrapping_mul(7 << 3)
             },
-            _ => self.h[5] = 0,
-        }
+            97..=122 => {
+                (self.h[5] + self.cxt).wrapping_mul(7 << 3)
+            },
+            _ => 0,
+        };
     }
 
     pub fn update(&mut self, bit: i32) {
@@ -99,6 +99,7 @@ impl Predictor {
             // Update order-3 context
             self.cxt -= 256;
             self.cxt4 = (self.cxt4 << 8) | self.cxt;
+
             self.update_cxts(self.cxt, self.cxt4);
 
             self.update_state_ptrs(self.h, 0);
@@ -154,9 +155,7 @@ impl Predictor {
         unsafe {
             for i in 0..6 {
                 self.mxr.add(
-                    stretch(
-                        self.sm[i].p(bit, *self.sp[i] as i32)
-                    )
+                    stretch(self.sm[i].p(bit, *self.sp[i] as i32))
                 );
             }
         }

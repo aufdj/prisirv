@@ -3,6 +3,8 @@ use std::{
     io::{Seek, SeekFrom},
     time::Instant,
     cmp::min,
+    ffi::OsString,
+    fs::create_dir_all,
 };
 
 use crate::{
@@ -246,8 +248,8 @@ impl SolidArchiver {
     pub fn write_metadata(&mut self) {
         // Get index to end of file metadata
         self.mta.f_ptr =
-        self.enc.file_out.stream_position()
-        .unwrap() as usize;
+            self.enc.file_out.stream_position()
+            .unwrap() as usize;
 
         // Output number of files
         self.enc.file_out.write_usize(self.mta.files.len());

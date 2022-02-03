@@ -18,6 +18,8 @@ pub struct MatchModel {
     sm:       StateMap,
     buf:      Vec<u8>,
     ht:       Vec<u32>,
+    buf_end:  usize,
+    ht_end:   usize,
 }
 impl MatchModel {
     pub fn new(n: usize) -> MatchModel {
@@ -29,20 +31,22 @@ impl MatchModel {
             sm:       StateMap::new(56 << 8),
             buf:      vec![0; n / 2],
             ht:       vec![0; n / 8],
+            buf_end:  (n / 2) - 1,
+            ht_end:   (n / 8) - 1,
         }
     }
     pub fn find_or_extend_match(&mut self, hash: usize) {
         self.mch_ptr = self.ht[hash] as usize;
         if self.mch_ptr != self.buf_pos {
-            let mut i = self.mch_ptr - self.mch_len - 1 & self.buf.len();
-            let mut j = self.buf_pos - self.mch_len - 1 & self.buf.len();
+            let mut i = self.mch_ptr - self.mch_len - 1 & self.buf_end;
+            let mut j = self.buf_pos - self.mch_len - 1 & self.buf_end;
 
             while i != self.buf_pos 
             && self.mch_len < MAX_LEN 
             && self.buf[i] == self.buf[j] {
                 self.mch_len += 1;
-                i = (i - 1) & self.buf.len(); 
-                j = (j - 1) & self.buf.len();  
+                i = (i - 1) & self.buf_end; 
+                j = (j - 1) & self.buf_end;  
             }
         }
     }
@@ -62,7 +66,7 @@ impl MatchModel {
             if self.mch_len < 16 { cxt = self.mch_len * 2 + b; }
             else { cxt = (self.mch_len >> 2) * 2 + b + 24; }
             
-            cxt = cxt * 256 + self.buf[self.buf_pos-1 & self.buf.len()] as usize;
+            cxt = cxt * 256 + self.buf[self.buf_pos-1 & self.buf_end] as usize;
         } 
         else {
             self.mch_len = 0;
@@ -80,16 +84,16 @@ impl MatchModel {
         self.bits += 1;
         if self.bits == 8 {
             self.bits = 0;
-            self.hash_s = self.hash_s * (3 << 3) + self.cxt & self.ht.len();
-            self.hash_l = self.hash_l * (5 << 5) + self.cxt & self.ht.len();
+            self.hash_s = self.hash_s * (3 << 3) + self.cxt & self.ht_end;
+            self.hash_l = self.hash_l * (5 << 5) + self.cxt & self.ht_end;
             self.buf[self.buf_pos] = self.cxt as u8;
             self.buf_pos += 1;
             self.cxt = 1;
-            self.buf_pos &= self.buf.len();
+            self.buf_pos &= self.buf_end;
 
             if self.mch_len > 0 {
                 self.mch_ptr += 1;
-                self.mch_ptr &= self.buf.len();
+                self.mch_ptr &= self.buf_end;
                 if self.mch_len < MAX_LEN { self.mch_len += 1; }
             }
             else {

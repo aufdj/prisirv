@@ -17,9 +17,9 @@ pub fn squash(d: i32) -> i32 {
 
 // Returns p = ln(d/(1-d)) (Inverse of squash)
 // d = (0..4095), p = (-2047..2047)
-pub fn stretch(p: i32) -> i32 {
-    assert!(p < 4096);
-    STRETCH_TABLE[p as usize] as i32
+pub fn stretch(d: i32) -> i32 {
+    assert!(d < 4096);
+    STRETCH_TABLE[d as usize] as i32
 }
 
 
