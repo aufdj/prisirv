@@ -373,8 +373,11 @@ fn main() {
                 sld_arch.write_metadata();    
             }
             "d" => {
-                new_dir(&dir_out);
-
+                if !inputs[0].is_file() {
+                    println!("Input {} is not a solid archive.", inputs[0].display());
+                    println!("To extract a non-solid archive, omit option '-sld'.");
+                    std::process::exit(0);
+                }
                 let dec = Decoder::new(new_input_file(4096, &inputs[0]));
                 let mut sld_extr = SolidExtractor::new(dec, mta, quiet);
 

@@ -66,6 +66,7 @@ impl Decoder {
     }
     pub fn read_header(&mut self) -> Metadata {
         let mut mta: Metadata = Metadata::new();
+        mta.mgc =     self.file_in.read_usize();
         mta.ext =     self.file_in.read_usize();
         mta.f_bl_sz = self.file_in.read_usize();
         mta.bl_sz =   self.file_in.read_usize();

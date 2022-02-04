@@ -83,7 +83,7 @@ impl Archiver {
         }
 
         enc.flush();
-        enc.write_header(&mta);
+        enc.write_header(&mta, false);
         file_len(&file_out_path)
     }
     
@@ -128,6 +128,18 @@ impl Extractor {
     pub fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
         let mta: Metadata = dec.read_header();
+        match mta.mgc {
+            0x76_7269_7369_7270 => {},
+            0x53767_2697_3697_270 => {
+                println!();
+                println!("Expected non-solid archive, found solid archive.");
+                std::process::exit(0);
+            },
+            _ => {
+                println!("Not a prisirv archive.");
+                std::process::exit(0);
+            },
+        }
 
         // Create output file path from current output directory,
         // input file name without extension, and file's original
@@ -273,7 +285,7 @@ impl SolidArchiver {
 
         // Go back to beginning of file and write header
         self.enc.file_out.rewind().unwrap();
-        self.enc.write_header(&self.mta);
+        self.enc.write_header(&self.mta, true);
     }
 }
 
@@ -289,6 +301,7 @@ impl SolidExtractor {
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
+        new_dir(dir_out);
         for curr_file in 0..self.mta.files.len() {
             if !self.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
             self.decompress_file_solid(dir_out, curr_file);
@@ -319,6 +332,18 @@ impl SolidExtractor {
     }
     pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header();
+        match self.mta.mgc {
+            0x76_7269_7369_7270 => {
+                println!();
+                println!("Expected solid archive, found non-solid archive.");
+                std::process::exit(0);
+            },
+            0x53767_2697_3697_270 => {},
+            _ => {
+                println!("Not a prisirv archive.");
+                std::process::exit(0);
+            },
+        }
 
         // Seek to end of file metadata
         self.dec.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
@@ -347,7 +372,7 @@ impl SolidExtractor {
         }
 
         // Seek back to beginning of compressed data
-        self.dec.file_in.seek(SeekFrom::Start(48)).unwrap();
+        self.dec.file_in.seek(SeekFrom::Start(56)).unwrap();
 
         self.dec.init_x();
     }

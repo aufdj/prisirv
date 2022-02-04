@@ -27,7 +27,7 @@ impl Encoder {
             mem,
         };
         // Metadata placeholder
-        for _ in 0..6 {
+        for _ in 0..7 {
             enc.file_out.write_usize(0);
         }
         enc
@@ -62,9 +62,11 @@ impl Encoder {
         }
     }
     // Write 48 byte header
-    pub fn write_header(&mut self, mta: &Metadata) {
+    pub fn write_header(&mut self, mta: &Metadata, solid: bool) {
         self.file_out.get_ref().rewind().unwrap();
         self.file_out.write_usize(self.mem);
+        if solid { self.file_out.write_usize(mta.mgc + (0x53 << 56)); }
+        else     { self.file_out.write_usize(mta.mgc); }
         self.file_out.write_usize(mta.ext);
         self.file_out.write_usize(mta.f_bl_sz);
         self.file_out.write_usize(mta.bl_sz);

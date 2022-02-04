@@ -6,11 +6,12 @@ use std::{
 
 #[derive(Debug)]
 pub struct Metadata {
+    pub mgc:      usize, // Magic Number
     pub ext:      usize, // Extension
     pub f_bl_sz:  usize, // Final block size
     pub bl_sz:    usize, // Block size
     pub bl_c:     usize, // Block count
-
+    
     // Solid archives only ---------------
     // Path, block_count, final_block_size
     pub files:  Vec<(String, usize, usize)>,     
@@ -19,6 +20,7 @@ pub struct Metadata {
 impl Metadata {
     pub fn new() -> Metadata {
         Metadata {
+            mgc:      0x76_7269_7369_7270,
             ext:      0,
             f_bl_sz:  0,
             bl_sz:    1 << 20,
