@@ -3,7 +3,7 @@
 Prisirv is a context mixing archiver based on lpaq1.
 
 <pre>
-USAGE: PROG_NAME [c|d] [-out [path]] [-mem [0..9]] [-sld] [-sort [..]] [-i [files|dirs]] [-q]
+USAGE: PROG_NAME [c|d] [-out [path]] [-mem [0..9]] [-sld] [-sort [..]] [-i [files|dirs]] [-q] [-clbr]
 
 Option [c|d] must be first, all other options can be in any order.
 
@@ -16,6 +16,7 @@ OPTIONS:
   -sort   Sort files (solid archives only)
   -i      Denotes list of input files/dirs
   -q      Suppresses output other than errors
+  -clbr   Allows clobbering files
 
    Sorting Methods (Default - none):
       -sort ext     Sort by extension

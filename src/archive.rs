@@ -292,16 +292,26 @@ impl SolidArchiver {
 pub struct SolidExtractor {
     dec:    Decoder,
     mta:    Metadata,
-    quiet:  bool
+    quiet:  bool,
+    clbr:   bool,
 }
 impl SolidExtractor {
-    pub fn new(dec: Decoder, mta: Metadata, quiet: bool) -> SolidExtractor {
+    pub fn new(dec: Decoder, mta: Metadata, quiet: bool, clbr: bool) -> SolidExtractor {
         SolidExtractor {
-            dec, mta, quiet
+            dec, mta, quiet, clbr,
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
-        new_dir(dir_out);
+        if !Path::new(dir_out).exists() {
+            new_dir(dir_out);
+        }
+        else if !self.clbr {
+            println!("Directory {} already exists.", dir_out);
+            println!("To overwrite existing directories, use option '-clbr'.");
+            std::process::exit(0);
+        }
+        else {}
+
         for curr_file in 0..self.mta.files.len() {
             if !self.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
             self.decompress_file_solid(dir_out, curr_file);

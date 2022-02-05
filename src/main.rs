@@ -218,6 +218,7 @@ enum Parse {
     Sort,
     Inputs,
     Quiet,
+    Clobber,
     Mem,
 }
 
@@ -238,6 +239,7 @@ fn main() {
     let mut quiet = false;
     let mut mode = "c";
     let mut mem = 1 << 23;
+    let mut clbr = false;
     
     for arg in args {
         match arg.as_str() {
@@ -257,8 +259,9 @@ fn main() {
                 parser = Parse::Mem;
                 continue;
             }
-            "-sld" =>  parser = Parse::Solid,
-            "-q" =>    parser = Parse::Quiet,
+            "-sld"  => parser = Parse::Solid,
+            "-q"    => parser = Parse::Quiet,
+            "-clbr" => parser = Parse::Clobber,
             "-help" => print_program_info(),
             _ => {},
         }
@@ -273,10 +276,11 @@ fn main() {
                     _ => panic!("No valid sort criteria found."),
                 }
             }
-            Parse::DirOut => user_out = arg,
-            Parse::Inputs => inputs.push(arg),
-            Parse::Solid =>  solid = true,
-            Parse::Quiet =>  quiet = true,
+            Parse::DirOut  => user_out = arg,
+            Parse::Inputs  => inputs.push(arg),
+            Parse::Solid   => solid = true,
+            Parse::Quiet   => quiet = true,
+            Parse::Clobber => clbr = true,
             Parse::Mode => {
                 mode = match arg.as_str() {
                     "c" => "c",
@@ -379,7 +383,7 @@ fn main() {
                     std::process::exit(0);
                 }
                 let dec = Decoder::new(new_input_file(4096, &inputs[0]));
-                let mut sld_extr = SolidExtractor::new(dec, mta, quiet);
+                let mut sld_extr = SolidExtractor::new(dec, mta, quiet, clbr);
 
                 sld_extr.read_metadata();
                 sld_extr.extract_archive(&dir_out);    
@@ -391,7 +395,15 @@ fn main() {
         match mode {
             "c" => {
                 let mut arch = Archiver::new(quiet, mem);
-                new_dir(&dir_out);
+                if !Path::new(&dir_out).exists() {
+                    new_dir(&dir_out);
+                }
+                else if !clbr {
+                    println!("Directory {} already exists.", dir_out);
+                    println!("To overwrite existing directories, use option '-clbr'.");
+                    std::process::exit(0);
+                }
+                else {}
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
@@ -410,7 +422,15 @@ fn main() {
             }
             "d" => {
                 let extr = Extractor::new(quiet);
-                new_dir(&dir_out);
+                if !Path::new(&dir_out).exists() {
+                    new_dir(&dir_out);
+                }
+                else if !clbr {
+                    println!("Directory {} already exists.", dir_out);
+                    println!("To overwrite existing directories, use option '-clbr'.");
+                    std::process::exit(0);
+                }
+                else {}
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
