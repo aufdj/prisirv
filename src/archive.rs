@@ -66,6 +66,7 @@ impl Archiver {
             self.dup += 1;
         }
         self.dup = 1;
+
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
         let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem);
@@ -127,6 +128,8 @@ impl Extractor {
     pub fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
         let mta: Metadata = dec.read_header();
+
+        // Verify magic number
         match mta.mgc {
             0x76_7269_7369_7270 => {},
             0x53767_2697_3697_270 => {
@@ -145,7 +148,7 @@ impl Extractor {
         // extension (stored in header)
         // i.e. foo/bar.pri -> foo/bar.txt
         let file_out_path = 
-            // No extension
+            // Handle no extension
             if mta.get_ext().is_empty() {
                 PathBuf::from(
                     &format!("{}\\{}",
@@ -166,13 +169,14 @@ impl Extractor {
         // Call after reading header
         dec.init_x();
 
-        // Decompress
+        // Decompress full blocks
         for _ in 0..(mta.bl_c - 1) {
             let block = dec.decompress_block(mta.bl_sz);
             for byte in block.iter() {
                 file_out.write_byte(*byte);
             }
         }
+        // Decompress final variable size block
         let block = dec.decompress_block(mta.f_bl_sz);
         for byte in block.iter() {
             file_out.write_byte(*byte);
@@ -256,6 +260,7 @@ impl SolidArchiver {
         }
         self.enc.file_out.stream_position().unwrap()
     }
+    // For more info on metadata structure, see metadata.rs
     pub fn write_metadata(&mut self) {
         // Get index to end of file metadata
         self.mta.f_ptr =
@@ -302,13 +307,16 @@ impl SolidExtractor {
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
         new_dir_checked(dir_out, self.clbr);
-
         for curr_file in 0..self.mta.files.len() {
             if !self.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
             self.decompress_file_solid(dir_out, curr_file);
         }
     }
     pub fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
+        // Create new output file from output directory and the file
+        // currently being decompressed. The code below currently does
+        // not reconstruct the original directory structure, all files
+        // are just placed in the same directory.
         let file_out_name =
             format!("{}\\{}",
                 dir_out,
@@ -318,21 +326,25 @@ impl SolidExtractor {
             );
         let mut file_out = new_output_file(4096, Path::new(&file_out_name));
 
-        // Decompress
+        // Decompress full blocks
         for _ in 0..((self.mta.files[curr_file].1) - 1) {
             let block = self.dec.decompress_block(self.mta.bl_sz);
             for byte in block.iter() {
                 file_out.write_byte(*byte);
             }
         }
+        // Decompress final variable size block
         let block = self.dec.decompress_block(self.mta.files[curr_file].2);
         for byte in block.iter() {
             file_out.write_byte(*byte);
         }
         file_out.flush_buffer();
     }
+    // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header();
+
+        // Verify magic number
         match self.mta.mgc {
             0x76_7269_7369_7270 => {
                 println!();

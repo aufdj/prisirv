@@ -15,7 +15,7 @@ pub struct Encoder {
     low:           u32,       // Left endpoint of range
     predictor:     Predictor, // Generates predictions
     pub file_out:  BufWriter<File>, 
-    mem:           usize,
+    mem:           usize,     // Memory option
 }
 impl Encoder {
     pub fn new(file_out: BufWriter<File>, mem: usize) -> Encoder {
@@ -61,7 +61,7 @@ impl Encoder {
             }
         }
     }
-    // Write 48 byte header
+    // Write 56 byte header
     pub fn write_header(&mut self, mta: &Metadata, solid: bool) {
         self.file_out.get_ref().rewind().unwrap();
         self.file_out.write_usize(self.mem);

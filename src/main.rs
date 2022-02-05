@@ -108,6 +108,7 @@ pub fn file_name_ext(path: &Path) -> &str {
 pub fn file_path_ext(path: &Path) -> String {
     path.to_str().unwrap().to_string()
 }
+
 pub fn file_len(path: &Path) -> u64 {
     path.metadata().unwrap().len()
 }
@@ -194,7 +195,7 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
     dir_out
 }
 
-
+// Recursively collect all files into a vector for sorting before compression.
 fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
         dir_in.read_dir().unwrap()
@@ -209,6 +210,25 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     for dir in dirs.iter() {
         collect_files(dir, mta);
     }
+}
+
+
+fn new_dir_checked(dir_out: &str, clbr: bool) {
+    let path = Path::new(dir_out);
+    // Create output directory if it doesn't exist.
+    if !Path::new(dir_out).exists() {
+        new_dir(dir_out);
+    }
+    // If directory exists but is empty, ignore clobber option.
+    else if path.read_dir().unwrap().count() == 0 {}
+    // If directory exists and is not empty, abort if user disallowed clobbering (default)
+    else if !clbr {
+        println!("Directory {} already exists.", dir_out);
+        println!("To overwrite existing directories, use option '-clbr'.");
+        std::process::exit(0);
+    }
+    // If directory exists and is not empty and user allowed clobbering, continue as normal.
+    else {}
 }
 
 enum Parse {
@@ -241,6 +261,7 @@ fn main() {
     let mut mem = 1 << 23;
     let mut clbr = false;
     
+    // Parse arguments with state machine
     for arg in args {
         match arg.as_str() {
             "-sort" => {
@@ -273,7 +294,10 @@ fn main() {
                     "crtd"   => Sort::Created,
                     "accd"   => Sort::Accessed,
                     "mod"    => Sort::Modified,
-                    _ => panic!("No valid sort criteria found."),
+                    _ => {
+                        println!("No valid sort criteria found.");
+                        std::process::exit(0);
+                    }
                 }
             }
             Parse::DirOut  => user_out = arg,
@@ -285,7 +309,10 @@ fn main() {
                 mode = match arg.as_str() {
                     "c" => "c",
                     "d" => "d",
-                    _ => panic!("Invalid mode."),
+                    _ => {
+                        println!("Invalid mode.");
+                        std::process::exit(0);
+                    }
                 };
             }  
             Parse::Mem => {
@@ -434,19 +461,4 @@ fn main() {
             _ => println!("Couldn't parse input. For help, type PROG_NAME."),
         }
     }     
-}
-
-
-fn new_dir_checked(dir_out: &str, clbr: bool) {
-    let path = Path::new(dir_out);
-    if !Path::new(dir_out).exists() {
-        new_dir(dir_out);
-    }
-    else if path.read_dir().unwrap().count() == 0 {}
-    else if !clbr {
-        println!("Directory {} already exists.", dir_out);
-        println!("To overwrite existing directories, use option '-clbr'.");
-        std::process::exit(0);
-    }
-    else {}
 }

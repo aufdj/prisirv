@@ -4,6 +4,45 @@ use std::{
     ffi::OsStr,
 };
 
+
+// Metadata Structure 
+//
+// Key -------------------------------- 
+//     nB - n byte value,      
+//     N  - Used in non-solid archives,
+//     S  - Used in solid archives,
+// ------------------------------------
+//
+//
+// 8BNS[Memory Option   ] 8BNS[Magic Number] 8BN [File Extension]
+// 8BN [Final Block Size] 8BNS[Block Size  ] 8BN [Block Count   ]
+// 8B S[Files Pointer   ]
+// [Compressed Data --------------------------------------------]
+// [------------------------------------------------------------]
+// [------------------------------------------------------------]
+// nB S[Files]
+//
+//
+// Memory Option = 1 << 20..1 << 29,
+// Magic Number  = 'prisirv ' for non-solid archives,
+//                 'prisirvS' for solid archives,
+// Block Size    = 1 << 20,
+//
+// Files is a list of every compressed file's full pathway, 
+// block count, and final block size.
+//
+//
+// Files Structure ---------------------------------------------
+//     
+// 8B [Number of files] 
+// nB*[1B[File Path Length] nB[File Path       ]
+//     8B[Block Count     ] 8B[Final Block Size] ]
+//  
+// *Repeat n times, where n is the number of files compressed.
+//
+// The 8 byte 'number of files' value and the 1 byte 'file path
+// length' values are included for ease of parsing.
+//
 #[derive(Debug)]
 pub struct Metadata {
     pub mgc:      usize, // Magic Number
@@ -11,11 +50,11 @@ pub struct Metadata {
     pub f_bl_sz:  usize, // Final block size
     pub bl_sz:    usize, // Block size
     pub bl_c:     usize, // Block count
+    pub f_ptr:    usize, // Pointer to 'files'
     
     // Solid archives only ---------------
     // Path, block_count, final_block_size
-    pub files:  Vec<(String, usize, usize)>,     
-    pub f_ptr:  usize, // Pointer to 'files'
+    pub files: Vec<(String, usize, usize)>,      
 }
 impl Metadata {
     pub fn new() -> Metadata {
@@ -25,8 +64,8 @@ impl Metadata {
             f_bl_sz:  0,
             bl_sz:    1 << 20,
             bl_c:     0,
-            files:    Vec::new(),
             f_ptr:    0,
+            files:    Vec::new(),  
         }
     }
     // Set metadata extension field
@@ -46,6 +85,7 @@ impl Metadata {
     }
     // Get metadata extension field
     pub fn get_ext(&self) -> String {
+        // Ignoring 00 bytes, convert ext to string
         String::from_utf8(
             self.ext.to_le_bytes().iter().cloned()
             .filter(|&i| i != 0).collect()
