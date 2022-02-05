@@ -4,7 +4,30 @@ use crate::{
     mixer::Mixer
 };
 
+
 // Match Model ---------------------------------------------------------------------------------------------------------------- Match Model
+// The "match" model (MatchModel) looks up the current context in a
+// hash table, first using a longer context, then a shorter one.  If
+// a match is found, then the following bits are predicted until there is
+// a misprediction.  The prediction is computed by mapping the predicted
+// bit, the length of the match (1..15 or quantized by 4 in 16..62, max 62),
+// and the last whole byte as context into a StateMap.  If no match is found,
+// then the order 0 context (last 0..7 bits of the current byte) is used
+// as context to the StateMap.
+// 
+// One third of memory is used by MatchModel, divided equally between 
+// a rotating input buffer of 2^(N+19) bytes and an index (hash table)
+// with 2^(N+17) entries.  Two context hashes are maintained, a long one,
+// h1, of length ceil((N+17)/3) bytes and a shorter one, h2, of length 
+// ceil((N+17)/5) bytes, where ceil() is the ceiling function.  The index
+// does not use collision detection.  At each byte boundary, if there is 
+// not currently a match, then the bytes before the current byte are
+// compared with the location indexed by h1.  If less than 2 bytes match,
+// then h2 is tried.  If a match of length 1 or more is found, the
+// match is maintained until the next bit mismatches the predicted bit.
+// The table is updated at h1 and h2 after every byte.
+
+
 const MAX_LEN: usize = 62;
 
 pub struct MatchModel {

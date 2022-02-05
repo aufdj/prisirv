@@ -1,4 +1,12 @@
-// State Map -------------------------------------------------------------------------------------------------------------------- State Map
+// State Map -------------------------------------------------------------------------------------------------------------------- State Map 
+// A bit history (state) is mapped to a probability using an adaptive table
+// (StateMap). Each table entry has a 22-bit probability (initially p = 0.5) 
+// and 10-bit count (initially n = 0) packed into 32 bits.  After bit y is 
+// predicted, n is incrementedup to the limit (1023) and the probability is 
+// adjusted by p := p + (y - p)/(n + 0.5).  This model is stationary: 
+// p = (n1 + 0.5)/(n + 1), where n1 is the number of times y = 1 out of n.
+
+
 #[allow(overflowing_literals)]
 const PR_MSK: i32 = 0xFFFFFC00; // High 22 bit mask
 const LIMIT: usize = 127; // Controls rate of adaptation (higher = slower) (0..1024)
