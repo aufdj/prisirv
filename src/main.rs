@@ -395,15 +395,7 @@ fn main() {
         match mode {
             "c" => {
                 let mut arch = Archiver::new(quiet, mem);
-                if !Path::new(&dir_out).exists() {
-                    new_dir(&dir_out);
-                }
-                else if !clbr {
-                    println!("Directory {} already exists.", dir_out);
-                    println!("To overwrite existing directories, use option '-clbr'.");
-                    std::process::exit(0);
-                }
-                else {}
+                new_dir_checked(&dir_out, clbr);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
@@ -422,15 +414,7 @@ fn main() {
             }
             "d" => {
                 let extr = Extractor::new(quiet);
-                if !Path::new(&dir_out).exists() {
-                    new_dir(&dir_out);
-                }
-                else if !clbr {
-                    println!("Directory {} already exists.", dir_out);
-                    println!("To overwrite existing directories, use option '-clbr'.");
-                    std::process::exit(0);
-                }
-                else {}
+                new_dir_checked(&dir_out, clbr);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
@@ -450,4 +434,19 @@ fn main() {
             _ => println!("Couldn't parse input. For help, type PROG_NAME."),
         }
     }     
+}
+
+
+fn new_dir_checked(dir_out: &str, clbr: bool) {
+    let path = Path::new(dir_out);
+    if !Path::new(dir_out).exists() {
+        new_dir(dir_out);
+    }
+    else if path.read_dir().unwrap().count() == 0 {}
+    else if !clbr {
+        println!("Directory {} already exists.", dir_out);
+        println!("To overwrite existing directories, use option '-clbr'.");
+        std::process::exit(0);
+    }
+    else {}
 }

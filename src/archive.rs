@@ -4,12 +4,11 @@ use std::{
     time::Instant,
     cmp::min,
     ffi::OsString,
-    fs::create_dir_all,
 };
 
 use crate::{
     file_name_no_ext, file_path_no_ext,
-    file_name_ext, file_len,
+    file_name_ext, file_len, new_dir_checked,
     metadata::Metadata,
     encoder::Encoder,
     decoder::Decoder,
@@ -302,15 +301,7 @@ impl SolidExtractor {
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
-        if !Path::new(dir_out).exists() {
-            new_dir(dir_out);
-        }
-        else if !self.clbr {
-            println!("Directory {} already exists.", dir_out);
-            println!("To overwrite existing directories, use option '-clbr'.");
-            std::process::exit(0);
-        }
-        else {}
+        new_dir_checked(dir_out, self.clbr);
 
         for curr_file in 0..self.mta.files.len() {
             if !self.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
