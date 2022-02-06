@@ -18,7 +18,7 @@ pub struct Encoder {
     mem:           usize,     // Memory option
 }
 impl Encoder {
-    pub fn new(file_out: BufWriter<File>, mem: usize) -> Encoder {
+    pub fn new(file_out: BufWriter<File>, mem: usize, solid: bool) -> Encoder {
         let mut enc = Encoder {
             high: 0xFFFFFFFF,
             low: 0,
@@ -27,7 +27,7 @@ impl Encoder {
             mem,
         };
         // Metadata placeholder
-        for _ in 0..7 {
+        for _ in if solid { 0..4 } else { 0..6 } {
             enc.file_out.write_usize(0);
         }
         enc
@@ -65,13 +65,18 @@ impl Encoder {
     pub fn write_header(&mut self, mta: &Metadata, solid: bool) {
         self.file_out.rewind().unwrap();
         self.file_out.write_usize(self.mem);
-        if solid { self.file_out.write_usize(mta.mgc + (0x53 << 56)); }
-        else     { self.file_out.write_usize(mta.mgc); }
-        self.file_out.write_usize(mta.ext);
-        self.file_out.write_usize(mta.f_bl_sz);
-        self.file_out.write_usize(mta.bl_sz);
-        self.file_out.write_usize(mta.bl_c);
-        self.file_out.write_usize(mta.f_ptr);
+        if solid {
+            self.file_out.write_usize(mta.mgc + (0x53 << 56));
+            self.file_out.write_usize(mta.bl_sz);
+            self.file_out.write_usize(mta.f_ptr);
+        }
+        else {
+            self.file_out.write_usize(mta.mgc);
+            self.file_out.write_usize(mta.ext);
+            self.file_out.write_usize(mta.f_bl_sz);
+            self.file_out.write_usize(mta.bl_sz);
+            self.file_out.write_usize(mta.bl_c);
+        }
     }
     pub fn flush(&mut self) {
         while ( (self.high ^ self.low) & 0xFF000000) == 0 {

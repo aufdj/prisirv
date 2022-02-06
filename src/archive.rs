@@ -69,7 +69,7 @@ impl Archiver {
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
-        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem);
+        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem, false);
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
@@ -127,7 +127,7 @@ impl Extractor {
     }
     pub fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
-        let mta: Metadata = dec.read_header();
+        let mta: Metadata = dec.read_header(false);
 
         // Verify magic number
         match mta.mgc {
@@ -341,7 +341,7 @@ impl SolidExtractor {
     }
     // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
-        self.mta = self.dec.read_header();
+        self.mta = self.dec.read_header(true);
 
         // Verify magic number
         match self.mta.mgc {
@@ -384,7 +384,7 @@ impl SolidExtractor {
         }
 
         // Seek back to beginning of compressed data
-        self.dec.file_in.seek(SeekFrom::Start(56)).unwrap();
+        self.dec.file_in.seek(SeekFrom::Start(32)).unwrap();
 
         self.dec.init_x();
     }

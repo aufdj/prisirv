@@ -64,14 +64,20 @@ impl Decoder {
         }
         block
     }
-    pub fn read_header(&mut self) -> Metadata {
+    pub fn read_header(&mut self, solid: bool) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        mta.mgc =     self.file_in.read_usize();
-        mta.ext =     self.file_in.read_usize();
-        mta.f_bl_sz = self.file_in.read_usize();
-        mta.bl_sz =   self.file_in.read_usize();
-        mta.bl_c =    self.file_in.read_usize();
-        mta.f_ptr =   self.file_in.read_usize();
+        if solid {
+            mta.mgc =   self.file_in.read_usize();
+            mta.bl_sz = self.file_in.read_usize();
+            mta.f_ptr = self.file_in.read_usize();
+        }
+        else {
+            mta.mgc =     self.file_in.read_usize();
+            mta.ext =     self.file_in.read_usize();
+            mta.f_bl_sz = self.file_in.read_usize();
+            mta.bl_sz =   self.file_in.read_usize();
+            mta.bl_c =    self.file_in.read_usize();
+        }
         mta
     }
     // Inititialize decoder with first 4 bytes of compressed data

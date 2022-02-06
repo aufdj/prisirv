@@ -7,45 +7,44 @@ use std::{
 
 // Metadata Structure 
 //
-// A prisirv non-solid archive contains a 56 byte header followed by compressed data.
-// A prisirv solid archive contains a 56 byte header followed by compressed data,
-// followed by a footer containing information about each compressed file.
+// A prisirv non-solid archive contains a 48 byte header followed by compressed data.
+// A prisirv solid archive contains a 32 byte header followed by compressed data,
+// followed by a footer containing informsation about each compressed file.
 //
-// Key -------------------------------- 
-//     nB - n byte value,      
-//     N  - Used in non-solid archives,
-//     S  - Used in solid archives,
-// ------------------------------------
+// Non-solid: (nB = n byte value)
 //
-// 
-// 8BNS[Memory Option   ] 8BNS[Magic Number] 8BN [File Extension]
-// 8BN [Final Block Size] 8BNS[Block Size  ] 8BN [Block Count   ]
-// 8B S[Files Pointer   ]
-// [Compressed Data --------------------------------------------]
-// [------------------------------------------------------------]
-// [------------------------------------------------------------]
-// nB S[Files]*
+//      8B[Memory Option   ] 8B[Magic Number] 8B[File Extension]
+//      8B[Final Block Size] 8B[Block Size  ] 8B[Block Count   ]
+//      [Compressed Data --------------------------------------]
+//      [------------------------------------------------------]
+//      [------------------------------------------------------]
 //
-// Memory Option = 1 << 20..1 << 29,
+// Solid: (nB = n byte value)
+//
+//      8B[Memory Option] 8B[Magic Number] 8B[Block Size] 8B[Files Pointer]
+//      [Compressed Data -------------------------------------------------]
+//      [-----------------------------------------------------------------]
+//      [-----------------------------------------------------------------]
+//      nB S[Files]*
+//      
+//      *Files Structure ---------------------------------------------
+//          
+//      8B[Number of files] 
+//      nB[1B[File Path Length] nB[File Path       ]
+//         8B[Block Count     ] 8B[Final Block Size]]
+//       
+//      Files consists of an 8 byte value denoting the number of 
+//      compressed files, followed by a list of file paths, block 
+//      counts, and final block sizes.
+//      
+//      The 8 byte 'number of files' value and the 1 byte 'file path
+//      length' values are included for ease of parsing.
+//
+//
+// Memory Option = 0..9,
 // Magic Number  = 'prisirv ' for non-solid archives,
 //                 'prisirvS' for solid archives,
 // Block Size    = 1 << 20,
-//
-//
-// *Files is a list of every compressed file's full pathway, 
-// block count, and final block size.
-//
-// Files Structure ---------------------------------------------
-//     
-// 8B [Number of files] 
-// nB*[1B[File Path Length] nB[File Path       ]
-//     8B[Block Count     ] 8B[Final Block Size]]
-//  
-// *Repeat n times, where n is the number of files compressed.
-// 
-// The 8 byte 'number of files' value and the 1 byte 'file path
-// length' values are included for ease of parsing.
-
 
 #[derive(Debug)]
 pub struct Metadata {

@@ -374,7 +374,7 @@ fn main() {
                     Sort::Modified => mta.files.sort_by(|f1, f2| sort_modified(&f1.0, &f2.0)),
                 }
 
-                let enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)), mem);
+                let enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)), mem, true);
                 let mut sld_arch = SolidArchiver::new(enc, mta, quiet);
 
                 sld_arch.create_archive();
