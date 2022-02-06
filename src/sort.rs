@@ -11,6 +11,7 @@ pub enum Sort { // Sort By:
     None,       // No sorting
     Ext,        // Extension
     Name,       // Name
+    Len,        // Length
     PrtDir,     // Parent Directory
     Created,    // Creation Time
     Accessed,   // Last Access Time
@@ -37,6 +38,23 @@ pub fn sort_name(f1: &str, f2: &str) -> Ordering {
         None => OsStr::new(""),
     };
     (name1.to_ascii_lowercase()).cmp(&name2.to_ascii_lowercase())
+}
+pub fn sort_len(f1: &str, f2: &str) -> Ordering {
+    let len1 = match Path::new(f1).metadata() {
+        Ok(data) => data.len(),
+        Err(_) => {
+            println!("Couldn't get metadata.");
+            std::process::exit(0);
+        }     
+    };
+    let len2 = match Path::new(f2).metadata() {
+        Ok(data) => data.len(),
+        Err(_) => {
+            println!("Couldn't get metadata.");
+            std::process::exit(0);
+        }     
+    };
+    (len1).cmp(&len2)
 }
 pub fn sort_prtdir(f1: &str, f2: &str) -> Ordering {
     let parent1 = match Path::new(f1).parent() {

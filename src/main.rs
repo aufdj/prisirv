@@ -34,6 +34,7 @@ use crate::{
     sort::{
         Sort, sort_ext, sort_name, sort_prtdir,
         sort_created, sort_accessed, sort_modified,
+        sort_len,
     }
 };
 
@@ -135,18 +136,18 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_pri", file_path_no_ext(arg)),
-            Format::Extract =>      format!("{}_d",   file_path_no_ext(arg)),
-            Format::ArchiveSolid => format!("{}.pri", file_path_no_ext(arg)),
-            Format::ExtractSolid => format!("{}_d",   file_path_no_ext(arg)),
+            Format::Archive =>      format!("{}_prsv", file_path_no_ext(arg)),
+            Format::Extract =>      format!("{}_d",    file_path_no_ext(arg)),
+            Format::ArchiveSolid => format!("{}.prsv", file_path_no_ext(arg)),
+            Format::ExtractSolid => format!("{}_d",    file_path_no_ext(arg)),
         }    
     }
     else if user_out.contains('\\') {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_pri", user_out),
-            Format::Extract =>      format!("{}_d",   user_out),
-            Format::ArchiveSolid => format!("{}.pri", user_out),
-            Format::ExtractSolid => format!("{}_d",   user_out),
+            Format::Archive =>      format!("{}_prsv", user_out),
+            Format::Extract =>      format!("{}_d",    user_out),
+            Format::ArchiveSolid => format!("{}.prsv", user_out),
+            Format::ExtractSolid => format!("{}_d",    user_out),
         }    
     }
     else {
@@ -160,10 +161,10 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
             dir_out.push_str(format!("\\{}", cmpnt).as_str());
         }
         dir_out = match fmt {
-            Format::Archive =>      format!("{}\\{}_pri", dir_out, user_out),
-            Format::Extract =>      format!("{}\\{}_d",   dir_out, user_out),
-            Format::ArchiveSolid => format!("{}\\{}.pri", dir_out, user_out),
-            Format::ExtractSolid => format!("{}\\{}_d",   dir_out, user_out),
+            Format::Archive =>      format!("{}\\{}_prsv", dir_out, user_out),
+            Format::Extract =>      format!("{}\\{}_d",    dir_out, user_out),
+            Format::ArchiveSolid => format!("{}\\{}.prsv", dir_out, user_out),
+            Format::ExtractSolid => format!("{}\\{}_d",    dir_out, user_out),
         }    
     }   
     dir_out
@@ -246,6 +247,7 @@ fn main() {
                 sort = match arg.as_str() {
                     "ext"    => Sort::Ext,
                     "name"   => Sort::Name,
+                    "len"    => Sort::Len,
                     "prtdir" => Sort::PrtDir,
                     "crtd"   => Sort::Created,
                     "accd"   => Sort::Accessed,
@@ -328,6 +330,7 @@ fn main() {
                 Sort::None     => "none",
                 Sort::Ext      => "extension",
                 Sort::Name     => "name",
+                Sort::Len      => "length",
                 Sort::PrtDir   => "parent directory",
                 Sort::Created  => "creation time",
                 Sort::Accessed => "last accessed time",
@@ -364,6 +367,7 @@ fn main() {
                     Sort::None     => {},
                     Sort::Ext      => mta.files.sort_by(|f1, f2| sort_ext(&f1.0, &f2.0)),
                     Sort::Name     => mta.files.sort_by(|f1, f2| sort_name(&f1.0, &f2.0)),
+                    Sort::Len      => mta.files.sort_by(|f1, f2| sort_len(&f1.0, &f2.0)),
                     Sort::PrtDir   => mta.files.sort_by(|f1, f2| sort_prtdir(&f1.0, &f2.0)),
                     Sort::Created  => mta.files.sort_by(|f1, f2| sort_created(&f1.0, &f2.0)),
                     Sort::Accessed => mta.files.sort_by(|f1, f2| sort_accessed(&f1.0, &f2.0)),
