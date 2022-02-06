@@ -11,11 +11,11 @@ mod encoder;
 mod decoder;
 mod archive;
 mod tables;
+mod sort;
 
 
 use std::{
     path::{Path, PathBuf},
-    cmp::Ordering,
     time::Instant,
     env,  
 };
@@ -23,13 +23,17 @@ use crate::{
     encoder::Encoder,
     decoder::Decoder,
     metadata::Metadata,
-    buffered_io::{
-        new_input_file, new_output_file, new_dir
-    },
     archive::{
         Archiver, Extractor,
         SolidArchiver, SolidExtractor
     },
+    buffered_io::{
+        new_input_file, new_output_file, new_dir
+    },
+    sort::{
+        Sort, sort_ext, sort_name, sort_prtdir,
+        sort_created, sort_accessed, sort_modified,
+    }
 };
 
 
@@ -111,37 +115,6 @@ pub fn file_path_ext(path: &Path) -> String {
 
 pub fn file_len(path: &Path) -> u64 {
     path.metadata().unwrap().len()
-}
-
-
-#[derive(Debug)]
-enum Sort {   // Sort By:
-    None,     // No sorting
-    Ext,      // Extension
-    PrtDir,   // Parent Directory
-    Created,  // Creation Time
-    Accessed, // Last Access Time
-    Modified, // Last Modification Time
-}
-fn sort_ext(f1: &str, f2: &str) -> Ordering { // TODO: Handle files with no extension
-         (Path::new(f1).extension().unwrap().to_ascii_lowercase())
-    .cmp(&Path::new(f2).extension().unwrap().to_ascii_lowercase())
-}
-fn sort_prtdir(f1: &str, f2: &str) -> Ordering {
-        (Path::new(f1).parent().unwrap())
-    .cmp(Path::new(f2).parent().unwrap())
-}
-fn sort_created(f1: &str, f2: &str) -> Ordering {
-         (Path::new(f1).metadata().unwrap().created().unwrap())
-    .cmp(&Path::new(f2).metadata().unwrap().created().unwrap())
-}
-fn sort_accessed(f1: &str, f2: &str) -> Ordering {
-         (Path::new(f1).metadata().unwrap().accessed().unwrap())
-    .cmp(&Path::new(f2).metadata().unwrap().accessed().unwrap())
-}
-fn sort_modified(f1: &str, f2: &str) -> Ordering {
-         (Path::new(f1).metadata().unwrap().modified().unwrap())
-    .cmp(&Path::new(f2).metadata().unwrap().modified().unwrap())
 }
 
 
@@ -261,7 +234,7 @@ fn main() {
     let mut mem = 1 << 23;
     let mut clbr = false;
     
-    // Parse arguments with state machine
+    // Parse arguments
     for arg in args {
         match arg.as_str() {
             "-sort" => {
@@ -290,6 +263,7 @@ fn main() {
             Parse::Sort => {
                 sort = match arg.as_str() {
                     "ext"    => Sort::Ext,
+                    "name"   => Sort::Name,
                     "prtdir" => Sort::PrtDir,
                     "crtd"   => Sort::Created,
                     "accd"   => Sort::Accessed,
@@ -356,6 +330,7 @@ fn main() {
             match sort {
                 Sort::None     => "none",
                 Sort::Ext      => "extension",
+                Sort::Name     => "name",
                 Sort::PrtDir   => "parent directory",
                 Sort::Created  => "creation time",
                 Sort::Accessed => "last accessed time",
@@ -391,6 +366,7 @@ fn main() {
                 match sort {
                     Sort::None     => {},
                     Sort::Ext      => mta.files.sort_by(|f1, f2| sort_ext(&f1.0, &f2.0)),
+                    Sort::Name     => mta.files.sort_by(|f1, f2| sort_name(&f1.0, &f2.0)),
                     Sort::PrtDir   => mta.files.sort_by(|f1, f2| sort_prtdir(&f1.0, &f2.0)),
                     Sort::Created  => mta.files.sort_by(|f1, f2| sort_created(&f1.0, &f2.0)),
                     Sort::Accessed => mta.files.sort_by(|f1, f2| sort_accessed(&f1.0, &f2.0)),

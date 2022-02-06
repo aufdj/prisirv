@@ -3,7 +3,6 @@ use std::{
     io::{Seek, SeekFrom},
     time::Instant,
     cmp::min,
-    ffi::OsString,
 };
 
 use crate::{
