@@ -63,7 +63,7 @@ impl Encoder {
     }
     // Write 56 byte header
     pub fn write_header(&mut self, mta: &Metadata, solid: bool) {
-        self.file_out.get_ref().rewind().unwrap();
+        self.file_out.rewind().unwrap();
         self.file_out.write_usize(self.mem);
         if solid { self.file_out.write_usize(mta.mgc + (0x53 << 56)); }
         else     { self.file_out.write_usize(mta.mgc); }

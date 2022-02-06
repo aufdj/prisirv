@@ -131,7 +131,14 @@ impl BufferedWrite for BufWriter<File> {
 }
 pub fn new_input_file(capacity: usize, file_name: &Path) -> BufReader<File> {
     BufReader::with_capacity(
-        capacity, File::open(file_name).unwrap()
+        capacity, 
+        match File::open(file_name) {
+            Ok(file) => file,
+            Err(_) => {
+                println!("Couldn't find file {}", file_name.display());
+                std::process::exit(0);
+            }
+        }
     )
 }
 pub fn new_output_file(capacity: usize, file_name: &Path) -> BufWriter<File> {
@@ -157,5 +164,22 @@ pub fn new_dir(path: &str) {
             }
         }
     }
+}
+pub fn new_dir_checked(dir_out: &str, clbr: bool) {
+    let path = Path::new(dir_out);
+    // Create output directory if it doesn't exist.
+    if !Path::new(dir_out).exists() {
+        new_dir(dir_out);
+    }
+    // If directory exists but is empty, ignore clobber option.
+    else if path.read_dir().unwrap().count() == 0 {}
+    // If directory exists and is not empty, abort if user disallowed clobbering (default)
+    else if !clbr {
+        println!("Directory {} already exists.", dir_out);
+        println!("To overwrite existing directories, use option '-clbr'.");
+        std::process::exit(0);
+    }
+    // If directory exists and is not empty and user allowed clobbering, continue as normal.
+    else {}
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------

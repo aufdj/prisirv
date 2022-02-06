@@ -7,13 +7,14 @@ use std::{
 
 use crate::{
     file_name_no_ext, file_path_no_ext,
-    file_name_ext, file_len, new_dir_checked,
+    file_name_ext, file_len, 
     metadata::Metadata,
     encoder::Encoder,
     decoder::Decoder,
     buffered_io::{
         BufferedRead, BufferedWrite, BufferState,
-        new_input_file, new_output_file, new_dir
+        new_input_file, new_output_file, 
+        new_dir, new_dir_checked,
     }
 };
 
@@ -287,7 +288,6 @@ impl SolidArchiver {
         }
 
         // Go back to beginning of file and write header
-        self.enc.file_out.rewind().unwrap();
         self.enc.write_header(&self.mta, true);
     }
 }

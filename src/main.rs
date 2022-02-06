@@ -28,7 +28,8 @@ use crate::{
         SolidArchiver, SolidExtractor
     },
     buffered_io::{
-        new_input_file, new_output_file, new_dir
+        new_input_file, new_output_file, 
+        new_dir_checked,
     },
     sort::{
         Sort, sort_ext, sort_name, sort_prtdir,
@@ -185,25 +186,6 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     }
 }
 
-
-fn new_dir_checked(dir_out: &str, clbr: bool) {
-    let path = Path::new(dir_out);
-    // Create output directory if it doesn't exist.
-    if !Path::new(dir_out).exists() {
-        new_dir(dir_out);
-    }
-    // If directory exists but is empty, ignore clobber option.
-    else if path.read_dir().unwrap().count() == 0 {}
-    // If directory exists and is not empty, abort if user disallowed clobbering (default)
-    else if !clbr {
-        println!("Directory {} already exists.", dir_out);
-        println!("To overwrite existing directories, use option '-clbr'.");
-        std::process::exit(0);
-    }
-    // If directory exists and is not empty and user allowed clobbering, continue as normal.
-    else {}
-}
-
 enum Parse {
     Mode,
     DirOut,
@@ -290,9 +272,24 @@ fn main() {
                 };
             }  
             Parse::Mem => {
-                mem = match arg.parse::<usize>().unwrap() {
-                    opt @ 0..=9 => 1 << (20 + opt),
-                    _ => 1 << 23,
+                // Parse memory option. If input is not a number
+                // or not 0..9, ignore and use default option.
+                mem = match arg.parse::<usize>() {
+                    Ok(opt) => match opt {
+                        0..=9 => 1 << (20 + opt),
+                        _ => {
+                            println!();
+                            println!("Invalid memory option.");
+                            println!("Using default of 27 MB.");
+                            1 << 23
+                        }
+                    }
+                    Err(_) => {
+                        println!();
+                        println!("Invalid memory option.");
+                        println!("Using default of 27 MB.");
+                        1 << 23
+                    },
                 };
             } 
         }
