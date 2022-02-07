@@ -229,9 +229,9 @@ impl Extractor {
 
 // Solid Archiving ------------------------------------------------------------------------------------------------------------------------
 pub struct SolidArchiver {
-    enc:    Encoder,
-    mta:    Metadata,
-    quiet:  bool
+    pub enc:  Encoder,
+    mta:      Metadata,
+    quiet:    bool,
 }
 impl SolidArchiver {
     pub fn new(enc: Encoder, mta: Metadata, quiet: bool) -> SolidArchiver {
