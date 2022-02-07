@@ -136,7 +136,7 @@ impl Extractor {
         // Verify magic number
         match mta.mgc {
             0x76_7269_7369_7270 => {},
-            0x53767_2697_3697_270 => {
+            0x5376_7269_7369_7270 => {
                 println!();
                 println!("Expected non-solid archive, found solid archive.");
                 std::process::exit(0);
@@ -354,7 +354,7 @@ impl SolidExtractor {
                 println!("Expected solid archive, found non-solid archive.");
                 std::process::exit(0);
             },
-            0x53767_2697_3697_270 => {},
+            0x5376_7269_7369_7270 => {},
             _ => {
                 println!("Not a prisirv archive.");
                 std::process::exit(0);
