@@ -17,6 +17,7 @@ mod sort;
 use std::{
     path::{Path, PathBuf},
     time::Instant,
+    io::{Seek, SeekFrom},
     env,  
 };
 use crate::{
@@ -374,11 +375,27 @@ fn main() {
                     Sort::Modified => mta.files.sort_by(|f1, f2| sort_modified(&f1.0, &f2.0)),
                 }
 
-                let enc = Encoder::new(new_output_file(4096, Path::new(&dir_out)), mem, true);
+                let path = Path::new(&dir_out);
+                // If file doesn't exist or is empty, ignore clobber option.
+                if !path.exists() || file_len(path) == 0 {}
+                // If file exists or is not empty, abort if user disallowed clobbering (default)
+                else if !clbr {
+                    println!("Archive {} already exists.", dir_out);
+                    println!("To overwrite existing archives, use option '-clbr'.");
+                    std::process::exit(0);
+                }
+                // If file exists and is not empty and user allowed clobbering, continue as normal.
+                else {}
+
+                let enc = Encoder::new(new_output_file(4096, path), mem, true);
                 let mut sld_arch = SolidArchiver::new(enc, mta, quiet);
 
                 sld_arch.create_archive();
-                sld_arch.write_metadata();    
+                sld_arch.write_metadata();
+
+                // Return final archive size including footer
+                println!("Final archive size: {}", 
+                    sld_arch.enc.file_out.seek(SeekFrom::End(0)).unwrap());
             }
             "d" => {
                 if !inputs[0].is_file() {

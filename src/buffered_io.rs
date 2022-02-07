@@ -168,7 +168,7 @@ pub fn new_dir(path: &str) {
 pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     let path = Path::new(dir_out);
     // Create output directory if it doesn't exist.
-    if !Path::new(dir_out).exists() {
+    if !path.exists() {
         new_dir(dir_out);
     }
     // If directory exists but is empty, ignore clobber option.
