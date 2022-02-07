@@ -9,7 +9,7 @@ use std::{
 //
 // A prisirv non-solid archive contains a 48 byte header followed by compressed data.
 // A prisirv solid archive contains a 32 byte header followed by compressed data,
-// followed by a footer containing informsation about each compressed file.
+// followed by a footer containing information about each compressed file.
 //
 // Non-solid: (nB = n byte value)
 //

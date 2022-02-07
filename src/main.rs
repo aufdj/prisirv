@@ -398,7 +398,7 @@ fn main() {
     else {
         match mode {
             "c" => {
-                let mut arch = Archiver::new(quiet, mem);
+                let mut arch = Archiver::new(quiet, mem, clbr);
                 new_dir_checked(&dir_out, clbr);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
@@ -417,7 +417,7 @@ fn main() {
                 }
             }
             "d" => {
-                let extr = Extractor::new(quiet);
+                let extr = Extractor::new(quiet, clbr);
                 new_dir_checked(&dir_out, clbr);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 

@@ -14,7 +14,7 @@ use crate::{
     buffered_io::{
         BufferedRead, BufferedWrite, BufferState,
         new_input_file, new_output_file, 
-        new_dir, new_dir_checked,
+        new_dir_checked,
     }
 };
 
@@ -23,13 +23,15 @@ use crate::{
 pub struct Archiver {
     dup:    u32, // For handling duplicate file names
     quiet:  bool,
+    clbr:   bool,
     mem:    usize,
 }
 impl Archiver {
-    pub fn new(quiet: bool, mem: usize) -> Archiver {
+    pub fn new(quiet: bool, mem: usize, clbr: bool) -> Archiver {
         Archiver {
             dup: 1,
             quiet,
+            clbr,
             mem,
         }
     }
@@ -38,28 +40,29 @@ impl Archiver {
 
         // Create output file path from current output directory
         // and input file name without extension
-        // i.e. foo/bar.txt -> foo/bar.pri
+        // i.e. foo/bar.txt -> foo/bar.prsv
         let mut file_out_path = 
             PathBuf::from(
-                &format!("{}\\{}.pri",  
+                &format!("{}\\{}.prsv",  
                 dir_out, file_name_no_ext(file_in_path))
             ); 
 
         // Modify file path if it already exists due to extension change
-        // i.e foo/bar.txt -> foo/bar.pri
-        //     foo/bar.bin -> foo/bar.pri -> foo/bar(1).pri
-        while file_out_path.exists() {
+        // i.e foo/bar.txt -> foo/bar.prsv
+        //     foo/bar.bin -> foo/bar.prsv -> foo/bar(1).prsv
+        while file_out_path.exists() && !self.clbr {
             file_out_path = 
             if self.dup == 1 {
                 PathBuf::from(
-                    &format!("{}({}).pri", 
+                    &format!("{}({}).prsv", 
                     file_path_no_ext(&file_out_path), self.dup)
                 )
             }
             else {
                 let file_path = file_path_no_ext(&file_out_path);
                 PathBuf::from(
-                    &format!("{}({}).pri", 
+                    &format!("{}({}).prsv", 
+                    // Replace number rather than append
                     &file_path[..file_path.len()-3], self.dup)
                 )
             };
@@ -93,7 +96,7 @@ impl Archiver {
         let mut dir_out = 
             format!("{}\\{}", 
             dir_out, file_name_ext(dir_in));
-        new_dir(&dir_out);
+        new_dir_checked(&dir_out, self.clbr);
 
         // Sort files and directories
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
@@ -118,11 +121,12 @@ impl Archiver {
 
 pub struct Extractor {
     quiet: bool,
+    clbr: bool,
 }
 impl Extractor {
-    pub fn new(quiet: bool) -> Extractor {
+    pub fn new(quiet: bool, clbr: bool) -> Extractor {
         Extractor {
-            quiet,
+            quiet, clbr,
         }
     }
     pub fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
@@ -146,7 +150,7 @@ impl Extractor {
         // Create output file path from current output directory,
         // input file name without extension, and file's original
         // extension (stored in header)
-        // i.e. foo/bar.pri -> foo/bar.txt
+        // i.e. foo/bar.prsv -> foo/bar.txt
         let file_out_path = 
             // Handle no extension
             if mta.get_ext().is_empty() {
@@ -196,7 +200,7 @@ impl Extractor {
                 dir_out, file_name_ext(dir_in)) 
             };
         if !Path::new(&dir_out).is_dir() {
-            new_dir(&dir_out);
+            new_dir_checked(&dir_out, self.clbr);
         }
 
         // Sort files and directories
