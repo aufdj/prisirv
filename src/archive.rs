@@ -6,8 +6,7 @@ use std::{
 };
 
 use crate::{
-    file_name_no_ext, file_path_no_ext,
-    file_name_ext, file_len, 
+    file_len, 
     metadata::Metadata,
     encoder::Encoder,
     decoder::Decoder,
@@ -15,13 +14,19 @@ use crate::{
         BufferedRead, BufferedWrite, BufferState,
         new_input_file, new_output_file, 
         new_dir_checked,
-    }
+    },
+    formatting::{
+        format_file_out_path_ns_archive,
+        format_file_out_path_ns_extract,
+        format_nested_dir_path_ns_archive,
+        format_nested_dir_path_ns_extract,
+        format_file_out_path_s_extract,
+    },
 };
 
 
 // Non-solid archiving --------------------------------------------------------------------------------------------------------------------
 pub struct Archiver {
-    dup:    u32, // For handling duplicate file names
     quiet:  bool,
     clbr:   bool,
     mem:    usize,
@@ -29,7 +34,6 @@ pub struct Archiver {
 impl Archiver {
     pub fn new(quiet: bool, mem: usize, clbr: bool) -> Archiver {
         Archiver {
-            dup: 1,
             quiet,
             clbr,
             mem,
@@ -41,34 +45,7 @@ impl Archiver {
         // Create output file path from current output directory
         // and input file name without extension
         // i.e. foo/bar.txt -> foo/bar.prsv
-        let mut file_out_path = 
-            PathBuf::from(
-                &format!("{}\\{}.prsv",  
-                dir_out, file_name_no_ext(file_in_path))
-            ); 
-
-        // Modify file path if it already exists due to extension change
-        // i.e foo/bar.txt -> foo/bar.prsv
-        //     foo/bar.bin -> foo/bar.prsv -> foo/bar(1).prsv
-        while file_out_path.exists() && !self.clbr {
-            file_out_path = 
-            if self.dup == 1 {
-                PathBuf::from(
-                    &format!("{}({}).prsv", 
-                    file_path_no_ext(&file_out_path), self.dup)
-                )
-            }
-            else {
-                let file_path = file_path_no_ext(&file_out_path);
-                PathBuf::from(
-                    &format!("{}({}).prsv", 
-                    // Replace number rather than append
-                    &file_path[..file_path.len()-3], self.dup)
-                )
-            };
-            self.dup += 1;
-        }
-        self.dup = 1;
+        let file_out_path = format_file_out_path_ns_archive(dir_out, file_in_path, self.clbr);
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
@@ -93,9 +70,7 @@ impl Archiver {
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
         // Create new nested directory from current output 
         // directory and input directory name 
-        let mut dir_out = 
-            format!("{}\\{}", 
-            dir_out, file_name_ext(dir_in));
+        let mut dir_out = format_nested_dir_path_ns_archive(dir_out, dir_in);
         new_dir_checked(&dir_out, self.clbr);
 
         // Sort files and directories
@@ -151,23 +126,7 @@ impl Extractor {
         // input file name without extension, and file's original
         // extension (stored in header)
         // i.e. foo/bar.prsv -> foo/bar.txt
-        let file_out_path = 
-            // Handle no extension
-            if mta.get_ext().is_empty() {
-                PathBuf::from(
-                    &format!("{}\\{}",
-                    dir_out,
-                    file_name_no_ext(file_in_path))
-                )
-            }
-            else {
-                PathBuf::from(
-                    &format!("{}\\{}.{}",
-                    dir_out,
-                    file_name_no_ext(file_in_path),
-                    mta.get_ext())
-                )
-            };
+        let file_out_path = format_file_out_path_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
         
         // Call after reading header
@@ -193,12 +152,7 @@ impl Extractor {
         // Create new nested directory from current output 
         // directory and input directory name; if current output
         // directory is root, replace rather than nest
-        let mut dir_out = 
-            if root { dir_out.to_string() }
-            else { 
-                format!("{}\\{}", 
-                dir_out, file_name_ext(dir_in)) 
-            };
+        let mut dir_out = format_nested_dir_path_ns_extract(dir_out, dir_in, root);
         if !Path::new(&dir_out).is_dir() {
             new_dir_checked(&dir_out, self.clbr);
         }
@@ -320,14 +274,8 @@ impl SolidExtractor {
         // currently being decompressed. The code below currently does
         // not reconstruct the original directory structure, all files
         // are just placed in the same directory.
-        let file_out_name =
-            format!("{}\\{}",
-                dir_out,
-                file_name_ext(
-                    Path::new(&self.mta.files[curr_file].0)
-                ),
-            );
-        let mut file_out = new_output_file(4096, Path::new(&file_out_name));
+        let file_out_path = format_file_out_path_s_extract(dir_out, Path::new(&self.mta.files[curr_file].0));
+        let mut file_out = new_output_file(4096, &file_out_path);
 
         // Decompress full blocks
         for _ in 0..((self.mta.files[curr_file].1) - 1) {

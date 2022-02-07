@@ -12,6 +12,7 @@ mod decoder;
 mod archive;
 mod tables;
 mod sort;
+mod formatting;
 
 
 use std::{
@@ -36,7 +37,8 @@ use crate::{
         Sort, sort_ext, sort_name, sort_prtdir,
         sort_created, sort_accessed, sort_modified,
         sort_len,
-    }
+    },
+    formatting::format_root_output_dir,
 };
 
 
@@ -97,78 +99,11 @@ fn print_program_info() {
 }
 
 
-// Get file name or path without extension
-pub fn file_name_no_ext(path: &Path) -> &str {
-    path.file_name().unwrap()
-    .to_str().unwrap()
-    .split('.').next().unwrap()
-}
-pub fn file_path_no_ext(path: &Path) -> &str {
-    path.to_str().unwrap()
-    .split('.').next().unwrap()
-}
-// Get file name or path with extension 
-pub fn file_name_ext(path: &Path) -> &str {
-    path.file_name().unwrap()
-    .to_str().unwrap()
-}
 pub fn file_path_ext(path: &Path) -> String {
     path.to_str().unwrap().to_string()
 }
-
 pub fn file_len(path: &Path) -> u64 {
     path.metadata().unwrap().len()
-}
-
-
-#[derive(PartialEq, Eq)]
-enum Format {
-    Archive,
-    Extract,
-    ArchiveSolid,
-    ExtractSolid,
-}
-
-// An -out option containing \'s will be treated as an absolute path.
-// An -out option with no \'s creates a new archive inside the same directory as the first input.
-// i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
-// while option '-out arch' creates archive \foo\arch.
-fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
-    let mut dir_out = String::new();
-    if user_out.is_empty() {
-        dir_out = match fmt {
-            Format::Archive =>      format!("{}_prsv", file_path_no_ext(arg)),
-            Format::Extract =>      format!("{}_d",    file_path_no_ext(arg)),
-            Format::ArchiveSolid => format!("{}.prsv", file_path_no_ext(arg)),
-            Format::ExtractSolid => format!("{}_d",    file_path_no_ext(arg)),
-        }    
-    }
-    else if user_out.contains('\\') {
-        dir_out = match fmt {
-            Format::Archive =>      format!("{}_prsv", user_out),
-            Format::Extract =>      format!("{}_d",    user_out),
-            Format::ArchiveSolid => format!("{}.prsv", user_out),
-            Format::ExtractSolid => format!("{}_d",    user_out),
-        }    
-    }
-    else {
-        // Replace final path component with user option
-        let s: Vec<String> = 
-            file_path_ext(arg)
-            .split('\\').skip(1)
-            .map(|s| s.to_string())
-            .collect();
-        for cmpnt in s.iter().take(s.len()-1) {
-            dir_out.push_str(format!("\\{}", cmpnt).as_str());
-        }
-        dir_out = match fmt {
-            Format::Archive =>      format!("{}\\{}_prsv", dir_out, user_out),
-            Format::Extract =>      format!("{}\\{}_d",    dir_out, user_out),
-            Format::ArchiveSolid => format!("{}\\{}.prsv", dir_out, user_out),
-            Format::ExtractSolid => format!("{}\\{}_d",    dir_out, user_out),
-        }    
-    }   
-    dir_out
 }
 
 // Recursively collect all files into a vector for sorting before compression.
@@ -305,19 +240,8 @@ fn main() {
         .filter(|i| i.is_file() || i.is_dir())
         .collect();
     
-    // Format output directory
-    dir_out = match mode {
-        "c" => {
-            if solid { format_dir_out(Format::ArchiveSolid, &user_out, &inputs[0]) }
-            else     { format_dir_out(Format::Archive,      &user_out, &inputs[0]) }
-        }
-        "d" => {
-            if solid { format_dir_out(Format::ExtractSolid, &user_out, &inputs[0]) }
-            else     { format_dir_out(Format::Extract,      &user_out, &inputs[0]) }
-        }
-        _ => String::new(),
-    };
-    
+    dir_out = format_root_output_dir(mode, solid, &user_out, &inputs[0]);
+
     if !quiet {
         println!();
         println!("//////////////////////////////////////////////////////////////");
