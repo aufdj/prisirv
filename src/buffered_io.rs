@@ -182,4 +182,21 @@ pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     // If directory exists and is not empty and user allowed clobbering, continue as normal.
     else {}
 }
+pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
+    let path = Path::new(&dir_out);
+    // If file doesn't exist or is empty, ignore clobber option.
+    if !path.exists() || file_len(path) == 0 {}
+    // If file exists or is not empty, abort if user disallowed clobbering (default)
+    else if !clbr {
+        println!("Archive {} already exists.", dir_out);
+        println!("To overwrite existing archives, use option '-clbr'.");
+        std::process::exit(0);
+    }
+    // If file exists and is not empty and user allowed clobbering, continue as normal.
+    else {}
+    new_output_file(4096, path)
+}
 // ----------------------------------------------------------------------------------------------------------------------------------------
+pub fn file_len(path: &Path) -> u64 {
+    path.metadata().unwrap().len()
+}

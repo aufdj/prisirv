@@ -68,14 +68,14 @@ impl Metadata {
             bl_sz:    1 << 20,
             bl_c:     0,
             f_ptr:    0,
-            files:    Vec::new(),  
+            files:    Vec::new(),
         }
     }
     // Set metadata extension field
     pub fn set_ext(&mut self, path: &Path) {
         // Handle no extension
         let ext = match path.extension() {
-            Some(ext) => { ext }, 
+            Some(ext) => { ext },
             None => OsStr::new(""),
         };
         // Get extension as byte slice, truncated to 8 bytes

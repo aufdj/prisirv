@@ -1,18 +1,8 @@
-mod buffered_io;
-mod logistic;
-mod statemap;
-mod apm;
-mod mixer;
-mod match_model;
-mod hash_table;
-mod metadata;
-mod predictor;
-mod encoder;
-mod decoder;
-mod archive;
-mod tables;
-mod sort;
-mod formatting;
+mod buffered_io; mod logistic; mod statemap;
+mod apm;         mod mixer;    mod match_model;
+mod hash_table;  mod metadata; mod predictor;
+mod encoder;     mod decoder;  mod archive;
+mod tables;      mod sort;     mod formatting;
 
 
 use std::{
@@ -30,14 +20,10 @@ use crate::{
         SolidArchiver, SolidExtractor
     },
     buffered_io::{
-        new_input_file, new_output_file, 
-        new_dir_checked,
+        new_input_file, new_dir_checked, 
+        new_output_file_checked,
     },
-    sort::{
-        Sort, sort_ext, sort_name, sort_prtdir,
-        sort_created, sort_accessed, sort_modified,
-        sort_len,
-    },
+    sort::{Sort, sort_files},
     formatting::format_root_output_dir,
 };
 
@@ -276,7 +262,6 @@ fn main() {
                 // Group files and directories 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
                     inputs.into_iter().partition(|f| f.is_file());
-
                 // Walk through directories and collect all files
                 for file in files.iter() {
                     mta.files.push(
@@ -289,29 +274,13 @@ fn main() {
                 
                 // Sort files to potentially improve compression of solid archives
                 match sort {
-                    Sort::None     => {},
-                    Sort::Ext      => mta.files.sort_by(|f1, f2| sort_ext(&f1.0, &f2.0)),
-                    Sort::Name     => mta.files.sort_by(|f1, f2| sort_name(&f1.0, &f2.0)),
-                    Sort::Len      => mta.files.sort_by(|f1, f2| sort_len(&f1.0, &f2.0)),
-                    Sort::PrtDir   => mta.files.sort_by(|f1, f2| sort_prtdir(&f1.0, &f2.0)),
-                    Sort::Created  => mta.files.sort_by(|f1, f2| sort_created(&f1.0, &f2.0)),
-                    Sort::Accessed => mta.files.sort_by(|f1, f2| sort_accessed(&f1.0, &f2.0)),
-                    Sort::Modified => mta.files.sort_by(|f1, f2| sort_modified(&f1.0, &f2.0)),
+                    Sort::None => {},
+                    _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &sort)),
                 }
+                
+                let file_out = new_output_file_checked(&dir_out, clbr);
 
-                let path = Path::new(&dir_out);
-                // If file doesn't exist or is empty, ignore clobber option.
-                if !path.exists() || file_len(path) == 0 {}
-                // If file exists or is not empty, abort if user disallowed clobbering (default)
-                else if !clbr {
-                    println!("Archive {} already exists.", dir_out);
-                    println!("To overwrite existing archives, use option '-clbr'.");
-                    std::process::exit(0);
-                }
-                // If file exists and is not empty and user allowed clobbering, continue as normal.
-                else {}
-
-                let enc = Encoder::new(new_output_file(4096, path), mem, true);
+                let enc = Encoder::new(file_out, mem, true);
                 let mut sld_arch = SolidArchiver::new(enc, mta, quiet);
 
                 sld_arch.create_archive();
