@@ -25,6 +25,38 @@ use crate::{
 };
 
 
+fn verify_magic_number(mgc: usize, solid: bool) {
+    if solid {
+        match mgc {
+            0x76_7269_7369_7270 => {
+                println!();
+                println!("Expected solid archive, found non-solid archive.");
+                std::process::exit(0);
+            },
+            0x5376_7269_7369_7270 => {},
+            _ => {
+                println!("Not a prisirv archive.");
+                std::process::exit(0);
+            },
+        }
+    }
+    else {
+        match mgc {
+            0x76_7269_7369_7270 => {},
+            0x5376_7269_7369_7270 => {
+                println!();
+                println!("Expected non-solid archive, found solid archive.");
+                std::process::exit(0);
+            },
+            _ => {
+                println!("Not a prisirv archive.");
+                std::process::exit(0);
+            },
+        }
+    } 
+}
+
+
 // Non-solid archiving --------------------------------------------------------------------------------------------------------------------
 pub struct Archiver {
     quiet:  bool,
@@ -42,9 +74,6 @@ impl Archiver {
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut mta: Metadata = Metadata::new();
 
-        // Create output file path from current output directory
-        // and input file name without extension
-        // i.e. foo/bar.txt -> foo/bar.prsv
         let file_out_path = format_file_out_path_ns_archive(dir_out, file_in_path, self.clbr);
 
         // Create input file with buffer = block size
@@ -68,8 +97,6 @@ impl Archiver {
     }
     
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
-        // Create new nested directory from current output 
-        // directory and input directory name 
         let mut dir_out = format_nested_dir_path_ns_archive(dir_out, dir_in);
         new_dir_checked(&dir_out, self.clbr);
 
@@ -108,24 +135,8 @@ impl Extractor {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
         let mta: Metadata = dec.read_header(false);
 
-        // Verify magic number
-        match mta.mgc {
-            0x76_7269_7369_7270 => {},
-            0x5376_7269_7369_7270 => {
-                println!();
-                println!("Expected non-solid archive, found solid archive.");
-                std::process::exit(0);
-            },
-            _ => {
-                println!("Not a prisirv archive.");
-                std::process::exit(0);
-            },
-        }
+        verify_magic_number(mta.mgc, false);
 
-        // Create output file path from current output directory,
-        // input file name without extension, and file's original
-        // extension (stored in header)
-        // i.e. foo/bar.prsv -> foo/bar.txt
         let file_out_path = format_file_out_path_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
         
@@ -149,13 +160,8 @@ impl Extractor {
         file_len(&file_out_path)
     }
     pub fn decompress_dir(&self, dir_in: &Path, dir_out: &mut String, root: bool) {
-        // Create new nested directory from current output 
-        // directory and input directory name; if current output
-        // directory is root, replace rather than nest
         let mut dir_out = format_nested_dir_path_ns_extract(dir_out, dir_in, root);
-        if !Path::new(&dir_out).is_dir() {
-            new_dir_checked(&dir_out, self.clbr);
-        }
+        new_dir_checked(&dir_out, self.clbr);
 
         // Sort files and directories
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
@@ -295,19 +301,7 @@ impl SolidExtractor {
     pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header(true);
 
-        // Verify magic number
-        match self.mta.mgc {
-            0x76_7269_7369_7270 => {
-                println!();
-                println!("Expected solid archive, found non-solid archive.");
-                std::process::exit(0);
-            },
-            0x5376_7269_7369_7270 => {},
-            _ => {
-                println!("Not a prisirv archive.");
-                std::process::exit(0);
-            },
-        }
+        verify_magic_number(self.mta.mgc, true);
 
         // Seek to end of file metadata
         self.dec.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();

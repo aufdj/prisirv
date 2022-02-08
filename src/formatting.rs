@@ -150,8 +150,8 @@ pub fn format_file_out_path_ns_extract(ext: &str, dir_out: &str, file_in_path: &
 
 pub fn format_nested_dir_path_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> String {
     // Create new nested directory from current output 
-    // directory and input directory name; if current output
-    // directory is root, replace rather than nest
+    // directory and input directory name. If current output
+    // directory is root, replace rather than nest.
     if root { dir_out.to_string() }
     else { 
         format!("{}\\{}", 
