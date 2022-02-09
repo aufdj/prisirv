@@ -28,7 +28,7 @@ use crate::{
     parse_args::Config,
 };
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum Mode {
     Compress,
     Decompress,
@@ -99,6 +99,93 @@ fn main() {
         println!();
     }
 
+    match (cfg.solid, cfg.mode) {
+        (true, Mode::Compress) => {
+            let mut mta: Metadata = Metadata::new();
+            // Group files and directories 
+            let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+            inputs.into_iter().partition(|f| f.is_file());
+            // Walk through directories and collect all files
+            for file in files.iter() {
+                mta.files.push(
+                    (file_path_ext(file), 0, 0)
+                );
+            }
+            for dir in dirs.iter() {
+                collect_files(dir, &mut mta);
+            }
+
+            // Sort files to potentially improve compression of solid archives
+            match cfg.sort {
+                Sort::None => {},
+                _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &cfg.sort)),
+            }
+
+            let file_out = new_output_file_checked(&dir_out, cfg.clbr);
+
+            let enc = Encoder::new(file_out, cfg.mem, cfg.solid);
+            let mut sld_arch = SolidArchiver::new(enc, mta, cfg.quiet);
+
+            sld_arch.create_archive();
+            sld_arch.write_metadata();
+
+            // Return final archive size including footer
+            println!("Final archive size: {}", 
+                sld_arch.enc.file_out.seek(SeekFrom::End(0)).unwrap());
+        }
+        (true, Mode::Decompress) => {
+            let mta: Metadata = Metadata::new();
+            if !inputs[0].is_file() {
+                println!("Input {} is not a solid archive.", inputs[0].display());
+                println!("To extract a non-solid archive, omit option '-sld'.");
+                std::process::exit(0);
+            }
+            let dec = Decoder::new(new_input_file(4096, &inputs[0]));
+            let mut sld_extr = SolidExtractor::new(dec, mta, cfg.quiet, cfg.clbr);
+
+            sld_extr.read_metadata();
+            sld_extr.extract_archive(&dir_out);
+        }
+        (false, Mode::Compress) => {
+            let mut arch = Archiver::new(cfg.quiet, cfg.mem, cfg.clbr);
+            new_dir_checked(&dir_out, cfg.clbr);
+
+            let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+                inputs.into_iter().partition(|f| f.is_file());
+
+            for file_in in files.iter() {
+                let time = Instant::now();
+                if !cfg.quiet { println!("Compressing {}", file_in.display()); }
+                let file_in_size  = file_len(file_in); 
+                let file_out_size = arch.compress_file(file_in, &dir_out);
+                if !cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                    file_in_size, file_out_size, time.elapsed()); }
+            }
+            for dir_in in dirs.iter() {
+                arch.compress_dir(dir_in, &mut dir_out);      
+            }
+        }
+        (false, Mode::Decompress) => {
+            let extr = Extractor::new(cfg.quiet, cfg.clbr);
+            new_dir_checked(&dir_out, cfg.clbr);
+
+            let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+                inputs.into_iter().partition(|f| f.is_file());
+
+            for file_in in files.iter() {
+                let time = Instant::now();
+                if !cfg.quiet { println!("Decompressing {}", file_in.display()); }
+                let file_in_size  = file_len(file_in); 
+                let file_out_size = extr.decompress_file(file_in, &dir_out);
+                if !cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                    file_in_size, file_out_size, time.elapsed()); } 
+            }
+            for dir_in in dirs.iter() {
+                extr.decompress_dir(dir_in, &mut dir_out, true);      
+            }
+        }
+    }
+    /*
     if cfg.solid {
         let mut mta: Metadata = Metadata::new();
         match cfg.mode {
@@ -189,5 +276,6 @@ fn main() {
                 }
             }
         }
-    }     
+    } 
+    */    
 }

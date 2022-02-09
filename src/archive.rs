@@ -186,7 +186,6 @@ impl Extractor {
 // ----------------------------------------------------------------------------------------------------------------------------------------
 
 
-
 // Solid Archiving ------------------------------------------------------------------------------------------------------------------------
 pub struct SolidArchiver {
     pub enc:  Encoder,
@@ -253,7 +252,6 @@ impl SolidArchiver {
     // For more info on metadata structure, see metadata.rs
     pub fn write_metadata(&mut self) {
         self.write_footer();
-
         // Go back to beginning of file and write header
         self.enc.write_header(&self.mta, true);
     }
@@ -329,41 +327,8 @@ impl SolidExtractor {
     // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header(true);
-
         verify_magic_number(self.mta.mgc, true);
-
         self.read_footer();
-        /*
-        // Seek to end of file metadata
-        self.dec.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
-        let mut path: Vec<u8> = Vec::new();
-
-        // Get number of files
-        let num_files = self.dec.file_in.read_usize();
-
-        // Parse files and lengths
-        for _ in 0..num_files {
-            // Get length of next path
-            let len = self.dec.file_in.read_byte();
-
-            // Get path, block count, final block size
-            for _ in 0..len {
-                path.push(self.dec.file_in.read_byte());
-            }
-            self.mta.files.push(
-                (path.iter().cloned()
-                    .map(|b| b as char)
-                    .collect::<String>(),
-                self.dec.file_in.read_usize(),
-                self.dec.file_in.read_usize())
-            );
-            path.clear();
-        }
-
-        // Seek back to beginning of compressed data
-        self.dec.file_in.seek(SeekFrom::Start(32)).unwrap();
-        */
-
         self.dec.init_x();
     }
 }
