@@ -3,7 +3,7 @@ mod apm;         mod mixer;    mod match_model;
 mod hash_table;  mod metadata; mod predictor;
 mod encoder;     mod decoder;  mod archive;
 mod tables;      mod sort;     mod formatting;
-
+mod parse_args;
 
 use std::{
     path::{Path, PathBuf},
@@ -25,63 +25,13 @@ use crate::{
     },
     sort::{Sort, sort_files},
     formatting::format_root_output_dir,
+    parse_args::Config,
 };
 
-
-fn print_program_info() {
-    println!();
-    println!("     ______   ______     ________  ______    ________  ______    __   __     
-    /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
-    \\:::_ \\ \\\\:::_ \\ \\  \\__.::._\\/\\::::_\\/_ \\__.::._\\/\\:::_ \\ \\ \\:\\ \\\\ \\ \\   
-     \\:(_) \\ \\\\:(_) ) )_   \\::\\ \\  \\:\\/___/\\   \\::\\ \\  \\:(_) ) )_\\:\\ \\\\ \\ \\  
-      \\: ___\\/ \\: __ `\\ \\  _\\::\\ \\__\\_::._\\:\\  _\\::\\ \\__\\: __ `\\ \\\\:\\_/.:\\ \\ 
-       \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
-        \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
-                                                                             ");
-    println!();
-    println!("Prisirv is a context mixing archiver based on lpaq1");
-    println!("Source code available at https://github.com/aufdj/prisirv");
-    println!();
-    println!("USAGE: PROG_NAME [c|d] [-out [path]] [-mem [0..9]] [-sld] [-sort [..]] [-i [files|dirs]] [-q]");
-    println!();
-    println!("Option [c|d] must be first, all other options can be in any order.");
-    println!();
-    println!("OPTIONS:");
-    println!("   c      Compress");
-    println!("   d      Decompress");
-    println!("  -out    Specify output path");
-    println!("  -sld    Create solid archive");
-    println!("  -mem    Specifies memory usage");
-    println!("  -sort   Sort files (solid archives only)");
-    println!("  -i      Denotes list of input files/dirs");
-    println!("  -q      Suppresses output other than errors");
-    println!();
-    println!("      Sorting Methods (Default - none):");
-    println!("          -sort ext      Sort by extension");
-    println!("          -sort prtdir   Sort by parent directory");
-    println!("          -sort crtd     Sort by creation time");
-    println!("          -sort accd     Sort by last access time");
-    println!("          -sort mod      Sort by last modification time");
-    println!();
-    println!("      Memory Options (Default - 3):");
-    println!("          -mem 0  6 MB   -mem 5  99 MB");
-    println!("          -mem 1  9 MB   -mem 6  195 MB");
-    println!("          -mem 2  15 MB  -mem 7  387 MB");
-    println!("          -mem 3  27 MB  -mem 8  771 MB");
-    println!("          -mem 4  51 MB  -mem 9  1539 MB");
-    println!();
-    println!("      Decompression requires same memory option used for compression.");
-    println!("      Any memory option specified for decompression will be ignored.");
-    println!();
-    println!("EXAMPLE:");
-    println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
-    println!();
-    println!("      prisirv c -out arch -sld -sort crtd -i \\foo\\bar.txt \\baz");
-    println!();
-    println!("  Decompress the archive:");
-    println!();
-    println!("      prisirv d -sld -i \\foo\\arch.pri");
-    std::process::exit(0);
+#[derive(PartialEq)]
+pub enum Mode {
+    Compress,
+    Decompress,
 }
 
 
@@ -109,135 +59,28 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     }
 }
 
-enum Parse {
-    Mode,
-    DirOut,
-    Solid,
-    Sort,
-    Inputs,
-    Quiet,
-    Clobber,
-    Mem,
-}
-
 fn main() {
-    let args = env::args().skip(1);
-
-    if args.len() == 0 { print_program_info(); }
-
-    #[allow(unused_assignments)]
-    let mut dir_out = String::new();
-
-    // Initialize settings
-    let mut parser = Parse::Mode;
-    let mut sort = Sort::None;
-    let mut user_out = String::new();
-    let mut inputs: Vec<String> = Vec::new();
-    let mut solid = false;
-    let mut quiet = false;
-    let mut mode = "c";
-    let mut mem = 1 << 23;
-    let mut clbr = false;
-    
-    // Parse arguments
-    for arg in args {
-        match arg.as_str() {
-            "-sort" => {
-                parser = Parse::Sort;
-                continue;
-            }, 
-            "-out" => {
-                parser = Parse::DirOut;
-                continue;
-            },     
-            "-i" => { 
-                parser = Parse::Inputs;
-                continue;
-            },
-            "-mem" => {
-                parser = Parse::Mem;
-                continue;
-            }
-            "-sld"  => parser = Parse::Solid,
-            "-q"    => parser = Parse::Quiet,
-            "-clbr" => parser = Parse::Clobber,
-            "-help" => print_program_info(),
-            _ => {},
-        }
-        match parser {
-            Parse::Sort => {
-                sort = match arg.as_str() {
-                    "ext"    => Sort::Ext,
-                    "name"   => Sort::Name,
-                    "len"    => Sort::Len,
-                    "prtdir" => Sort::PrtDir,
-                    "crtd"   => Sort::Created,
-                    "accd"   => Sort::Accessed,
-                    "mod"    => Sort::Modified,
-                    _ => {
-                        println!("No valid sort criteria found.");
-                        std::process::exit(0);
-                    }
-                }
-            }
-            Parse::DirOut  => user_out = arg,
-            Parse::Inputs  => inputs.push(arg),
-            Parse::Solid   => solid = true,
-            Parse::Quiet   => quiet = true,
-            Parse::Clobber => clbr = true,
-            Parse::Mode => {
-                mode = match arg.as_str() {
-                    "c" => "c",
-                    "d" => "d",
-                    _ => {
-                        println!("Invalid mode.");
-                        std::process::exit(0);
-                    }
-                };
-            }  
-            Parse::Mem => {
-                // Parse memory option. If input is not a number
-                // or not 0..9, ignore and use default option.
-                mem = match arg.parse::<usize>() {
-                    Ok(opt) => match opt {
-                        0..=9 => 1 << (20 + opt),
-                        _ => {
-                            println!();
-                            println!("Invalid memory option.");
-                            println!("Using default of 27 MB.");
-                            1 << 23
-                        }
-                    }
-                    Err(_) => {
-                        println!();
-                        println!("Invalid memory option.");
-                        println!("Using default of 27 MB.");
-                        1 << 23
-                    },
-                };
-            } 
-        }
-    }
+    let cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
 
     // Filter invalid inputs
     let inputs: Vec<PathBuf> = 
-        inputs.iter()
+        cfg.inputs.iter()
         .map(PathBuf::from)
         .filter(|i| i.is_file() || i.is_dir())
         .collect();
     
-    dir_out = format_root_output_dir(mode, solid, &user_out, &inputs[0]);
+    let mut dir_out = format_root_output_dir(&cfg, &inputs[0]);
 
-    if !quiet {
+    if !cfg.quiet {
         println!();
         println!("//////////////////////////////////////////////////////////////");
         println!(
             "{} {} archive {} of inputs:\n{:#?},\nsorting by {}{}.",
-            if mode == "c" { "Creating" } else { "Extracting" },
-            if solid { "solid" } else { "non-solid" },
+            if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
+            if cfg.solid { "solid" } else { "non-solid" },
             dir_out, 
             inputs,
-            match sort {
+            match cfg.sort {
                 Sort::None     => "none",
                 Sort::Ext      => "extension",
                 Sort::Name     => "name",
@@ -247,18 +90,19 @@ fn main() {
                 Sort::Accessed => "last accessed time",
                 Sort::Modified => "last modified time",
             },
-            if mode == "c" {
-                format!(", using {} MB of memory", 3 + (mem >> 20) * 3)
+            // During extraction, memory usage isn't known until decoder initializtion.
+            if cfg.mode == Mode::Compress {
+                format!(", using {} MB of memory", 3 + (cfg.mem >> 20) * 3)
             } else { String::from("") }
         );
         println!("//////////////////////////////////////////////////////////////");
         println!();
     }
 
-    if solid {
+    if cfg.solid {
         let mut mta: Metadata = Metadata::new();
-        match mode {
-            "c" => {
+        match cfg.mode {
+            Mode::Compress => {
                 // Group files and directories 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
                     inputs.into_iter().partition(|f| f.is_file());
@@ -273,15 +117,15 @@ fn main() {
                 }
                 
                 // Sort files to potentially improve compression of solid archives
-                match sort {
+                match cfg.sort {
                     Sort::None => {},
-                    _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &sort)),
+                    _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &cfg.sort)),
                 }
                 
-                let file_out = new_output_file_checked(&dir_out, clbr);
+                let file_out = new_output_file_checked(&dir_out, cfg.clbr);
 
-                let enc = Encoder::new(file_out, mem, true);
-                let mut sld_arch = SolidArchiver::new(enc, mta, quiet);
+                let enc = Encoder::new(file_out, cfg.mem, cfg.solid);
+                let mut sld_arch = SolidArchiver::new(enc, mta, cfg.quiet);
 
                 sld_arch.create_archive();
                 sld_arch.write_metadata();
@@ -290,62 +134,60 @@ fn main() {
                 println!("Final archive size: {}", 
                     sld_arch.enc.file_out.seek(SeekFrom::End(0)).unwrap());
             }
-            "d" => {
+            Mode::Decompress => {
                 if !inputs[0].is_file() {
                     println!("Input {} is not a solid archive.", inputs[0].display());
                     println!("To extract a non-solid archive, omit option '-sld'.");
                     std::process::exit(0);
                 }
                 let dec = Decoder::new(new_input_file(4096, &inputs[0]));
-                let mut sld_extr = SolidExtractor::new(dec, mta, quiet, clbr);
+                let mut sld_extr = SolidExtractor::new(dec, mta, cfg.quiet, cfg.clbr);
 
                 sld_extr.read_metadata();
                 sld_extr.extract_archive(&dir_out);    
             }
-            _ => println!("Couldn't parse input. For help, type PROG_NAME."),
         }
     }
     else {
-        match mode {
-            "c" => {
-                let mut arch = Archiver::new(quiet, mem, clbr);
-                new_dir_checked(&dir_out, clbr);
+        match cfg.mode {
+            Mode::Compress => {
+                let mut arch = Archiver::new(cfg.quiet, cfg.mem, cfg.clbr);
+                new_dir_checked(&dir_out, cfg.clbr);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
 
                 for file_in in files.iter() {
                     let time = Instant::now();
-                    if !quiet { println!("Compressing {}", file_in.display()); }
+                    if !cfg.quiet { println!("Compressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
                     let file_out_size = arch.compress_file(file_in, &dir_out);
-                    if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                    if !cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                         file_in_size, file_out_size, time.elapsed()); }
                 }
                 for dir_in in dirs.iter() {
                     arch.compress_dir(dir_in, &mut dir_out);      
                 }
             }
-            "d" => {
-                let extr = Extractor::new(quiet, clbr);
-                new_dir_checked(&dir_out, clbr);
+            Mode::Decompress => {
+                let extr = Extractor::new(cfg.quiet, cfg.clbr);
+                new_dir_checked(&dir_out, cfg.clbr);
 
                 let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                     inputs.into_iter().partition(|f| f.is_file());
 
                 for file_in in files.iter() {
                     let time = Instant::now();
-                    if !quiet { println!("Decompressing {}", file_in.display()); }
+                    if !cfg.quiet { println!("Decompressing {}", file_in.display()); }
                     let file_in_size  = file_len(file_in); 
                     let file_out_size = extr.decompress_file(file_in, &dir_out);
-                    if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                    if !cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                         file_in_size, file_out_size, time.elapsed()); } 
                 }
                 for dir_in in dirs.iter() {
                     extr.decompress_dir(dir_in, &mut dir_out, true);      
                 }
             }
-            _ => println!("Couldn't parse input. For help, type PROG_NAME."),
         }
     }     
 }

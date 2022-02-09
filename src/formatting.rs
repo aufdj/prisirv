@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-
+use crate::{Mode, parse_args::Config};
 
 // Get file name or path without extension
 fn file_name_no_ext(path: &Path) -> &str {
@@ -30,17 +30,16 @@ enum Format {
 }
 
 // Formats the root directory path of the archive, based on the specified cli args.
-pub fn format_root_output_dir(mode: &str, solid: bool, user_out: &str, first_input_path: &Path) -> String {
-    match mode {
-        "c" => {
-            if solid { format_dir_out(Format::ArchiveSolid, user_out, first_input_path) }
-            else     { format_dir_out(Format::Archive,      user_out, first_input_path) }
+pub fn format_root_output_dir(cfg: &Config, first_input_path: &Path) -> String {
+    match cfg.mode {
+        Mode::Compress => {
+            if cfg.solid { format_dir_out(Format::ArchiveSolid, &cfg.user_out, first_input_path) }
+            else         { format_dir_out(Format::Archive,      &cfg.user_out, first_input_path) }
         }
-        "d" => {
-            if solid { format_dir_out(Format::ExtractSolid, user_out, first_input_path) }
-            else     { format_dir_out(Format::Extract,      user_out, first_input_path) }
+        Mode::Decompress => {
+            if cfg.solid { format_dir_out(Format::ExtractSolid, &cfg.user_out, first_input_path) }
+            else         { format_dir_out(Format::Extract,      &cfg.user_out, first_input_path) }
         }
-        _ => String::new(),
     }
 }
 

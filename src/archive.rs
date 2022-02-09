@@ -224,8 +224,7 @@ impl SolidArchiver {
         }
         self.enc.file_out.stream_position().unwrap()
     }
-    // For more info on metadata structure, see metadata.rs
-    pub fn write_metadata(&mut self) {
+    fn write_footer(&mut self) {
         // Get index to end of file metadata
         self.mta.f_ptr =
             self.enc.file_out.stream_position()
@@ -250,6 +249,10 @@ impl SolidArchiver {
             self.enc.file_out.write_usize(file.1);
             self.enc.file_out.write_usize(file.2);
         }
+    }
+    // For more info on metadata structure, see metadata.rs
+    pub fn write_metadata(&mut self) {
+        self.write_footer();
 
         // Go back to beginning of file and write header
         self.enc.write_header(&self.mta, true);
@@ -276,10 +279,6 @@ impl SolidExtractor {
         }
     }
     pub fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
-        // Create new output file from output directory and the file
-        // currently being decompressed. The code below currently does
-        // not reconstruct the original directory structure, all files
-        // are just placed in the same directory.
         let file_out_path = format_file_out_path_s_extract(dir_out, Path::new(&self.mta.files[curr_file].0));
         let mut file_out = new_output_file(4096, &file_out_path);
 
@@ -297,12 +296,7 @@ impl SolidExtractor {
         }
         file_out.flush_buffer();
     }
-    // For more info on metadata structure, see metadata.rs
-    pub fn read_metadata(&mut self) {
-        self.mta = self.dec.read_header(true);
-
-        verify_magic_number(self.mta.mgc, true);
-
+    fn read_footer(&mut self) {
         // Seek to end of file metadata
         self.dec.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
         let mut path: Vec<u8> = Vec::new();
@@ -331,6 +325,44 @@ impl SolidExtractor {
 
         // Seek back to beginning of compressed data
         self.dec.file_in.seek(SeekFrom::Start(32)).unwrap();
+    }
+    // For more info on metadata structure, see metadata.rs
+    pub fn read_metadata(&mut self) {
+        self.mta = self.dec.read_header(true);
+
+        verify_magic_number(self.mta.mgc, true);
+
+        self.read_footer();
+        /*
+        // Seek to end of file metadata
+        self.dec.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
+        let mut path: Vec<u8> = Vec::new();
+
+        // Get number of files
+        let num_files = self.dec.file_in.read_usize();
+
+        // Parse files and lengths
+        for _ in 0..num_files {
+            // Get length of next path
+            let len = self.dec.file_in.read_byte();
+
+            // Get path, block count, final block size
+            for _ in 0..len {
+                path.push(self.dec.file_in.read_byte());
+            }
+            self.mta.files.push(
+                (path.iter().cloned()
+                    .map(|b| b as char)
+                    .collect::<String>(),
+                self.dec.file_in.read_usize(),
+                self.dec.file_in.read_usize())
+            );
+            path.clear();
+        }
+
+        // Seek back to beginning of compressed data
+        self.dec.file_in.seek(SeekFrom::Start(32)).unwrap();
+        */
 
         self.dec.init_x();
     }
