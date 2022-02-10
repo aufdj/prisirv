@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    fs::create_dir_all,
+};
 use crate::{Mode, parse_args::Config};
 
 // Get file name or path without extension
@@ -159,12 +162,20 @@ pub fn format_nested_dir_path_ns_extract(dir_out: &str, dir_in: &Path, root: boo
 }
 
 pub fn format_file_out_path_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
-    // Create new output file from output directory and the file
-    // currently being decompressed. The code below currently does
-    // not reconstruct the original directory structure, all files
-    // are just placed in the same directory.
+    // Reconstruct original directory structure based on output directory  
+    // and absolute path of the file being compressed. 
+    let path = 
     PathBuf::from(
-        format!("{}\\{}", 
-        dir_out, file_name_ext(file_in_path)),
-    )
+        Path::new(dir_out).iter()
+        .filter(|p| p.to_str().unwrap() != "C:")
+        .chain(file_in_path.iter().skip(2))
+        .map(|s| format!("\\{}", s.to_str().unwrap()))
+        .skip(1)
+        .collect::<String>()
+    );
+    let parent = path.parent().unwrap();
+    if !parent.exists() {
+        create_dir_all(parent).unwrap();
+    }
+    path
 }
