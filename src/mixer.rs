@@ -1,6 +1,18 @@
 use crate::logistic::squash;
 
-// Mixer ---------------------------------------------------------------------------------------------------------------------------- Mixer
+/// Mixer ===============================================================================
+/// predictions are combined using a neural network (Mixer) as in
+/// paq8l, except it is a single level network without MMX code.  The
+/// inputs p_i, i=0..6 are first stretched: t_i = log(p_i/(1 - p_i)), 
+/// then the output is computed: p = squash(SUM_i t_i * w_i), where
+/// squash(x) = 1/(1 + exp(-x)) is the inverse of stretch().  The weights
+/// are adjusted to reduce the error: w_i := w_i + L * t_i * (y - p) where
+/// (y - p) is the prediction error and L ~ 0.002 is the learning rate.
+/// This is a standard single layer backpropagation network modified to
+/// minimize coding cost rather than RMS prediction error (thus dropping
+/// the factors p * (1 - p) from learning).
+/// =====================================================================================
+
 fn train(inputs: &[i32], weights: &mut [i32], error: i32) {
     for (input, weight) in inputs.iter().zip(weights.iter_mut()) {
         *weight += ((*input * error) + 0x8000) >> 16;
@@ -48,4 +60,3 @@ impl Mixer {
         self.inputs.clear();
     }
 }
-// ----------------------------------------------------------------------------------------------------------------------------------------

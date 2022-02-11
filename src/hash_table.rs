@@ -34,8 +34,8 @@ pub struct HashTable {
 }
 impl HashTable {
     pub fn new(n: usize) -> HashTable {
-        assert!(B >= 2       && B.is_power_of_two());
-        assert!(n >= (B * 4) && n.is_power_of_two());
+        assert!(B >= 2);       assert!(B.is_power_of_two());
+        assert!(n >= (B * 4)); assert!(n.is_power_of_two());
         HashTable {
             t:     vec![0; n + B * 4 + 64],
             size:  n,

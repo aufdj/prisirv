@@ -32,9 +32,9 @@ impl Apm {
         // Compute set of bins from context, and singular bin from prediction
         self.bin = (((pr + 2048) >> 7) + ((cxt as i32) * 33)) as usize;
 
-        let a = self.bin_map[self.bin] as i32;
-        let b = self.bin_map[self.bin+1] as i32;
-        ((a * (128 - i_w)) + (b * i_w)) >> 11 // Interpolate pr from bin and bin+1
+        let l = self.bin_map[self.bin] as i32;   // Lower bin
+        let u = self.bin_map[self.bin+1] as i32; // Upper bin
+        ((l * (128 - i_w)) + (u * i_w)) >> 11 // Interpolate pr from bin and bin+1
     }
     pub fn update(&mut self, bit: i32, rate: i32) {
         assert!(bit == 0 || bit == 1 && rate > 0 && rate < 32);
@@ -43,10 +43,10 @@ impl Apm {
         let g: i32 = (bit << 16) + (bit << rate) - bit - bit;
 
         // Bins used for interpolating previous prediction
-        let a = self.bin_map[self.bin] as i32;   // Lower
-        let b = self.bin_map[self.bin+1] as i32; // Higher
-        self.bin_map[self.bin]   = (a + ((g - a) >> rate)) as u16;
-        self.bin_map[self.bin+1] = (b + ((g - b) >> rate)) as u16;
+        let l = self.bin_map[self.bin] as i32;   // Lower
+        let u = self.bin_map[self.bin+1] as i32; // Upper
+        self.bin_map[self.bin]   = (l + ((g - l) >> rate)) as u16;
+        self.bin_map[self.bin+1] = (u + ((g - u) >> rate)) as u16;
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------

@@ -198,13 +198,14 @@ impl SolidArchiver {
             enc, mta, quiet,
         }
     }
-    pub fn create_archive(&mut self) {
+    pub fn create_archive(&mut self) -> &mut Self {
         for curr_file in 0..self.mta.files.len() {
             if !self.quiet { println!("Compressing {}", self.mta.files[curr_file].0); }
             let archive_size = self.compress_file_solid(curr_file);
             if !self.quiet { println!("Total archive size: {}\n", archive_size); }
         }
         self.enc.flush();
+        self
     }
     pub fn compress_file_solid(&mut self, curr_file: usize) -> u64 {
         // Create input file with buffer = block size
@@ -322,14 +323,19 @@ impl SolidExtractor {
         }
 
         // Seek back to beginning of compressed data
+        #[cfg(target_pointer_width = "64")]
         self.dec.file_in.seek(SeekFrom::Start(32)).unwrap();
+
+        #[cfg(target_pointer_width = "32")]
+        self.dec.file_in.seek(SeekFrom::Start(16)).unwrap();
     }
     // For more info on metadata structure, see metadata.rs
-    pub fn read_metadata(&mut self) {
+    pub fn read_metadata(&mut self) -> &mut Self {
         self.mta = self.dec.read_header(true);
         verify_magic_number(self.mta.mgc, true);
         self.read_footer();
         self.dec.init_x();
+        self
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------
