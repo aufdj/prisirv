@@ -16,15 +16,17 @@ use crate::{
         new_dir_checked,
     },
     formatting::{
-        format_file_out_path_ns_archive,
-        format_file_out_path_ns_extract,
-        format_nested_dir_path_ns_archive,
-        format_nested_dir_path_ns_extract,
-        format_file_out_path_s_extract,
+        fmt_file_out_ns_archive,
+        fmt_file_out_ns_extract,
+        fmt_nested_dir_ns_archive,
+        fmt_nested_dir_ns_extract,
+        fmt_file_out_s_extract,
     },
 };
 
-
+/// Check for a valid magic number.
+/// Non-solid archives - 'prisirv '
+/// Solid archives     - 'prisirvS'
 fn verify_magic_number(mgc: usize, solid: bool) {
     if solid {
         match mgc {
@@ -62,7 +64,7 @@ pub struct Archiver {
     quiet:  bool,
     clbr:   bool,
     mem:    usize,
-    files:  Vec<PathBuf>, // keep list of files currently compressed so they dont accidentally get clobbered
+    files:  Vec<PathBuf>, // Keep list of files already compressed to prevent accidental clobbering
 }
 impl Archiver {
     pub fn new(quiet: bool, mem: usize, clbr: bool) -> Archiver {
@@ -74,8 +76,9 @@ impl Archiver {
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut mta: Metadata = Metadata::new();
 
-        let file_out_path = format_file_out_path_ns_archive(dir_out, file_in_path, self.clbr, &self.files);
-        self.files.push(file_out_path.clone());
+        let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.clbr, &self.files);
+        if self.clbr { self.files.push(file_out_path.clone()); }
+        
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
@@ -98,7 +101,7 @@ impl Archiver {
     }
     
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
-        let mut dir_out = format_nested_dir_path_ns_archive(dir_out, dir_in);
+        let mut dir_out = fmt_nested_dir_ns_archive(dir_out, dir_in);
         new_dir_checked(&dir_out, self.clbr);
 
         // Sort files and directories
@@ -138,7 +141,7 @@ impl Extractor {
 
         verify_magic_number(mta.mgc, false);
 
-        let file_out_path = format_file_out_path_ns_extract(&mta.get_ext(), dir_out, file_in_path);
+        let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
         
         // Call after reading header
@@ -161,7 +164,7 @@ impl Extractor {
         file_len(&file_out_path)
     }
     pub fn decompress_dir(&self, dir_in: &Path, dir_out: &mut String, root: bool) {
-        let mut dir_out = format_nested_dir_path_ns_extract(dir_out, dir_in, root);
+        let mut dir_out = fmt_nested_dir_ns_extract(dir_out, dir_in, root);
         new_dir_checked(&dir_out, self.clbr);
 
         // Sort files and directories
@@ -278,7 +281,7 @@ impl SolidExtractor {
         }
     }
     pub fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
-        let file_out_path = format_file_out_path_s_extract(dir_out, Path::new(&self.mta.files[curr_file].0));
+        let file_out_path = fmt_file_out_s_extract(dir_out, Path::new(&self.mta.files[curr_file].0));
         let mut file_out = new_output_file(4096, &file_out_path);
 
         // Decompress full blocks
