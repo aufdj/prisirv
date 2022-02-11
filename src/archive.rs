@@ -62,19 +62,20 @@ pub struct Archiver {
     quiet:  bool,
     clbr:   bool,
     mem:    usize,
+    files:  Vec<PathBuf>, // keep list of files currently compressed so they dont accidentally get clobbered
 }
 impl Archiver {
     pub fn new(quiet: bool, mem: usize, clbr: bool) -> Archiver {
         Archiver {
-            quiet,
-            clbr,
-            mem,
+            quiet, clbr, mem,
+            files: Vec::with_capacity(32),
         }
     }
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut mta: Metadata = Metadata::new();
 
-        let file_out_path = format_file_out_path_ns_archive(dir_out, file_in_path, self.clbr);
+        let file_out_path = format_file_out_path_ns_archive(dir_out, file_in_path, self.clbr, &self.files);
+        self.files.push(file_out_path.clone());
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
@@ -198,14 +199,13 @@ impl SolidArchiver {
             enc, mta, quiet,
         }
     }
-    pub fn create_archive(&mut self) -> &mut Self {
+    pub fn create_archive(&mut self) {
         for curr_file in 0..self.mta.files.len() {
             if !self.quiet { println!("Compressing {}", self.mta.files[curr_file].0); }
             let archive_size = self.compress_file_solid(curr_file);
             if !self.quiet { println!("Total archive size: {}\n", archive_size); }
         }
         self.enc.flush();
-        self
     }
     pub fn compress_file_solid(&mut self, curr_file: usize) -> u64 {
         // Create input file with buffer = block size
@@ -330,12 +330,11 @@ impl SolidExtractor {
         self.dec.file_in.seek(SeekFrom::Start(16)).unwrap();
     }
     // For more info on metadata structure, see metadata.rs
-    pub fn read_metadata(&mut self) -> &mut Self {
+    pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header(true);
         verify_magic_number(self.mta.mgc, true);
         self.read_footer();
         self.dec.init_x();
-        self
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------

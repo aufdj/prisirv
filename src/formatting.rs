@@ -89,7 +89,7 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
 }
 
 
-pub fn format_file_out_path_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool) -> PathBuf {
+pub fn format_file_out_path_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, files: &[PathBuf]) -> PathBuf {
     let mut dup = 1;
     // Create output file path from current output directory
     // and input file name without extension
@@ -103,7 +103,7 @@ pub fn format_file_out_path_ns_archive(dir_out: &str, file_in_path: &Path, clbr:
     // Modify file path if it already exists due to extension change
     // i.e foo/bar.txt -> foo/bar.prsv
     //     foo/bar.bin -> foo/bar.prsv -> foo/bar(1).prsv
-    while file_out_path.exists() && !clbr {
+    while file_out_path.exists() && !clbr || files.contains(&file_out_path) {
         file_out_path = 
         if dup == 1 {
             PathBuf::from(
