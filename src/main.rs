@@ -33,6 +33,11 @@ pub enum Mode {
     Compress,
     Decompress,
 }
+#[derive(PartialEq, Copy, Clone)]
+pub enum Arch {
+    Solid,
+    NonSolid,
+}
 
 
 pub fn file_path_ext(path: &Path) -> String {
@@ -77,7 +82,7 @@ fn main() {
         println!(
             "{} {} archive {} of inputs:\n{:#?},\nsorting by {}{}.",
             if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
-            if cfg.solid { "solid" } else { "non-solid" },
+            if cfg.arch == Arch::Solid { "solid" } else { "non-solid" },
             dir_out, 
             inputs,
             match cfg.sort {
@@ -99,8 +104,8 @@ fn main() {
         println!();
     }
 
-    match (cfg.solid, cfg.mode) {
-        (true, Mode::Compress) => {
+    match (cfg.arch, cfg.mode) {
+        (Arch::Solid, Mode::Compress) => {
             let mut mta: Metadata = Metadata::new();
             // Group files and directories 
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
@@ -123,7 +128,7 @@ fn main() {
 
             let file_out = new_output_file_checked(&dir_out, cfg.clbr);
 
-            let enc = Encoder::new(file_out, cfg.mem, cfg.solid);
+            let enc = Encoder::new(file_out, cfg.mem, cfg.arch);
             let mut sld_arch = SolidArchiver::new(enc, mta, cfg.quiet);
 
             sld_arch.create_archive();
@@ -133,7 +138,7 @@ fn main() {
             println!("Final archive size: {}", 
                 sld_arch.enc.file_out.seek(SeekFrom::End(0)).unwrap());
         }
-        (true, Mode::Decompress) => {
+        (Arch::Solid, Mode::Decompress) => {
             let mta: Metadata = Metadata::new();
             if !inputs[0].is_file() {
                 println!("Input {} is not a solid archive.", inputs[0].display());
@@ -146,7 +151,7 @@ fn main() {
             sld_extr.read_metadata();
             sld_extr.extract_archive(&dir_out);
         }
-        (false, Mode::Compress) => {
+        (Arch::NonSolid, Mode::Compress) => {
             let mut arch = Archiver::new(cfg.quiet, cfg.mem, cfg.clbr);
             new_dir_checked(&dir_out, cfg.clbr);
 
@@ -165,7 +170,7 @@ fn main() {
                 arch.compress_dir(dir_in, &mut dir_out);      
             }
         }
-        (false, Mode::Decompress) => {
+        (Arch::NonSolid, Mode::Decompress) => {
             let extr = Extractor::new(cfg.quiet, cfg.clbr);
             new_dir_checked(&dir_out, cfg.clbr);
 

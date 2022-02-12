@@ -1,4 +1,4 @@
-use crate::{sort::Sort, Mode};
+use crate::{sort::Sort, Mode, Arch};
 
 
 // Parse command line arguments.
@@ -17,7 +17,7 @@ pub struct Config {
     pub sort:      Sort,        // Sorting method (solid archives only)
     pub user_out:  String,      // User specified output directory (optional)
     pub inputs:    Vec<String>, // Inputs to be archived or extracted
-    pub solid:     bool,        // Solid or non-solid archive
+    pub arch:      Arch,        // Solid or non-solid archive
     pub quiet:     bool,        // Suppresses output other than errors
     pub mode:      Mode,        // Compress or decompress
     pub mem:       usize,       // Memory usage
@@ -31,7 +31,7 @@ impl Config {
         let mut sort = Sort::None;
         let mut user_out = String::new();
         let mut inputs: Vec<String> = Vec::new();
-        let mut solid = false;
+        let mut arch = Arch::NonSolid;
         let mut quiet = false;
         let mut mode = Mode::Compress;
         let mut mem = 1 << 23;
@@ -79,7 +79,7 @@ impl Config {
                 }
                 Parse::DirOut  => user_out = arg.to_string(),
                 Parse::Inputs  => inputs.push(arg.to_string()),
-                Parse::Solid   => solid = true,
+                Parse::Solid   => arch = Arch::Solid,
                 Parse::Quiet   => quiet = true,
                 Parse::Clobber => clbr = true,
                 Parse::Mode => {
@@ -117,7 +117,7 @@ impl Config {
         }
         Config {
             sort,  user_out, inputs,  
-            solid, quiet,    mode,
+            arch, quiet,    mode,
             mem,   clbr,
         }
     }

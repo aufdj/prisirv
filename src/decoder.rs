@@ -6,6 +6,7 @@ use crate::{
     buffered_io::BufferedRead,
     predictor::Predictor,
     Metadata,
+    Arch,
 };
 
 
@@ -64,19 +65,21 @@ impl Decoder {
         }
         block
     }
-    pub fn read_header(&mut self, solid: bool) -> Metadata {
+    pub fn read_header(&mut self, arch: Arch) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        if solid {
-            mta.mgc =   self.file_in.read_usize();
-            mta.bl_sz = self.file_in.read_usize();
-            mta.f_ptr = self.file_in.read_usize();
-        }
-        else {
-            mta.mgc =     self.file_in.read_usize();
-            mta.ext =     self.file_in.read_usize();
-            mta.f_bl_sz = self.file_in.read_usize();
-            mta.bl_sz =   self.file_in.read_usize();
-            mta.bl_c =    self.file_in.read_usize();
+        match arch {
+            Arch::Solid => {
+                mta.mgc =   self.file_in.read_usize();
+                mta.bl_sz = self.file_in.read_usize();
+                mta.f_ptr = self.file_in.read_usize();
+            }
+            Arch::NonSolid => {
+                mta.mgc =     self.file_in.read_usize();
+                mta.ext =     self.file_in.read_usize();
+                mta.f_bl_sz = self.file_in.read_usize();
+                mta.bl_sz =   self.file_in.read_usize();
+                mta.bl_c =    self.file_in.read_usize();
+            }
         }
         mta
     }

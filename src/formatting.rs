@@ -2,7 +2,7 @@ use std::{
     path::{Path, PathBuf},
     fs::create_dir_all,
 };
-use crate::{Mode, parse_args::Config};
+use crate::{Mode, Arch, parse_args::Config};
 
 // Get file name or path without extension
 fn file_name_no_ext(path: &Path) -> &str {
@@ -42,7 +42,20 @@ enum Format {
 ///
 /// =====================================================================================
 pub fn format_root_output_dir(cfg: &Config, first_input_path: &Path) -> String {
-    match cfg.mode {
+    match (cfg.arch, cfg.mode) {
+        (Arch::Solid, Mode::Compress) => {
+            format_dir_out(Format::ArchiveSolid, &cfg.user_out, first_input_path)
+        }
+        (Arch::Solid, Mode::Decompress) => {
+            format_dir_out(Format::ExtractSolid, &cfg.user_out, first_input_path)   
+        }
+        (Arch::NonSolid, Mode::Compress) => {
+            format_dir_out(Format::Archive,      &cfg.user_out, first_input_path)
+        }
+        (Arch::NonSolid, Mode::Decompress) => {
+            format_dir_out(Format::Extract,      &cfg.user_out, first_input_path)
+        }
+        /*
         Mode::Compress => {
             if cfg.solid { format_dir_out(Format::ArchiveSolid, &cfg.user_out, first_input_path) }
             else         { format_dir_out(Format::Archive,      &cfg.user_out, first_input_path) }
@@ -51,6 +64,7 @@ pub fn format_root_output_dir(cfg: &Config, first_input_path: &Path) -> String {
             if cfg.solid { format_dir_out(Format::ExtractSolid, &cfg.user_out, first_input_path) }
             else         { format_dir_out(Format::Extract,      &cfg.user_out, first_input_path) }
         }
+        */
     }
 }
 

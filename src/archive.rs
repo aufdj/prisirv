@@ -22,12 +22,32 @@ use crate::{
         fmt_nested_dir_ns_extract,
         fmt_file_out_s_extract,
     },
+    Arch,
 };
 
 /// Check for a valid magic number.
 /// Non-solid archives - 'prisirv '
 /// Solid archives     - 'prisirvS'
-fn verify_magic_number(mgc: usize, solid: bool) {
+fn verify_magic_number(mgc: usize, arch: Arch) {
+    match (arch, mgc) {
+        (Arch::Solid, 0x5376_7269_7369_7270) => {},
+        (Arch::Solid, 0x76_7269_7369_7270  ) => {
+            println!();
+            println!("Expected solid archive, found non-solid archive.");
+            std::process::exit(0);
+        },
+        (Arch::NonSolid, 0x76_7269_7369_7270  ) => {},
+        (Arch::NonSolid, 0x5376_7269_7369_7270) => {
+            println!();
+            println!("Expected non-solid archive, found solid archive.");
+            std::process::exit(0);
+        }
+        (_, _) => {
+            println!("Not a prisirv archive.");
+            std::process::exit(0);
+        }
+    }
+    /*
     if solid {
         match mgc {
             0x76_7269_7369_7270 => {
@@ -56,6 +76,7 @@ fn verify_magic_number(mgc: usize, solid: bool) {
             },
         }
     } 
+    */
 }
 
 
@@ -82,7 +103,7 @@ impl Archiver {
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
-        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem, false);
+        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem, Arch::NonSolid);
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
@@ -96,7 +117,7 @@ impl Archiver {
         }
 
         enc.flush();
-        enc.write_header(&mta, false);
+        enc.write_header(&mta, Arch::NonSolid);
         file_len(&file_out_path)
     }
     
@@ -137,9 +158,9 @@ impl Extractor {
     }
     pub fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
-        let mta: Metadata = dec.read_header(false);
+        let mta: Metadata = dec.read_header(Arch::NonSolid);
 
-        verify_magic_number(mta.mgc, false);
+        verify_magic_number(mta.mgc, Arch::NonSolid);
 
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
@@ -257,7 +278,7 @@ impl SolidArchiver {
     pub fn write_metadata(&mut self) {
         self.write_footer();
         // Go back to beginning of file and write header
-        self.enc.write_header(&self.mta, true);
+        self.enc.write_header(&self.mta, Arch::Solid);
     }
 }
 
@@ -334,8 +355,8 @@ impl SolidExtractor {
     }
     // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
-        self.mta = self.dec.read_header(true);
-        verify_magic_number(self.mta.mgc, true);
+        self.mta = self.dec.read_header(Arch::Solid);
+        verify_magic_number(self.mta.mgc, Arch::Solid);
         self.read_footer();
         self.dec.init_x();
     }
