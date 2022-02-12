@@ -12,8 +12,7 @@ use crate::{
     decoder::Decoder,
     buffered_io::{
         BufferedRead, BufferedWrite, BufferState,
-        new_input_file, new_output_file, 
-        new_dir_checked,
+        new_input_file, new_output_file, new_dir_checked,
     },
     formatting::{
         fmt_file_out_ns_archive,
@@ -23,6 +22,7 @@ use crate::{
         fmt_file_out_s_extract,
     },
     Arch,
+    parse_args::Config,
 };
 
 /// Check for a valid magic number.
@@ -52,28 +52,26 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
 
 // Non-solid archiving --------------------------------------------------------------------------------------------------------------------
 pub struct Archiver {
-    quiet:  bool,
-    clbr:   bool,
-    mem:    usize,
+    cfg:    Config,
     files:  Vec<PathBuf>, // Keep list of files already compressed to prevent accidental clobbering
 }
 impl Archiver {
-    pub fn new(quiet: bool, mem: usize, clbr: bool) -> Archiver {
+    pub fn new(cfg: Config) -> Archiver {
         Archiver {
-            quiet, clbr, mem,
+            cfg,
             files: Vec::with_capacity(32),
         }
     }
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut mta: Metadata = Metadata::new();
 
-        let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.clbr, &self.files);
-        if self.clbr { self.files.push(file_out_path.clone()); }
+        let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
+        if self.cfg.clbr { self.files.push(file_out_path.clone()); }
         
 
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.bl_sz, file_in_path);
-        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), self.mem, Arch::NonSolid);
+        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), &self.cfg);
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
@@ -93,7 +91,7 @@ impl Archiver {
     
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
         let mut dir_out = fmt_nested_dir_ns_archive(dir_out, dir_in);
-        new_dir_checked(&dir_out, self.clbr);
+        new_dir_checked(&dir_out, self.cfg.clbr);
 
         // Sort files and directories
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
@@ -104,10 +102,10 @@ impl Archiver {
         // Compress files first, then directories
         for file_in in files.iter() {
             let time = Instant::now();
-            if !self.quiet { println!("Compressing {}", file_in.display()); }
+            if !self.cfg.quiet { println!("Compressing {}", file_in.display()); }
             let file_in_size  = file_len(file_in); 
             let file_out_size = self.compress_file(file_in, &dir_out);
-            if !self.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+            if !self.cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                 file_in_size, file_out_size, time.elapsed()); }
         }
         for dir_in in dirs.iter() {
@@ -117,13 +115,12 @@ impl Archiver {
 }
 
 pub struct Extractor {
-    quiet: bool,
-    clbr: bool,
+    cfg: Config,
 }
 impl Extractor {
-    pub fn new(quiet: bool, clbr: bool) -> Extractor {
+    pub fn new(cfg: Config) -> Extractor {
         Extractor {
-            quiet, clbr,
+            cfg,
         }
     }
     pub fn decompress_file(&self, file_in_path: &Path, dir_out: &str) -> u64 {
@@ -156,7 +153,7 @@ impl Extractor {
     }
     pub fn decompress_dir(&self, dir_in: &Path, dir_out: &mut String, root: bool) {
         let mut dir_out = fmt_nested_dir_ns_extract(dir_out, dir_in, root);
-        new_dir_checked(&dir_out, self.clbr);
+        new_dir_checked(&dir_out, self.cfg.clbr);
 
         // Sort files and directories
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
@@ -167,10 +164,10 @@ impl Extractor {
         // Decompress files first, then directories
         for file_in in files.iter() {
             let time = Instant::now();
-            if !self.quiet { println!("Decompressing {}", file_in.display()); }
+            if !self.cfg.quiet { println!("Decompressing {}", file_in.display()); }
             let file_in_size  = file_len(file_in);
             let file_out_size = self.decompress_file(file_in, &dir_out);
-            if !self.quiet { println!("{} bytes -> {} bytes in {:.2?}\n",
+            if !self.cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n",
                 file_in_size, file_out_size, time.elapsed()); }
         }
         for dir_in in dirs.iter() {
@@ -185,19 +182,19 @@ impl Extractor {
 pub struct SolidArchiver {
     pub enc:  Encoder,
     mta:      Metadata,
-    quiet:    bool,
+    cfg:      Config,
 }
 impl SolidArchiver {
-    pub fn new(enc: Encoder, mta: Metadata, quiet: bool) -> SolidArchiver {
+    pub fn new(enc: Encoder, mta: Metadata, cfg: Config) -> SolidArchiver {
         SolidArchiver {
-            enc, mta, quiet,
+            enc, mta, cfg,
         }
     }
     pub fn create_archive(&mut self) {
         for curr_file in 0..self.mta.files.len() {
-            if !self.quiet { println!("Compressing {}", self.mta.files[curr_file].0); }
+            if !self.cfg.quiet { println!("Compressing {}", self.mta.files[curr_file].0); }
             let archive_size = self.compress_file_solid(curr_file);
-            if !self.quiet { println!("Total archive size: {}\n", archive_size); }
+            if !self.cfg.quiet { println!("Total archive size: {}\n", archive_size); }
         }
         self.enc.flush();
     }
@@ -255,19 +252,18 @@ impl SolidArchiver {
 pub struct SolidExtractor {
     dec:    Decoder,
     mta:    Metadata,
-    quiet:  bool,
-    clbr:   bool,
+    cfg:    Config,
 }
 impl SolidExtractor {
-    pub fn new(dec: Decoder, mta: Metadata, quiet: bool, clbr: bool) -> SolidExtractor {
+    pub fn new(dec: Decoder, mta: Metadata, cfg: Config) -> SolidExtractor {
         SolidExtractor {
-            dec, mta, quiet, clbr,
+            dec, mta, cfg,
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
-        new_dir_checked(dir_out, self.clbr);
+        new_dir_checked(dir_out, self.cfg.clbr);
         for curr_file in 0..self.mta.files.len() {
-            if !self.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
+            if !self.cfg.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
             self.decompress_file_solid(dir_out, curr_file);
         }
     }

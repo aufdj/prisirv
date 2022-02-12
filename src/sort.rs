@@ -4,7 +4,7 @@ use std::{
     ffi::OsStr,
 };
 
-// Sort files to improve compression of solid archives.
+/// Sort files to improve compression of solid archives.
 
 #[derive(Debug)]
 pub enum Sort { // Sort By:

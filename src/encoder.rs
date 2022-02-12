@@ -5,6 +5,7 @@ use std::{
 use crate::{
     predictor::Predictor,
     buffered_io::BufferedWrite,
+    parse_args::Config,
     Metadata,
     Arch,
 };
@@ -15,20 +16,20 @@ pub struct Encoder {
     high:          u32,       // Right endpoint of range
     low:           u32,       // Left endpoint of range
     predictor:     Predictor, // Generates predictions
-    pub file_out:  BufWriter<File>, 
     mem:           usize,     // Memory option
+    pub file_out:  BufWriter<File>, 
 }
 impl Encoder {
-    pub fn new(file_out: BufWriter<File>, mem: usize, arch: Arch) -> Encoder {
+    pub fn new(file_out: BufWriter<File>, cfg: &Config) -> Encoder {
         let mut enc = Encoder {
             high: 0xFFFFFFFF,
             low: 0,
-            predictor: Predictor::new(mem),
+            predictor: Predictor::new(cfg.mem),
             file_out,
-            mem,
+            mem: cfg.mem,
         };
         // Metadata placeholder
-        for _ in match arch {
+        for _ in match cfg.arch {
             Arch::Solid    => { 0..4 } 
             Arch::NonSolid => { 0..6 }
         } { enc.file_out.write_usize(0); }

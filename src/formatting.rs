@@ -113,8 +113,8 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
 /// Since each compressed file is given the .prsv extension, two files
 /// with different extensions but identical names could overwrite
 /// each other. To avoid this, a different file name is found for a duplicate file.
-/// i.e foo/bar.txt -> foo/bar.prsv
-///     foo/bar.bin -> foo/bar.prsv -> foo/bar(1).prsv
+/// i.e. foo/bar.txt -> foo/bar.prsv
+///      foo/bar.bin -> foo/bar.prsv -> foo/bar(1).prsv
 ///
 /// =====================================================================================
 pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, files: &[PathBuf]) -> PathBuf {

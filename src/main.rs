@@ -128,8 +128,8 @@ fn main() {
 
             let file_out = new_output_file_checked(&dir_out, cfg.clbr);
 
-            let enc = Encoder::new(file_out, cfg.mem, cfg.arch);
-            let mut sld_arch = SolidArchiver::new(enc, mta, cfg.quiet);
+            let enc = Encoder::new(file_out, &cfg);
+            let mut sld_arch = SolidArchiver::new(enc, mta, cfg);
 
             sld_arch.create_archive();
             sld_arch.write_metadata();
@@ -146,24 +146,25 @@ fn main() {
                 std::process::exit(0);
             }
             let dec = Decoder::new(new_input_file(4096, &inputs[0]));
-            let mut sld_extr = SolidExtractor::new(dec, mta, cfg.quiet, cfg.clbr);
+            let mut sld_extr = SolidExtractor::new(dec, mta, cfg);
 
             sld_extr.read_metadata();
             sld_extr.extract_archive(&dir_out);
         }
         (Arch::NonSolid, Mode::Compress) => {
-            let mut arch = Archiver::new(cfg.quiet, cfg.mem, cfg.clbr);
             new_dir_checked(&dir_out, cfg.clbr);
+            let quiet = cfg.quiet;
+            let mut arch = Archiver::new(cfg);
 
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                 inputs.into_iter().partition(|f| f.is_file());
 
             for file_in in files.iter() {
                 let time = Instant::now();
-                if !cfg.quiet { println!("Compressing {}", file_in.display()); }
+                if !quiet { println!("Compressing {}", file_in.display()); }
                 let file_in_size  = file_len(file_in); 
                 let file_out_size = arch.compress_file(file_in, &dir_out);
-                if !cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                     file_in_size, file_out_size, time.elapsed()); }
             }
             for dir_in in dirs.iter() {
@@ -171,18 +172,19 @@ fn main() {
             }
         }
         (Arch::NonSolid, Mode::Decompress) => {
-            let extr = Extractor::new(cfg.quiet, cfg.clbr);
             new_dir_checked(&dir_out, cfg.clbr);
-
+            let quiet = cfg.quiet;
+            let extr = Extractor::new(cfg);
+            
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                 inputs.into_iter().partition(|f| f.is_file());
 
             for file_in in files.iter() {
                 let time = Instant::now();
-                if !cfg.quiet { println!("Decompressing {}", file_in.display()); }
+                if !quiet { println!("Decompressing {}", file_in.display()); }
                 let file_in_size  = file_len(file_in); 
                 let file_out_size = extr.decompress_file(file_in, &dir_out);
-                if !cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
+                if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
                     file_in_size, file_out_size, time.elapsed()); } 
             }
             for dir_in in dirs.iter() {
