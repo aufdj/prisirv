@@ -47,36 +47,6 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
             std::process::exit(0);
         }
     }
-    /*
-    if solid {
-        match mgc {
-            0x76_7269_7369_7270 => {
-                println!();
-                println!("Expected solid archive, found non-solid archive.");
-                std::process::exit(0);
-            },
-            0x5376_7269_7369_7270 => {},
-            _ => {
-                println!("Not a prisirv archive.");
-                std::process::exit(0);
-            },
-        }
-    }
-    else {
-        match mgc {
-            0x76_7269_7369_7270 => {},
-            0x5376_7269_7369_7270 => {
-                println!();
-                println!("Expected non-solid archive, found solid archive.");
-                std::process::exit(0);
-            },
-            _ => {
-                println!("Not a prisirv archive.");
-                std::process::exit(0);
-            },
-        }
-    } 
-    */
 }
 
 

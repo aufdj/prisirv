@@ -55,16 +55,6 @@ pub fn format_root_output_dir(cfg: &Config, first_input_path: &Path) -> String {
         (Arch::NonSolid, Mode::Decompress) => {
             format_dir_out(Format::Extract,      &cfg.user_out, first_input_path)
         }
-        /*
-        Mode::Compress => {
-            if cfg.solid { format_dir_out(Format::ArchiveSolid, &cfg.user_out, first_input_path) }
-            else         { format_dir_out(Format::Archive,      &cfg.user_out, first_input_path) }
-        }
-        Mode::Decompress => {
-            if cfg.solid { format_dir_out(Format::ExtractSolid, &cfg.user_out, first_input_path) }
-            else         { format_dir_out(Format::Extract,      &cfg.user_out, first_input_path) }
-        }
-        */
     }
 }
 
