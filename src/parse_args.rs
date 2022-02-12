@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::{sort::Sort, Mode, Arch};
 
 
@@ -14,14 +15,14 @@ enum Parse {
 }
 
 pub struct Config { 
-    pub sort:      Sort,        // Sorting method (solid archives only)
-    pub user_out:  String,      // User specified output directory (optional)
-    pub inputs:    Vec<String>, // Inputs to be archived or extracted
-    pub arch:      Arch,        // Solid or non-solid archive
-    pub quiet:     bool,        // Suppresses output other than errors
-    pub mode:      Mode,        // Compress or decompress
-    pub mem:       usize,       // Memory usage
-    pub clbr:      bool,        // Allow clobbering files
+    pub sort:      Sort,         // Sorting method (solid archives only)
+    pub user_out:  String,       // User specified output directory (optional)
+    pub inputs:    Vec<PathBuf>, // Inputs to be archived or extracted
+    pub arch:      Arch,         // Solid or non-solid archive
+    pub quiet:     bool,         // Suppresses output other than errors
+    pub mode:      Mode,         // Compress or decompress
+    pub mem:       usize,        // Memory usage
+    pub clbr:      bool,         // Allow clobbering files
 }
 impl Config {
     pub fn new(args: &[String]) -> Config {
@@ -115,10 +116,18 @@ impl Config {
                 } 
             }
         }
+
+        // Filter invalid inputs
+        let inputs: Vec<PathBuf> = 
+        inputs.iter()
+        .map(PathBuf::from)
+        .filter(|i| i.is_file() || i.is_dir())
+        .collect();
+
         Config {
-            sort,  user_out, inputs,  
+            sort, user_out, inputs,  
             arch, quiet,    mode,
-            mem,   clbr,
+            mem,  clbr,
         }
     }
 }

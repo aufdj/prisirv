@@ -41,19 +41,19 @@ enum Format {
 /// a default will be chosen.
 ///
 /// =====================================================================================
-pub fn format_root_output_dir(cfg: &Config, first_input_path: &Path) -> String {
+pub fn fmt_root_output_dir(cfg: &Config) -> String {
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
-            format_dir_out(Format::ArchiveSolid, &cfg.user_out, first_input_path)
+            fmt_dir_out(Format::ArchiveSolid, &cfg.user_out, &cfg.inputs[0])
         }
         (Arch::Solid, Mode::Decompress) => {
-            format_dir_out(Format::ExtractSolid, &cfg.user_out, first_input_path)   
+            fmt_dir_out(Format::ExtractSolid, &cfg.user_out, &cfg.inputs[0])   
         }
         (Arch::NonSolid, Mode::Compress) => {
-            format_dir_out(Format::Archive,      &cfg.user_out, first_input_path)
+            fmt_dir_out(Format::Archive,      &cfg.user_out, &cfg.inputs[0])
         }
         (Arch::NonSolid, Mode::Decompress) => {
-            format_dir_out(Format::Extract,      &cfg.user_out, first_input_path)
+            fmt_dir_out(Format::Extract,      &cfg.user_out, &cfg.inputs[0])
         }
     }
 }
@@ -70,14 +70,14 @@ pub fn format_root_output_dir(cfg: &Config, first_input_path: &Path) -> String {
 /// while option '-out arch' creates archive \foo\arch.
 ///
 /// =====================================================================================
-fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
+fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_prsv", file_path_no_ext(arg)),
-            Format::Extract =>      format!("{}_d",    file_path_no_ext(arg)),
-            Format::ArchiveSolid => format!("{}.prsv", file_path_no_ext(arg)),
-            Format::ExtractSolid => format!("{}_d",    file_path_no_ext(arg)),
+            Format::Archive =>      format!("{}_prsv", file_path_no_ext(first_input)),
+            Format::Extract =>      format!("{}_d",    file_path_no_ext(first_input)),
+            Format::ArchiveSolid => format!("{}.prsv", file_path_no_ext(first_input)),
+            Format::ExtractSolid => format!("{}_d",    file_path_no_ext(first_input)),
         }    
     }
     else if user_out.contains('\\') {
@@ -91,7 +91,7 @@ fn format_dir_out(fmt: Format, user_out: &str, arg: &Path) -> String {
     else {
         // Replace final path component with user option
         let s: Vec<String> = 
-            file_path_ext(arg)
+            file_path_ext(first_input)
             .split('\\').skip(1)
             .map(|s| s.to_string())
             .collect();

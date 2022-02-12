@@ -240,6 +240,12 @@ impl SolidArchiver {
             self.enc.file_out.write_usize(file.1);
             self.enc.file_out.write_usize(file.2);
         }
+
+        // Return final archive size including footer
+        if !self.cfg.quiet {
+            println!("Final archive size: {}", 
+            self.enc.file_out.seek(SeekFrom::End(0)).unwrap());
+        }
     }
     // For more info on metadata structure, see metadata.rs
     pub fn write_metadata(&mut self) {

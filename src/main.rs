@@ -8,7 +8,6 @@ mod parse_args;
 use std::{
     path::{Path, PathBuf},
     time::Instant,
-    io::{Seek, SeekFrom},
     env,  
 };
 use crate::{
@@ -24,7 +23,7 @@ use crate::{
         new_output_file_checked,
     },
     sort::{Sort, sort_files},
-    formatting::format_root_output_dir,
+    formatting::fmt_root_output_dir,
     parse_args::Config,
 };
 
@@ -64,18 +63,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     }
 }
 
-fn main() {
-    let cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
-
-    // Filter invalid inputs
-    let inputs: Vec<PathBuf> = 
-        cfg.inputs.iter()
-        .map(PathBuf::from)
-        .filter(|i| i.is_file() || i.is_dir())
-        .collect();
-    
-    let mut dir_out = format_root_output_dir(&cfg, &inputs[0]);
-
+fn print_config(cfg: &Config, dir_out: &str) {
     if !cfg.quiet {
         println!();
         println!("//////////////////////////////////////////////////////////////");
@@ -84,7 +72,7 @@ fn main() {
             if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
             if cfg.arch == Arch::Solid { "solid" } else { "non-solid" },
             dir_out, 
-            inputs,
+            cfg.inputs,
             match cfg.sort {
                 Sort::None     => "none",
                 Sort::Ext      => "extension",
@@ -103,13 +91,22 @@ fn main() {
         println!("//////////////////////////////////////////////////////////////");
         println!();
     }
+}
+
+fn main() {
+    let cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
+    
+    let mut dir_out = fmt_root_output_dir(&cfg);
+
+    print_config(&cfg, &dir_out);
 
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
             let mut mta: Metadata = Metadata::new();
             // Group files and directories 
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-            inputs.into_iter().partition(|f| f.is_file());
+                cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+
             // Walk through directories and collect all files
             for file in files.iter() {
                 mta.files.push(
@@ -133,19 +130,15 @@ fn main() {
 
             sld_arch.create_archive();
             sld_arch.write_metadata();
-
-            // Return final archive size including footer
-            println!("Final archive size: {}", 
-                sld_arch.enc.file_out.seek(SeekFrom::End(0)).unwrap());
         }
         (Arch::Solid, Mode::Decompress) => {
             let mta: Metadata = Metadata::new();
-            if !inputs[0].is_file() {
-                println!("Input {} is not a solid archive.", inputs[0].display());
+            if !cfg.inputs[0].is_file() {
+                println!("Input {} is not a solid archive.", cfg.inputs[0].display());
                 println!("To extract a non-solid archive, omit option '-sld'.");
                 std::process::exit(0);
             }
-            let dec = Decoder::new(new_input_file(4096, &inputs[0]));
+            let dec = Decoder::new(new_input_file(4096, &cfg.inputs[0]));
             let mut sld_extr = SolidExtractor::new(dec, mta, cfg);
 
             sld_extr.read_metadata();
@@ -154,11 +147,11 @@ fn main() {
         (Arch::NonSolid, Mode::Compress) => {
             new_dir_checked(&dir_out, cfg.clbr);
             let quiet = cfg.quiet;
-            let mut arch = Archiver::new(cfg);
-
+            
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-                inputs.into_iter().partition(|f| f.is_file());
+                cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
+            let mut arch = Archiver::new(cfg);
             for file_in in files.iter() {
                 let time = Instant::now();
                 if !quiet { println!("Compressing {}", file_in.display()); }
@@ -174,11 +167,11 @@ fn main() {
         (Arch::NonSolid, Mode::Decompress) => {
             new_dir_checked(&dir_out, cfg.clbr);
             let quiet = cfg.quiet;
-            let extr = Extractor::new(cfg);
             
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-                inputs.into_iter().partition(|f| f.is_file());
+                cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
+            let extr = Extractor::new(cfg);
             for file_in in files.iter() {
                 let time = Instant::now();
                 if !quiet { println!("Decompressing {}", file_in.display()); }
