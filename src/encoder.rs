@@ -69,7 +69,7 @@ impl Encoder {
         self.file_out.write_usize(self.mem);
         match arch {
             Arch::Solid => {
-                self.file_out.write_usize(mta.mgc + (0x53 << 56));
+                self.file_out.write_usize(mta.mgcs);
                 self.file_out.write_usize(mta.bl_sz);
                 self.file_out.write_usize(mta.f_ptr);
             }

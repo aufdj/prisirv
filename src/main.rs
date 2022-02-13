@@ -78,10 +78,10 @@ fn print_config(cfg: &Config, dir_out: &str) {
                 Sort::Ext      => "extension",
                 Sort::Name     => "name",
                 Sort::Len      => "length",
-                Sort::PrtDir   => "parent directory",
                 Sort::Created  => "creation time",
                 Sort::Accessed => "last accessed time",
                 Sort::Modified => "last modified time",
+                Sort::PrtDir(_) => "parent",
             },
             // During extraction, memory usage isn't known until decoder initializtion.
             if cfg.mode == Mode::Compress {

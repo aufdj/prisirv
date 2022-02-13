@@ -7,15 +7,15 @@ use std::{
 /// Sort files to improve compression of solid archives.
 
 #[derive(Debug)]
-pub enum Sort { // Sort By:
-    None,       // No sorting
-    Ext,        // Extension
-    Name,       // Name
-    Len,        // Length
-    PrtDir,     // Parent Directory
-    Created,    // Creation Time
-    Accessed,   // Last Access Time
-    Modified,   // Last Modification Time
+pub enum Sort {    // Sort By:
+    None,          // No sorting
+    Ext,           // Extension
+    Name,          // Name
+    Len,           // Length
+    PrtDir(usize), // Parent Directory
+    Created,       // Creation Time
+    Accessed,      // Last Access Time
+    Modified,      // Last Modification Time
 }
 
 pub fn sort_files(f1: &str, f2: &str, sorting_method: &Sort) -> Ordering {
@@ -59,12 +59,12 @@ pub fn sort_files(f1: &str, f2: &str, sorting_method: &Sort) -> Ordering {
             };
             (len1).cmp(&len2)
         }
-        Sort::PrtDir => {
-            let parent1 = match Path::new(f1).parent() {
+        Sort::PrtDir(lvl) => {
+            let parent1 = match Path::new(f1).ancestors().nth(*lvl) {
                 Some(path) => path,
                 None => Path::new(""),
             };
-            let parent2 = match Path::new(f2).parent() {
+            let parent2 = match Path::new(f2).ancestors().nth(*lvl) {
                 Some(path) => path,
                 None => Path::new(""),
             };

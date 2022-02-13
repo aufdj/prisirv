@@ -19,11 +19,13 @@ OPTIONS:
   -clbr   Allows clobbering files
 
    Sorting Methods (Default - none):
-      -sort ext     Sort by extension
-      -sort prtdir  Sort by parent directory
-      -sort crtd    Sort by creation time
-      -sort accd    Sort by last access time
-      -sort mod     Sort by last modification time
+      -sort ext       Sort by extension
+      -sort name      Sort by name
+      -sort len       Sort by length
+      -sort prtdir n  Sort by parent directory
+      -sort crtd      Sort by creation time
+      -sort accd      Sort by last access time
+      -sort mod       Sort by last modification time
   
    Memory Options (Default - 3):
       -mem 0  6 MB   -mem 5  99 MB
@@ -36,13 +38,13 @@ OPTIONS:
    Any memory option specified for decompression will be ignored.
   
 EXAMPLE:
-  Compress file [\foo\bar.txt] and directory [\baz] into solid archive [\foo\arch], 
+  Compress file [\foo\bar.txt] and directory [\baz] into solid archive [\foo\arch],
   sorting files by creation time:
 
     prisirv c -out arch -sld -sort crtd -i \foo\bar.txt \baz
 
   Decompress the archive:
 
-    prisirv d -sld \foo\arch.pri
+    prisirv d -sld \foo\arch.prsv
 </pre>
 

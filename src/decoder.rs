@@ -69,7 +69,7 @@ impl Decoder {
         let mut mta: Metadata = Metadata::new();
         match arch {
             Arch::Solid => {
-                mta.mgc =   self.file_in.read_usize();
+                mta.mgcs =  self.file_in.read_usize();
                 mta.bl_sz = self.file_in.read_usize();
                 mta.f_ptr = self.file_in.read_usize();
             }

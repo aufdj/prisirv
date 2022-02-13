@@ -51,6 +51,7 @@ use std::{
 #[derive(Debug)]
 pub struct Metadata {
     pub mgc:      usize, // Magic Number
+    pub mgcs:     usize, // Magic Number (Solid)
     pub ext:      usize, // Extension
     pub f_bl_sz:  usize, // Final block size
     pub bl_sz:    usize, // Block size
@@ -64,7 +65,8 @@ pub struct Metadata {
 impl Metadata {
     pub fn new() -> Metadata {
         Metadata {
-            mgc:      0x76_7269_7369_7270,
+            mgc:      0x7673_7270,
+            mgcs:     0x5653_5250,
             ext:      0,
             f_bl_sz:  0,
             bl_sz:    1 << 20,

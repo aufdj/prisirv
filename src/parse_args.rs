@@ -12,6 +12,7 @@ enum Parse {
     Quiet,
     Clobber,
     Mem,
+    Lvl,
 }
 
 pub struct Config { 
@@ -32,13 +33,13 @@ impl Config {
         let mut sort = Sort::None;
         let mut user_out = String::new();
         let mut inputs: Vec<String> = Vec::new();
+        let mut mem = 1 << 23;
         let mut arch = Arch::NonSolid;
         let mut quiet = false;
-        let mut mode = Mode::Compress;
-        let mut mem = 1 << 23;
         let mut clbr = false;
-
-        for arg in args.iter() {
+        let mut mode = Mode::Compress;
+        
+        for arg in args.iter().peekable() {
             match arg.as_str() {
                 "-sort" => {
                     parser = Parse::Sort;
@@ -68,10 +69,13 @@ impl Config {
                         "ext"    => Sort::Ext,
                         "name"   => Sort::Name,
                         "len"    => Sort::Len,
-                        "prtdir" => Sort::PrtDir,
                         "crtd"   => Sort::Created,
                         "accd"   => Sort::Accessed,
                         "mod"    => Sort::Modified,
+                        "prtdir" => {
+                            parser = Parse::Lvl;
+                            Sort::PrtDir(1)
+                        },
                         _ => {
                             println!("No valid sort criteria found.");
                             std::process::exit(0);
@@ -114,9 +118,19 @@ impl Config {
                         },
                     };
                 } 
+                Parse::Lvl => {
+                    match arg.parse::<usize>() {
+                        Ok(lvl) => sort = Sort::PrtDir(lvl),
+                        Err(_) => {},
+                    }
+                }
             }
         }
 
+        if inputs.is_empty() {
+            println!("No inputs found.");
+            std::process::exit(0);
+        }
         // Filter invalid inputs
         let inputs: Vec<PathBuf> = 
         inputs.iter()
@@ -160,15 +174,16 @@ fn print_program_info() {
     println!("  -sort   Sort files (solid archives only)");
     println!("  -i      Denotes list of input files/dirs");
     println!("  -q      Suppresses output other than errors");
+    println!("  -clbr   Allows clobbering files");
     println!();
     println!("      Sorting Methods (Default - none):");
-    println!("          -sort ext      Sort by extension");
-    println!("          -sort name     Sort by name");
-    println!("          -sort len      Sort by length");
-    println!("          -sort prtdir   Sort by parent directory");
-    println!("          -sort crtd     Sort by creation time");
-    println!("          -sort accd     Sort by last access time");
-    println!("          -sort mod      Sort by last modification time");
+    println!("          -sort ext       Sort by extension");
+    println!("          -sort name      Sort by name");
+    println!("          -sort len       Sort by length");
+    println!("          -sort prtdir n  Sort by nth parent directory");
+    println!("          -sort crtd      Sort by creation time");
+    println!("          -sort accd      Sort by last access time");
+    println!("          -sort mod       Sort by last modification time");
     println!();
     println!("      Memory Options (Default - 3):");
     println!("          -mem 0  6 MB   -mem 5  99 MB");

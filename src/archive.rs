@@ -26,18 +26,18 @@ use crate::{
 };
 
 /// Check for a valid magic number.
-/// Non-solid archives - 'prisirv '
-/// Solid archives     - 'prisirvS'
+/// Non-solid archives - 'prsv'
+/// Solid archives     - 'PRSV'
 fn verify_magic_number(mgc: usize, arch: Arch) {
     match (arch, mgc) {
-        (Arch::Solid, 0x5376_7269_7369_7270) => {},
-        (Arch::Solid, 0x76_7269_7369_7270  ) => {
+        (Arch::Solid, 0x5653_5250) => {},
+        (Arch::Solid, 0x7673_7270) => {
             println!();
             println!("Expected solid archive, found non-solid archive.");
             std::process::exit(0);
         },
-        (Arch::NonSolid, 0x76_7269_7369_7270  ) => {},
-        (Arch::NonSolid, 0x5376_7269_7369_7270) => {
+        (Arch::NonSolid, 0x7673_7270) => {},
+        (Arch::NonSolid, 0x5653_5250) => {
             println!();
             println!("Expected non-solid archive, found solid archive.");
             std::process::exit(0);
@@ -328,7 +328,7 @@ impl SolidExtractor {
     // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header(Arch::Solid);
-        verify_magic_number(self.mta.mgc, Arch::Solid);
+        verify_magic_number(self.mta.mgcs, Arch::Solid);
         self.read_footer();
         self.dec.init_x();
     }
