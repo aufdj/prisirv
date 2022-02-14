@@ -161,7 +161,8 @@ fn print_program_info() {
     println!("Prisirv is a context mixing archiver based on lpaq1");
     println!("Source code available at https://github.com/aufdj/prisirv");
     println!();
-    println!("USAGE: PROG_NAME [c|d] [-out [path]] [-mem [0..9]] [-sld] [-sort [..]] [-i [files|dirs]] [-q] [-clbr]");
+    println!("USAGE: PROG_NAME [c|d] [-i [files|dirs]] [-mem [0..9]] [-sld]");
+    println!("                 [-q]  [-out [path]]     [-sort [..]]  [-clbr]");
     println!();
     println!("Option [c|d] must be first, all other options can be in any order.");
     println!();
@@ -170,9 +171,9 @@ fn print_program_info() {
     println!("   d      Decompress");
     println!("  -out    Specify output path");
     println!("  -sld    Create solid archive");
-    println!("  -mem    Specifies memory usage");
+    println!("  -mem    Specify memory usage");
     println!("  -sort   Sort files (solid archives only)");
-    println!("  -i      Denotes list of input files/dirs");
+    println!("  -i      Specify list of input files/dirs");
     println!("  -q      Suppresses output other than errors");
     println!("  -clbr   Allows clobbering files");
     println!();

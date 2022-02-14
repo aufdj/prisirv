@@ -49,8 +49,13 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
     }
 }
 
-
-// Non-solid archiving --------------------------------------------------------------------------------------------------------------------
+/// Archiver ============================================================================
+///
+/// An archiver creates non-solid archives. A non-solid archive is an archive containing
+/// independently compressed files. Non-solid archiving typically results in worse 
+/// compression ratios than solid archiving, but allows for extracting individual files.
+///
+/// =====================================================================================
 pub struct Archiver {
     cfg:    Config,
     files:  Vec<PathBuf>, // Keep list of files already compressed to prevent accidental clobbering
@@ -114,6 +119,7 @@ impl Archiver {
     }  
 }
 
+/// An Extractor extracts non-solid archives.
 pub struct Extractor {
     cfg: Config,
 }
@@ -175,10 +181,15 @@ impl Extractor {
         }
     }
 }
-// ----------------------------------------------------------------------------------------------------------------------------------------
 
-
-// Solid Archiving ------------------------------------------------------------------------------------------------------------------------
+/// Solid Archiver ======================================================================
+///
+/// A solid archiver creates solid archives. A solid archive is an archive containing 
+/// files compressed as one stream. Solid archives can take advantage of redundancy 
+/// across files and therefore achieve better compression ratios than non-solid 
+/// archives, but don't allow for extracting individual files.
+///
+/// =====================================================================================
 pub struct SolidArchiver {
     pub enc:  Encoder,
     mta:      Metadata,
@@ -255,6 +266,8 @@ impl SolidArchiver {
     }
 }
 
+
+/// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
     dec:    Decoder,
     mta:    Metadata,
@@ -333,5 +346,4 @@ impl SolidExtractor {
         self.dec.init_x();
     }
 }
-// ----------------------------------------------------------------------------------------------------------------------------------------
 

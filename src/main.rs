@@ -95,7 +95,7 @@ fn print_config(cfg: &Config, dir_out: &str) {
 
 fn main() {
     let cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
-    
+
     let mut dir_out = fmt_root_output_dir(&cfg);
 
     print_config(&cfg, &dir_out);
@@ -103,6 +103,7 @@ fn main() {
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
             let mut mta: Metadata = Metadata::new();
+
             // Group files and directories 
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
                 cfg.inputs.clone().into_iter().partition(|f| f.is_file());
@@ -133,11 +134,13 @@ fn main() {
         }
         (Arch::Solid, Mode::Decompress) => {
             let mta: Metadata = Metadata::new();
+
             if !cfg.inputs[0].is_file() {
                 println!("Input {} is not a solid archive.", cfg.inputs[0].display());
                 println!("To extract a non-solid archive, omit option '-sld'.");
                 std::process::exit(0);
             }
+
             let dec = Decoder::new(new_input_file(4096, &cfg.inputs[0]));
             let mut sld_extr = SolidExtractor::new(dec, mta, cfg);
 
