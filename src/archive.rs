@@ -69,13 +69,14 @@ impl Archiver {
     }
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut mta: Metadata = Metadata::new();
+        mta.blk_sz = self.cfg.blk_sz;
 
         let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
         if self.cfg.clbr { self.files.push(file_out_path.clone()); }
         
 
         // Create input file with buffer = block size
-        let mut file_in = new_input_file(mta.bl_sz, file_in_path);
+        let mut file_in = new_input_file(mta.blk_sz, file_in_path);
         let mut enc = Encoder::new(new_output_file(4096, &file_out_path), &self.cfg);
 
         // Set metadata extension field
@@ -143,7 +144,7 @@ impl Extractor {
 
         // Decompress full blocks
         for _ in 0..(mta.bl_c - 1) {
-            let block = dec.decompress_block(mta.bl_sz);
+            let block = dec.decompress_block(mta.blk_sz);
             for byte in block.iter() {
                 file_out.write_byte(*byte);
             }
@@ -213,7 +214,7 @@ impl SolidArchiver {
         // Create input file with buffer = block size
         let mut file_in = 
             new_input_file(
-                self.mta.bl_sz, 
+                self.mta.blk_sz, 
                 Path::new(&self.mta.files[curr_file].0)
             );
 
@@ -292,7 +293,7 @@ impl SolidExtractor {
 
         // Decompress full blocks
         for _ in 0..((self.mta.files[curr_file].1) - 1) {
-            let block = self.dec.decompress_block(self.mta.bl_sz);
+            let block = self.dec.decompress_block(self.mta.blk_sz);
             for byte in block.iter() {
                 file_out.write_byte(*byte);
             }

@@ -66,29 +66,40 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
 fn print_config(cfg: &Config, dir_out: &str) {
     if !cfg.quiet {
         println!();
-        println!("//////////////////////////////////////////////////////////////");
-        println!(
-            "{} {} archive {} of inputs:\n{:#?},\nsorting by {}{}.",
+        println!("=======================================================================");
+        println!(" {} {} Archive", 
             if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
-            if cfg.arch == Arch::Solid { "solid" } else { "non-solid" },
-            dir_out, 
-            cfg.inputs,
+            if cfg.arch == Arch::Solid { "Solid" } else { "Non-Solid" });
+
+        println!(" Output Directory: {}", dir_out);
+
+        println!(" Inputs: ");
+        for input in cfg.inputs.iter() {
+            println!("    {} ({})", 
+                input.display(),
+                if input.is_file() { "File" }
+                else if input.is_dir() { "Directory" }
+                else { "" }
+            );
+        }
+        println!();
+
+        if cfg.mode == Mode::Compress {
+            println!(" Sorting by: {}", 
             match cfg.sort {
-                Sort::None     => "none",
-                Sort::Ext      => "extension",
-                Sort::Name     => "name",
-                Sort::Len      => "length",
-                Sort::Created  => "creation time",
-                Sort::Accessed => "last accessed time",
-                Sort::Modified => "last modified time",
-                Sort::PrtDir(_) => "parent",
-            },
-            // During extraction, memory usage isn't known until decoder initializtion.
-            if cfg.mode == Mode::Compress {
-                format!(", using {} MB of memory", 3 + (cfg.mem >> 20) * 3)
-            } else { String::from("") }
-        );
-        println!("//////////////////////////////////////////////////////////////");
+                Sort::None     => "None",
+                Sort::Ext      => "Extension",
+                Sort::Name     => "Name",
+                Sort::Len      => "Length",
+                Sort::Created  => "Creation time",
+                Sort::Accessed => "Last accessed time",
+                Sort::Modified => "Last modified time",
+                Sort::PrtDir(_) => "Parent Directory",
+            });
+            println!(" {}", format!("Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3));
+            println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);
+        }
+        println!("=======================================================================");
         println!();
     }
 }
@@ -103,6 +114,7 @@ fn main() {
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
             let mut mta: Metadata = Metadata::new();
+            mta.blk_sz = cfg.blk_sz;
 
             // Group files and directories 
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =

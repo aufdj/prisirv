@@ -13,6 +13,7 @@ enum Parse {
     Clobber,
     Mem,
     Lvl,
+    BlkSz,
 }
 
 pub struct Config { 
@@ -24,6 +25,7 @@ pub struct Config {
     pub mode:      Mode,         // Compress or decompress
     pub mem:       usize,        // Memory usage
     pub clbr:      bool,         // Allow clobbering files
+    pub blk_sz:    usize,        // Block size
 }
 impl Config {
     pub fn new(args: &[String]) -> Config {
@@ -38,8 +40,9 @@ impl Config {
         let mut quiet = false;
         let mut clbr = false;
         let mut mode = Mode::Compress;
+        let mut blk_sz = 1 << 20;
         
-        for arg in args.iter().peekable() {
+        for arg in args.iter() {
             match arg.as_str() {
                 "-sort" => {
                     parser = Parse::Sort;
@@ -55,6 +58,10 @@ impl Config {
                 },
                 "-mem" => {
                     parser = Parse::Mem;
+                    continue;
+                }
+                "-blk" => {
+                    parser = Parse::BlkSz;
                     continue;
                 }
                 "-sld"  => parser = Parse::Solid,
@@ -124,6 +131,12 @@ impl Config {
                         Err(_) => {},
                     }
                 }
+                Parse::BlkSz => {
+                    match arg.parse::<usize>() {
+                        Ok(size) => blk_sz = size*1024*1024,
+                        Err(_) => {},
+                    }
+                }
             }
         }
 
@@ -141,7 +154,7 @@ impl Config {
         Config {
             sort, user_out, inputs,  
             arch, quiet,    mode,
-            mem,  clbr,
+            mem,  clbr,     blk_sz,
         }
     }
 }

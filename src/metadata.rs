@@ -54,7 +54,7 @@ pub struct Metadata {
     pub mgcs:     usize, // Magic Number (Solid)
     pub ext:      usize, // Extension
     pub f_bl_sz:  usize, // Final block size
-    pub bl_sz:    usize, // Block size
+    pub blk_sz:   usize, // Block size
     pub bl_c:     usize, // Block count
     
     // Solid archives only ---------------
@@ -69,7 +69,7 @@ impl Metadata {
             mgcs:     0x5653_5250,
             ext:      0,
             f_bl_sz:  0,
-            bl_sz:    1 << 20,
+            blk_sz:   1 << 20,
             bl_c:     0,
             f_ptr:    0,
             files:    Vec::new(),

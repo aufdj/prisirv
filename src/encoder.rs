@@ -70,14 +70,14 @@ impl Encoder {
         match arch {
             Arch::Solid => {
                 self.file_out.write_usize(mta.mgcs);
-                self.file_out.write_usize(mta.bl_sz);
+                self.file_out.write_usize(mta.blk_sz);
                 self.file_out.write_usize(mta.f_ptr);
             }
             Arch::NonSolid => {
                 self.file_out.write_usize(mta.mgc);
                 self.file_out.write_usize(mta.ext);
                 self.file_out.write_usize(mta.f_bl_sz);
-                self.file_out.write_usize(mta.bl_sz);
+                self.file_out.write_usize(mta.blk_sz);
                 self.file_out.write_usize(mta.bl_c);
             }
         }
