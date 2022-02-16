@@ -9,65 +9,67 @@ use crate::{
 };
 
 
-// Predictor -------------------------------------------------------------------------------------------------------------------- Predictor
-// Prisirv is a context mixing compressor with the same model as lpaq1
-// by Matt Mahoney (http://mattmahoney.net/dc/#lpaq). The model combines 7 
-// contexts: orders 1, 2, 3, 4, 6, a lowercase unigram word context 
-// (for ASCII text), and a "match" order, which predicts the next
-// bit in the last matching context. The independent bit predictions of
-// the 7 models are combined using one of 80 neural networks (selected by
-// a small context), then adjusted using 2 SSE stages (order 0 and 1)
-// and arithmetic coded.
-// 
-// Prediction is bitwise. This means that an order-n context consists
-// of the last n whole bytes plus any of the 0 to 7 previously coded
-// bits of the current byte starting with the most significant bit.
-// The unigram word context consists of a hash of the last (at most) 11
-// consecutive letters (A-Z, a-z) folded to lower case. The context
-// does not include any nonalphabetic characters nor any characters
-// preceding the last nonalphabetic character.
-// 
-// The first 6 contexts (orders 1..4, 6, word) are used to index a
-// hash table to look up a bit-history represented by an 8-bit state.
-// A state can either represent all histories up to 4 bits long, or a 
-// pair of 0,1 counts plus a flag to indicate the most recent bit. The 
-// counts are bounded by (41,0), (40,1), (12,2), (5,3), (4,4) and likewise
-// for 1,0. When a count is exceeded, the opposite count is reduced to 
-// approximately preserve the count ratio. The last bit flag is present
-// only for states whose total count is less than 16. There are 253
-// possible states.
-//
-// The 7 predictions are combined using a neural network (Mixer). The
-// inputs p_i, i=0..6 are first stretched: t_i = log(p_i/(1 - p_i)), 
-// then the output is computed: p = squash(SUM_i t_i * w_i), where
-// squash(x) = 1/(1 + exp(-x)) is the inverse of stretch(). The weights
-// are adjusted to reduce the error: w_i := w_i + L * t_i * (y - p) where
-// (y - p) is the prediction error and L ~ 0.002 is the learning rate.
-// This is a standard single layer backpropagation network modified to
-// minimize coding cost rather than RMS prediction error (thus dropping
-// the factors p * (1 - p) from learning).
-// 
-// One of 80 neural networks are selected by a context that depends on
-// the 3 high order bits of the last whole byte plus the context order
-// (quantized to 0, 1, 2, 3, 4, 6, 8, 12, 16, 32). The order is
-// determined by the number of nonzero bit histories and the length of
-// the match from MatchModel.
-// 
-// The Mixer output is adjusted by 2 SSE stages (called APM for adaptive
-// probability map). An APM is a StateMap that accepts both a discrte
-// context and an input probability, pr. pr is stetched and quantized
-// to 24 levels. The output is interpolated between the 2 nearest
-// table entries, and then only the nearest entry is updated. The entries
-// are initialized to p = pr and n = 6 (to slow down initial adaptation)
-// with a limit n <= 255. The two stages use a discrete order 0 context 
-// (last 0..7 bits) and a hashed order-1 context (14 bits). Each output 
-// is averaged with its input weighted by 1/4.
-// 
-// The output is arithmetic coded. The code for a string s with probability
-// p(s) is a number between Q and Q+p(x) where Q is the total probability
-// of all strings lexicographically preceding s. The number is coded as
-// a big-endian base-256 fraction.
-
+/// Predictor ===========================================================================
+///
+/// Prisirv is a context mixing compressor with the same model as lpaq1
+/// by Matt Mahoney (http://mattmahoney.net/dc/#lpaq). The model combines 7 
+/// contexts: orders 1, 2, 3, 4, 6, a lowercase unigram word context 
+/// (for ASCII text), and a "match" order, which predicts the next
+/// bit in the last matching context. The independent bit predictions of
+/// the 7 models are combined using one of 80 neural networks (selected by
+/// a small context), then adjusted using 2 SSE stages (order 0 and 1)
+/// and arithmetic coded.
+/// 
+/// Prediction is bitwise. This means that an order-n context consists
+/// of the last n whole bytes plus any of the 0 to 7 previously coded
+/// bits of the current byte starting with the most significant bit.
+/// The unigram word context consists of a hash of the last (at most) 11
+/// consecutive letters (A-Z, a-z) folded to lower case. The context
+/// does not include any nonalphabetic characters nor any characters
+/// preceding the last nonalphabetic character.
+/// 
+/// The first 6 contexts (orders 1..4, 6, word) are used to index a
+/// hash table to look up a bit-history represented by an 8-bit state.
+/// A state can either represent all histories up to 4 bits long, or a 
+/// pair of 0,1 counts plus a flag to indicate the most recent bit. The 
+/// counts are bounded by (41,0), (40,1), (12,2), (5,3), (4,4) and likewise
+/// for 1,0. When a count is exceeded, the opposite count is reduced to 
+/// approximately preserve the count ratio. The last bit flag is present
+/// only for states whose total count is less than 16. There are 253
+/// possible states.
+///
+/// The 7 predictions are combined using a neural network (Mixer). The
+/// inputs p_i, i=0..6 are first stretched: t_i = log(p_i/(1 - p_i)), 
+/// then the output is computed: p = squash(SUM_i t_i * w_i), where
+/// squash(x) = 1/(1 + exp(-x)) is the inverse of stretch(). The weights
+/// are adjusted to reduce the error: w_i := w_i + L * t_i * (y - p) where
+/// (y - p) is the prediction error and L ~ 0.002 is the learning rate.
+/// This is a standard single layer backpropagation network modified to
+/// minimize coding cost rather than RMS prediction error (thus dropping
+/// the factors p * (1 - p) from learning).
+/// 
+/// One of 80 neural networks are selected by a context that depends on
+/// the 3 high order bits of the last whole byte plus the context order
+/// (quantized to 0, 1, 2, 3, 4, 6, 8, 12, 16, 32). The order is
+/// determined by the number of nonzero bit histories and the length of
+/// the match from MatchModel.
+/// 
+/// The Mixer output is adjusted by 2 SSE stages (called APM for adaptive
+/// probability map). An APM is a StateMap that accepts both a discrte
+/// context and an input probability, pr. pr is stetched and quantized
+/// to 24 levels. The output is interpolated between the 2 nearest
+/// table entries, and then only the nearest entry is updated. The entries
+/// are initialized to p = pr and n = 6 (to slow down initial adaptation)
+/// with a limit n <= 255. The two stages use a discrete order 0 context 
+/// (last 0..7 bits) and a hashed order-1 context (14 bits). Each output 
+/// is averaged with its input weighted by 1/4.
+/// 
+/// The output is arithmetic coded. The code for a string s with probability
+/// p(s) is a number between Q and Q+p(x) where Q is the total probability
+/// of all strings lexicographically preceding s. The number is coded as
+/// a big-endian base-256 fraction.
+///
+/// =====================================================================================
 
 fn next_state(state: u8, bit: i32) -> u8 {
     STATE_TABLE[state as usize][bit as usize]
