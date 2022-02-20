@@ -53,9 +53,10 @@ pub struct Metadata {
     pub mgc:      usize, // Magic Number
     pub mgcs:     usize, // Magic Number (Solid)
     pub ext:      usize, // Extension
-    pub f_bl_sz:  usize, // Final block size
+    pub fblk_sz:  usize, // Final block size
     pub blk_sz:   usize, // Block size
-    pub bl_c:     usize, // Block count
+    pub blk_c:    usize, // Block count
+    pub enc_blk_szs: Vec<usize>, // Commpressed block sizes
     
     // Solid archives only ---------------
     pub f_ptr: usize, // Pointer to 'files'
@@ -68,11 +69,12 @@ impl Metadata {
             mgc:      0x7673_7270,
             mgcs:     0x5653_5250,
             ext:      0,
-            f_bl_sz:  0,
+            fblk_sz:  0,
             blk_sz:   1 << 20,
-            bl_c:     0,
+            blk_c:    0,
             f_ptr:    0,
             files:    Vec::new(),
+            enc_blk_szs: Vec::new(),
         }
     }
     // Set metadata extension field

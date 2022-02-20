@@ -1,9 +1,9 @@
-mod buffered_io; mod logistic; mod statemap;
-mod apm;         mod mixer;    mod match_model;
-mod hash_table;  mod metadata; mod predictor;
-mod encoder;     mod decoder;  mod archive;
-mod tables;      mod sort;     mod formatting;
-mod parse_args;
+mod encoder;       mod predictor;   mod logistic;
+mod decoder;       mod mixer;       mod metadata;
+mod archive;       mod statemap;    mod tables;
+mod solid_archive; mod apm;         mod sort;
+mod buffered_io;   mod hash_table;  mod parse_args;
+mod formatting;    mod match_model; mod threads;
 
 use std::{
     path::{Path, PathBuf},
@@ -14,17 +14,15 @@ use crate::{
     encoder::Encoder,
     decoder::Decoder,
     metadata::Metadata,
-    archive::{
-        Archiver, Extractor,
-        SolidArchiver, SolidExtractor
-    },
+    archive::{Archiver, Extractor},
+    solid_archive::{SolidArchiver, SolidExtractor},
+    sort::{Sort, sort_files},
+    formatting::fmt_root_output_dir,
+    parse_args::Config,
     buffered_io::{
         new_input_file, new_dir_checked, 
         new_output_file_checked,
     },
-    sort::{Sort, sort_files},
-    formatting::fmt_root_output_dir,
-    parse_args::Config,
 };
 
 #[derive(PartialEq, Copy, Clone)]
@@ -98,6 +96,7 @@ fn print_config(cfg: &Config, dir_out: &str) {
             });
             println!(" {}", format!("Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3));
             println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);
+            println!(" Threads: Up to {}", cfg.threads);
         }
         println!("=======================================================================");
         println!();
@@ -186,7 +185,7 @@ fn main() {
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                 cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
-            let extr = Extractor::new(cfg);
+            let mut extr = Extractor::new(cfg);
             for file_in in files.iter() {
                 let time = Instant::now();
                 if !quiet { println!("Decompressing {}", file_in.display()); }

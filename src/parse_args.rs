@@ -14,6 +14,7 @@ enum Parse {
     Mem,
     Lvl,
     BlkSz,
+    Threads,
 }
 
 pub struct Config { 
@@ -26,6 +27,7 @@ pub struct Config {
     pub mem:       usize,        // Memory usage
     pub clbr:      bool,         // Allow clobbering files
     pub blk_sz:    usize,        // Block size
+    pub threads:   usize,        // Maximum number of threads
 }
 impl Config {
     pub fn new(args: &[String]) -> Config {
@@ -41,6 +43,7 @@ impl Config {
         let mut clbr = false;
         let mut mode = Mode::Compress;
         let mut blk_sz = 1 << 20;
+        let mut threads = 4;
         
         for arg in args.iter() {
             match arg.as_str() {
@@ -62,6 +65,10 @@ impl Config {
                 }
                 "-blk" => {
                     parser = Parse::BlkSz;
+                    continue;
+                }
+                "-threads" => {
+                    parser = Parse::Threads;
                     continue;
                 }
                 "-sld"  => parser = Parse::Solid,
@@ -137,6 +144,25 @@ impl Config {
                         Err(_) => {},
                     }
                 }
+                Parse::Threads => {
+                    threads = match arg.parse::<usize>() {
+                        Ok(opt) => match opt {
+                            0..=128 => opt,
+                            _ => {
+                                println!();
+                                println!("Maximum number of threads is 128.");
+                                println!("Using default of 4 threads.");
+                                4
+                            }
+                        }
+                        Err(_) => {
+                            println!();
+                            println!("Invalid threads option.");
+                            println!("Using default of 4 threads.");
+                            4
+                        },
+                    };
+                }
             }
         }
 
@@ -155,6 +181,7 @@ impl Config {
             sort, user_out, inputs,  
             arch, quiet,    mode,
             mem,  clbr,     blk_sz,
+            threads,
         }
     }
 }
@@ -174,21 +201,21 @@ fn print_program_info() {
     println!("Prisirv is a context mixing archiver based on lpaq1");
     println!("Source code available at https://github.com/aufdj/prisirv");
     println!();
-    println!("USAGE: PROG_NAME [c|d] [-i [files|dirs]] [-mem [0..9]] [-sld]");
-    println!("                 [-q]  [-out [path]]     [-sort [..]]  [-clbr]");
+    println!("USAGE: PROG_NAME [c|d] [OPTIONS]");
     println!();
     println!("Option [c|d] must be first, all other options can be in any order.");
     println!();
     println!("OPTIONS:");
-    println!("   c      Compress");
-    println!("   d      Decompress");
-    println!("  -out    Specify output path");
-    println!("  -sld    Create solid archive");
-    println!("  -mem    Specify memory usage");
-    println!("  -sort   Sort files (solid archives only)");
-    println!("  -i      Specify list of input files/dirs");
-    println!("  -q      Suppresses output other than errors");
-    println!("  -clbr   Allows clobbering files");
+    println!("   c        Compress");
+    println!("   d        Decompress");
+    println!("  -out      Specify output path");
+    println!("  -sld      Create solid archive");
+    println!("  -mem      Specify memory usage");
+    println!("  -sort     Sort files (solid archives only)");
+    println!("  -i        Specify list of input files/dirs");
+    println!("  -q        Suppresses output other than errors");
+    println!("  -clbr     Allows clobbering files");
+    println!("  -threads  Specify thread count (non-solid archives only)");
     println!();
     println!("      Sorting Methods (Default - none):");
     println!("          -sort ext       Sort by extension");

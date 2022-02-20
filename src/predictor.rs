@@ -112,7 +112,7 @@ impl Predictor {
         self.pr
     }
 
-    // Set state pointer 'sp[i]' to beginning of new state array
+    // Set state pointer to beginning of new state array
     pub fn new_state_arr(&mut self, cxt: [u32; 6], nibble: u32) {
         unsafe {
             for (i, cxt) in cxt.iter().enumerate().skip(1) {
@@ -233,4 +233,3 @@ impl Predictor {
         self.pr = self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.h[0] >> 2) >> 2;
     }
 }
-// ----------------------------------------------------------------------------------------------------------------------------------------
