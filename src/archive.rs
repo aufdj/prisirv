@@ -1,18 +1,18 @@
 use std::{
     path::{Path, PathBuf},
-    time::Instant,
     io::{Seek, SeekFrom},
-    sync::mpsc,
-    mem::drop,
 };
 
 use crate::{
     Arch,
+    Mode,
+    Progress,
     file_len, 
     metadata::Metadata,
     encoder::Encoder,
     decoder::Decoder,
     parse_args::Config,
+    threads::ThreadPool,
     buffered_io::{
         BufferedRead, BufferedWrite, BufferState,
         new_input_file, new_output_file, new_dir_checked,
@@ -22,9 +22,6 @@ use crate::{
         fmt_file_out_ns_extract,
         fmt_nested_dir_ns_archive,
         fmt_nested_dir_ns_extract,
-    },
-    threads::{
-        self, ThreadPool, BlockQueue, 
     },
 };
 
@@ -57,13 +54,15 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
 /// compression ratios than solid archiving, but allows for extracting individual files.
 pub struct Archiver {
     cfg:    Config,
+    prg:    Progress,
     files:  Vec<PathBuf>, // Keep list of files already compressed to prevent accidental clobbering
 }
 impl Archiver {
     /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
+        let prg = Progress::new(&cfg, Mode::Compress);
         Archiver {
-            cfg, 
+            cfg, prg,
             files: Vec::with_capacity(32),
         }
     }
@@ -72,7 +71,9 @@ impl Archiver {
     /// compress. If multithreaded, the main thread parses the file into blocks and 
     /// each block is compressed by a seperate encoder, so files compressed 
     /// with a single thread can't be decompressed with multiple threads, or vice versa.
-    pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
+    pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
+        self.prg.get_input_size_enc(file_in_path);
+
         let mut mta: Metadata = Metadata::new();
         mta.blk_sz = self.cfg.blk_sz;
 
@@ -85,43 +86,26 @@ impl Archiver {
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
+        
+        let mut index = 0;
+        let mut blks_wrtn = 0;
+        let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
 
-        if self.cfg.threads == 1 {
-            loop {
-                if file_in.fill_buffer() == BufferState::Empty { break; }
-                mta.fblk_sz = file_in.buffer().len();
-                enc.compress_block(file_in.buffer());
-                println!("Compressed block {}", mta.blk_c);
-                mta.blk_c += 1;
-            }
+        while file_in.fill_buffer() == BufferState::NotEmpty {
+            mta.fblk_sz = file_in.buffer().len();
+            tp.compress_block(file_in.buffer().to_vec(), index, self.cfg.blk_sz);
+            index += 1;
+            mta.blk_c += 1;
         }
-        else {
-            let quiet = self.cfg.quiet;
-            let mut index = 0;
-            let mut blocks_written = 0;
-            let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem);
-
-            loop {
-                if file_in.fill_buffer() == BufferState::Empty { break; }
-                mta.fblk_sz = file_in.buffer().len();
-
-                tp.compress_block(file_in.buffer().to_vec(), index, self.cfg.blk_sz);
-                index += 1;
-                mta.blk_c += 1;
-                //std::thread::sleep(std::time::Duration::from_millis(2000));
-                //tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut enc);
-            }
-            while blocks_written != mta.blk_c {
-                blocks_written += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut enc);
-            }   
-            drop(tp);
-        }
+        while blks_wrtn != mta.blk_c {
+            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut enc);
+        }   
 
         enc.flush();
-        if self.cfg.threads == 1 {}
-        else { self.write_footer(&mut enc, &mut mta); }
+        self.write_footer(&mut enc, &mut mta);
         enc.write_header(&mta, Arch::NonSolid);
-        file_len(&file_out_path)
+
+        self.prg.print_file_stats(file_len(&file_out_path));
     }
     
     /// Compress any nested directories.
@@ -137,12 +121,8 @@ impl Archiver {
 
         // Compress files first, then directories
         for file_in in files.iter() {
-            let time = Instant::now();
-            if !self.cfg.quiet { println!("Compressing {}", file_in.display()); }
-            let file_in_size  = file_len(file_in); 
-            let file_out_size = self.compress_file(file_in, &dir_out);
-            if !self.cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
-                file_in_size, file_out_size, time.elapsed()); }
+            if !self.cfg.quiet { println!("Compressing {}", file_in.display()); } 
+            self.compress_file(file_in, &dir_out);
         }
         for dir_in in dirs.iter() {
             self.compress_dir(dir_in, &mut dir_out);
@@ -166,76 +146,56 @@ impl Archiver {
 /// An Extractor extracts non-solid archives.
 pub struct Extractor {
     cfg: Config,
+    prg: Progress,
 }
 impl Extractor {
     pub fn new(cfg: Config) -> Extractor {
+        let prg = Progress::new(&cfg, Mode::Decompress);
         Extractor {
-            cfg,
+            cfg, prg,
         }
     }
-    pub fn decompress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
+    pub fn decompress_file(&mut self, file_in_path: &Path, dir_out: &str) {
         let mut dec = Decoder::new(new_input_file(4096, file_in_path));
         let mut mta: Metadata = dec.read_header(Arch::NonSolid);
-        if self.cfg.threads == 1 {}
-        else { self.read_footer(&mut dec, &mut mta); }
+
+        self.read_footer(&mut dec, &mut mta);
+        self.prg.get_input_size_dec(&file_in_path, mta.enc_blk_szs.len());
 
         verify_magic_number(mta.mgc, Arch::NonSolid);
 
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
         
-        if self.cfg.threads == 1 {
-            // Call after reading header
-            dec.init_x();
-
-            // Decompress full blocks
-            for b in 0..(mta.blk_c - 1) {
-                let block = dec.decompress_block(mta.blk_sz);
-                println!("Decompressed block {}", b);
-                for byte in block.iter() {
-                    file_out.write_byte(*byte);
-                }
-            }
-            // Decompress final variable size block
-            let block = dec.decompress_block(mta.fblk_sz);
-            println!("Decompressed block {}", mta.blk_c-1);
-            for byte in block.iter() {
-                file_out.write_byte(*byte);
-            }
-        }
-        else {
-            let quiet = self.cfg.quiet;
-            let mut index = 0;
-            let mut blocks_written = 0;
-            let blk_c = mta.enc_blk_szs.len();
-            let mut tp = ThreadPool::new(self.cfg.threads, dec.mem);
-            
-            for _ in 0..(mta.blk_c-1) {
-                // Read and decompress compressed blocks
-                let mut block_in = Vec::with_capacity(mta.blk_sz);
-                for _ in 0..mta.enc_blk_szs[index] {
-                    block_in.push(dec.file_in.read_byte());
-                }
-                tp.decompress_block(block_in, index, mta.blk_sz);
-                index += 1;
-            }
-
-            // Read and decompress final compressed block
+        let mut index = 0;
+        let mut blks_wrtn = 0;
+        let mut tp = ThreadPool::new(self.cfg.threads, dec.mem, self.prg);
+        
+        for _ in 0..(mta.blk_c-1) {
+            // Read and decompress compressed blocks
             let mut block_in = Vec::with_capacity(mta.blk_sz);
             for _ in 0..mta.enc_blk_szs[index] {
                 block_in.push(dec.file_in.read_byte());
             }
-            tp.decompress_block(block_in, index, mta.fblk_sz);
+            tp.decompress_block(block_in, index, mta.blk_sz);
+            index += 1;
+        }
 
-            while blocks_written != blk_c {
-                blocks_written += tp.bq.lock().unwrap().try_write_block_dec(&mut file_out);
-            }
+        // Read and decompress final compressed block
+        let mut block_in = Vec::with_capacity(mta.blk_sz);
+        for _ in 0..mta.enc_blk_szs[index] {
+            block_in.push(dec.file_in.read_byte());
+        }
+        tp.decompress_block(block_in, index, mta.fblk_sz);
 
-            drop(tp);
-        } 
+        while blks_wrtn != mta.blk_c {
+            blks_wrtn += tp.bq.lock().unwrap().try_write_block_dec(&mut file_out);
+        }
+    
         file_out.flush_buffer();
-        file_len(&file_out_path)
+        self.prg.print_file_stats(file_len(&file_out_path));
     }
+    
     pub fn decompress_dir(&mut self, dir_in: &Path, dir_out: &mut String, root: bool) {
         let mut dir_out = fmt_nested_dir_ns_extract(dir_out, dir_in, root);
         new_dir_checked(&dir_out, self.cfg.clbr);
@@ -248,12 +208,8 @@ impl Extractor {
 
         // Decompress files first, then directories
         for file_in in files.iter() {
-            let time = Instant::now();
             if !self.cfg.quiet { println!("Decompressing {}", file_in.display()); }
-            let file_in_size  = file_len(file_in);
-            let file_out_size = self.decompress_file(file_in, &dir_out);
-            if !self.cfg.quiet { println!("{} bytes -> {} bytes in {:.2?}\n",
-                file_in_size, file_out_size, time.elapsed()); }
+            self.decompress_file(file_in, &dir_out);
         }
         for dir_in in dirs.iter() {
             self.decompress_dir(dir_in, &mut dir_out, false); 
@@ -275,3 +231,4 @@ impl Extractor {
         dec.file_in.seek(SeekFrom::Start(28)).unwrap();
     }
 }
+

@@ -1,7 +1,7 @@
 use std::{
     thread::{self, JoinHandle},
     sync::{
-        mpsc::{self, TryRecvError, Sender, Receiver},
+        mpsc::{self, Sender, Receiver},
         Arc, Mutex,
     },
     fs::File,
@@ -12,12 +12,14 @@ use crate::{
     decoder::SubDecoder,
     metadata::Metadata,
     buffered_io::BufferedWrite,
+    Progress,
 };
 
 pub enum Message {
     NewJob(Job),
     Terminate,
 }
+
 
 type Job = Box<dyn FnOnce() -> (Vec<u8>, usize) + Send + 'static>;
 
@@ -29,14 +31,16 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
-    pub fn new(size: usize, mem: usize) -> ThreadPool {
+    pub fn new(size: usize, mem: usize, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
-        let rcvr = Arc::new(Mutex::new(rcvr));
         let mut workers = Vec::with_capacity(size);
+
+        let rcvr = Arc::new(Mutex::new(rcvr));
         let bq = Arc::new(Mutex::new(BlockQueue::new()));
+        let prg = Arc::new(Mutex::new(prg));
 
         for _ in 0..size {
-            workers.push(Worker::new(Arc::clone(&rcvr), Arc::clone(&bq)));
+            workers.push(Worker::new(Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)));
         }
         ThreadPool { workers, sndr, mem, bq }
     }
@@ -47,11 +51,10 @@ impl ThreadPool {
                 Box::new(move || {
                     let mut enc = SubEncoder::new(mem, blk_sz);
                     enc.compress_block(&block);
-                    //if !quiet { println!("Compressed block {}", index); }
                     (enc.out, index)
                 })
             )
-        );   
+        ).unwrap();   
     }
     pub fn decompress_block(&mut self, block: Vec<u8>, index: usize, blk_sz: usize) {
         let mem = self.mem;
@@ -61,19 +64,11 @@ impl ThreadPool {
                     let mut dec = SubDecoder::new(block, mem);
                     dec.init_x();
                     let block_out = dec.decompress_block(blk_sz);
-                    //if !quiet { println!("Compressed block {}", index); }
                     (block_out, index)
                 })
             )
-        );   
+        ).unwrap();   
     }
-    /*
-    pub fn execute<F>(&self, f: F)
-    where F: FnOnce() + Send + 'static {
-        let message = Message::NewJob(Box::new(f));
-        self.sndr.send(message).unwrap();
-    }
-    */
 }
 impl Drop for ThreadPool {
     fn drop(&mut self) {
@@ -89,19 +84,29 @@ impl Drop for ThreadPool {
     }
 }
 
+type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
+type SharedReceiver = Arc<Mutex<Receiver<Message>>>;
+type SharedProgress = Arc<Mutex<Progress>>;
+
 struct Worker {
     thread: Option<JoinHandle<()>>,
 }
 impl Worker {
-    fn new(receiver: Arc<Mutex<Receiver<Message>>>, bq: Arc<Mutex<BlockQueue>>) -> Worker {
+    fn new(receiver: SharedReceiver, bq: SharedBlockQueue, prg: SharedProgress) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
 
             match message {
                 Message::NewJob(job) => { 
                     let (block, index) = job();
-                    let mutex_guard = bq.lock().unwrap();
-                    match mutex_guard {
+                    {
+                        let prg_guard = prg.lock().unwrap();
+                        match prg_guard {
+                            mut prg => prg.update(),
+                        }
+                    }
+                    let queue_guard = bq.lock().unwrap();
+                    match queue_guard {
                         mut queue => {
                             queue.blocks.push((block, index));
                         }
@@ -128,7 +133,6 @@ impl BlockQueue {
     pub fn try_write_block_enc(&mut self, mta: &mut Metadata, enc: &mut Encoder) -> usize {
         let len = self.blocks.len();
         let next_out = self.next_out;
-        //println!("blocks: {:#?}", self.blocks);
 
         self.blocks.retain(|block|
             if block.1 == next_out {
@@ -163,19 +167,3 @@ impl BlockQueue {
         blocks_written
     }
 }
-
-/*
-pub fn compress_block(sndr: Sender<(Vec<u8>, usize)>, input: &[u8], index: usize, mem: usize, blk_sz: usize, quiet: bool) {
-    let mut enc = SubEncoder::new(mem, blk_sz);
-    enc.compress_block(&input);
-    if !quiet { println!("Compressed block {}", index); }
-    sndr.send((enc.out, index)).unwrap();
-}
-pub fn decompress_block(sndr: Sender<(Vec<u8>, usize)>, block_in: Vec<u8>, mem: usize, index: usize, blk_sz: usize, quiet: bool) {
-    let mut dec = SubDecoder::new(block_in, mem);
-    dec.init_x();
-    let block = dec.decompress_block(blk_sz);
-    if !quiet { println!("Decompressed block {}", index); }
-    sndr.send((block, index)).unwrap();
-}
-*/
