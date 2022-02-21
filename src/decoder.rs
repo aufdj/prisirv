@@ -104,7 +104,6 @@ pub struct SubDecoder {
     block:      Box<dyn Iterator<Item = u8>>,
 }
 impl SubDecoder {
-    
     pub fn new(block_in: Vec<u8>, mem: usize) -> SubDecoder {
         SubDecoder {
             high: 0xFFFFFFFF,

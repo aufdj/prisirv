@@ -3,6 +3,7 @@ use std::{
     time::Instant,
     io::{Seek, SeekFrom},
     sync::mpsc,
+    mem::drop,
 };
 
 use crate::{
@@ -24,7 +25,7 @@ use crate::{
     },
     threads::{
         self, ThreadPool, BlockQueue, 
-    }
+    },
 };
 
 /// Check for a valid magic number.
@@ -51,177 +52,26 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
     }
 }
 
-/*
-use std::thread;
-use std::sync::mpsc;
-use std::sync::mpsc::TryRecvError;
-use std::sync::mpsc::{Sender, Receiver};
-use std::thread::JoinHandle;
-use std::sync::Arc;
-use std::sync::Mutex;
-
-enum Message {
-    NewJob(Job),
-    Terminate,
-}
-
-type Job = Box<dyn FnOnce() + Send + 'static>;
-
-pub struct ThreadPool {
-    workers: Vec<Worker>,
-    sndr: Sender<Message>,
-}
-
-impl ThreadPool {
-    pub fn new(size: usize) -> ThreadPool {
-        assert!(size > 0);
-
-        let (sndr, rcvr) = mpsc::channel();
-
-        let rcvr = Arc::new(Mutex::new(rcvr));
-
-        let mut workers = Vec::with_capacity(size);
-
-        for id in 0..size {
-            workers.push(Worker::new(id, Arc::clone(&rcvr)));
-        }
-
-        ThreadPool { workers, sndr }
-    }
-    pub fn execute<F>(&self, f: F)
-    where F: FnOnce() + Send + 'static {
-        let message = Message::NewJob(Box::new(f));
-
-        self.sndr.send(message).unwrap();
-    }
-}
-impl Drop for ThreadPool {
-    fn drop(&mut self) {
-        println!("Sending terminate message to all workers.");
-
-        for _ in &self.workers {
-            self.sndr.send(Message::Terminate).unwrap();
-        }
-
-        println!("Shutting down all workers.");
-
-        for worker in &mut self.workers {
-            println!("Shutting down worker {}", worker.id);
-
-            if let Some(thread) = worker.thread.take() {
-                thread.join().unwrap();
-            }
-        }
-    }
-}
-struct Worker {
-    thread: Option<JoinHandle<()>>,
-    id: usize,
-}
-impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
-        let thread = thread::spawn(move || loop {
-            let message = receiver.lock().unwrap().recv().unwrap();
-
-            match message {
-                Message::NewJob(job) => {
-                    println!("Worker {} got a job; executing.", id);
-
-                    job();
-                }
-                Message::Terminate => {
-                    println!("Worker {} was told to terminate.", id);
-
-                    break;
-                }
-            }
-        });
-
-        Worker { thread: Some(thread), id }
-    }
-}
-
-struct BlockQueue {
-    blocks: Vec<(Vec<u8>, usize)>, // Blocks to be output
-    next_out: usize, // Next block to be output
-}
-impl BlockQueue {
-    fn new() -> BlockQueue {
-        BlockQueue {
-            blocks: Vec::new(),
-            next_out: 0,
-        }
-    }
-    fn try_write_block_enc(&mut self, mta: &mut Metadata, enc: &mut Encoder) {
-        let len = self.blocks.len();
-        let next_out = self.next_out;
-
-        self.blocks.retain(|block|
-            if block.1 == next_out {
-                mta.enc_blk_szs.push(block.0.len());
-                for byte in block.0.iter() {
-                    enc.file_out.write_byte(*byte);
-                }
-                false
-            }
-            else { true } 
-        );
-        self.next_out += len - self.blocks.len();
-    }
-    fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) {
-        let len = self.blocks.len();
-        let next_out = self.next_out;
-
-        self.blocks.retain(|block|
-            if block.1 == next_out {
-                println!("writing block");
-                for byte in block.0.iter() {
-                    file_out.write_byte(*byte);
-                }
-                false
-            }
-            else { true } 
-        );
-        self.next_out += len - self.blocks.len();
-    }
-    fn try_get_block(&mut self, block: Result<(Vec<u8>, usize), TryRecvError>) {
-        match block {
-            Ok(block) => self.blocks.push(block),
-            Err(_) => {},
-        }
-    }
-}
-
-fn compress_block(sndr: Sender<(Vec<u8>, usize)>, input: &[u8], index: usize, mem: usize, blk_sz: usize) {
-    let mut enc = SubEncoder::new(mem, blk_sz);
-    enc.compress_block(&input);
-    sndr.send((enc.out, index)).unwrap();
-}
-fn decompress_block(sndr: Sender<(Vec<u8>, usize)>, block_in: Vec<u8>, mem: usize, index: usize, blk_sz: usize) {
-    let mut dec = SubDecoder::new(block_in, mem);
-    dec.init_x();
-    sndr.send((dec.decompress_block(blk_sz), index)).unwrap();
-}
-*/
-
-/// Archiver ============================================================================
-///
 /// An archiver creates non-solid archives. A non-solid archive is an archive containing
 /// independently compressed files. Non-solid archiving typically results in worse 
 /// compression ratios than solid archiving, but allows for extracting individual files.
-///
-/// =====================================================================================
 pub struct Archiver {
     cfg:    Config,
     files:  Vec<PathBuf>, // Keep list of files already compressed to prevent accidental clobbering
 }
 impl Archiver {
+    /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
         Archiver {
-            cfg,
+            cfg, 
             files: Vec::with_capacity(32),
         }
     }
+
+    /// Compresses a single file. If single threaded, a single encoder is used to 
+    /// compress. If multithreaded, the main thread parses the file into blocks and 
+    /// each block is compressed by a seperate encoder, so files compressed 
+    /// with a single thread can't be decompressed with multiple threads, or vice versa.
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) -> u64 {
         let mut mta: Metadata = Metadata::new();
         mta.blk_sz = self.cfg.blk_sz;
@@ -241,43 +91,30 @@ impl Archiver {
                 if file_in.fill_buffer() == BufferState::Empty { break; }
                 mta.fblk_sz = file_in.buffer().len();
                 enc.compress_block(file_in.buffer());
+                println!("Compressed block {}", mta.blk_c);
                 mta.blk_c += 1;
             }
         }
         else {
-            let (sndr, rcvr) = mpsc::channel();
-            let mem = self.cfg.mem;
-            let blk_sz = self.cfg.blk_sz;
+            let quiet = self.cfg.quiet;
             let mut index = 0;
-            let mut bq = BlockQueue::new();
-            let tp = ThreadPool::new(self.cfg.threads);
+            let mut blocks_written = 0;
+            let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem);
 
             loop {
-                if file_in.fill_buffer() == BufferState::Empty {
-                    break; 
-                }
+                if file_in.fill_buffer() == BufferState::Empty { break; }
                 mta.fblk_sz = file_in.buffer().len();
-                let input = file_in.buffer().to_vec();
-                let sndrn = sndr.clone();
 
-                tp.execute(move || {
-                    threads::compress_block(sndrn, &input, index, mem, blk_sz);
-                });
+                tp.compress_block(file_in.buffer().to_vec(), index, self.cfg.blk_sz);
                 index += 1;
                 mta.blk_c += 1;
-
-                bq.try_get_block(rcvr.try_recv());
-                bq.try_write_block_enc(&mut mta, &mut enc);
+                //std::thread::sleep(std::time::Duration::from_millis(2000));
+                //tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut enc);
             }
-            std::mem::drop(tp);
-            std::mem::drop(sndr);
-            for rcv in rcvr.try_iter() {
-                bq.try_get_block(Ok(rcv));
-            }
-
-            while !bq.blocks.is_empty() {
-                bq.try_write_block_enc(&mut mta, &mut enc);
-            }
+            while blocks_written != mta.blk_c {
+                blocks_written += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut enc);
+            }   
+            drop(tp);
         }
 
         enc.flush();
@@ -287,6 +124,7 @@ impl Archiver {
         file_len(&file_out_path)
     }
     
+    /// Compress any nested directories.
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
         let mut dir_out = fmt_nested_dir_ns_archive(dir_out, dir_in);
         new_dir_checked(&dir_out, self.cfg.clbr);
@@ -310,7 +148,9 @@ impl Archiver {
             self.compress_dir(dir_in, &mut dir_out);
         }
     } 
-    // Write compressed block sizes in footer
+
+    /// If compression is multithreaded, write compressed block sizes to archive
+    /// so that compressed blocks can be parsed ahead of time during decompression.
     fn write_footer(&mut self, enc: &mut Encoder, mta: &mut Metadata) {
         // Get index to end of file metadata
         mta.f_ptr =
@@ -349,61 +189,49 @@ impl Extractor {
             dec.init_x();
 
             // Decompress full blocks
-            for _ in 0..(mta.blk_c - 1) {
+            for b in 0..(mta.blk_c - 1) {
                 let block = dec.decompress_block(mta.blk_sz);
+                println!("Decompressed block {}", b);
                 for byte in block.iter() {
                     file_out.write_byte(*byte);
                 }
             }
             // Decompress final variable size block
             let block = dec.decompress_block(mta.fblk_sz);
+            println!("Decompressed block {}", mta.blk_c-1);
             for byte in block.iter() {
                 file_out.write_byte(*byte);
             }
         }
         else {
-            let blk_sz = mta.blk_sz;
-            let fblk_sz = mta.fblk_sz;
-            let mem = dec.mem;
-            let (sndr, rcvr) = mpsc::channel();
+            let quiet = self.cfg.quiet;
             let mut index = 0;
-            let mut bq = BlockQueue::new();
-            let tp = ThreadPool::new(self.cfg.threads);
+            let mut blocks_written = 0;
+            let blk_c = mta.enc_blk_szs.len();
+            let mut tp = ThreadPool::new(self.cfg.threads, dec.mem);
             
             for _ in 0..(mta.blk_c-1) {
                 // Read and decompress compressed blocks
-                let mut block_in = Vec::with_capacity(blk_sz);
+                let mut block_in = Vec::with_capacity(mta.blk_sz);
                 for _ in 0..mta.enc_blk_szs[index] {
                     block_in.push(dec.file_in.read_byte());
                 }
-                let sndrn = sndr.clone();
-
-                tp.execute(move || {
-                    threads::decompress_block(sndrn, block_in, mem, index, blk_sz);
-                });
+                tp.decompress_block(block_in, index, mta.blk_sz);
                 index += 1;
-                bq.try_get_block(rcvr.try_recv());
-                bq.try_write_block_dec(&mut file_out);
             }
 
             // Read and decompress final compressed block
-            let mut block_in = Vec::with_capacity(blk_sz);
+            let mut block_in = Vec::with_capacity(mta.blk_sz);
             for _ in 0..mta.enc_blk_szs[index] {
                 block_in.push(dec.file_in.read_byte());
             }
-            let sndrn = sndr.clone();
-            tp.execute(move || {
-                threads::decompress_block(sndrn, block_in, mem, index, fblk_sz);
-            });
-            std::mem::drop(tp);
-            std::mem::drop(sndr);
+            tp.decompress_block(block_in, index, mta.fblk_sz);
 
-            for rcv in rcvr.try_iter() {
-                bq.try_get_block(Ok(rcv));
+            while blocks_written != blk_c {
+                blocks_written += tp.bq.lock().unwrap().try_write_block_dec(&mut file_out);
             }
-            while !bq.blocks.is_empty() {
-                bq.try_write_block_dec(&mut file_out);
-            }
+
+            drop(tp);
         } 
         file_out.flush_buffer();
         file_len(&file_out_path)
