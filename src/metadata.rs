@@ -5,48 +5,45 @@ use std::{
 };
 
 
-/// Metadata Structure ==================================================================
+/// # Metadata Structure 
 ///
-/// A prisirv non-solid archive contains a 48 byte header followed by compressed data.
-/// A prisirv solid archive contains a 32 byte header followed by compressed data,
+/// * A prisirv non-solid archive contains a 7 * sizeof(usize) byte header followed by compressed 
+/// data, followed by a footer containing the size of each compressed block.
+/// * A prisirv solid archive contains a 4 * sizeof(usize) byte header followed by compressed data,
 /// followed by a footer containing information about each compressed file.
 ///
-/// Non-solid: (nB = n byte value)
+/// ## Non-Solid Archive
 ///
-///      8B[Memory Option   ] 8B[Magic Number] 8B[File Extension]
-///      8B[Final Block Size] 8B[Block Size  ] 8B[Block Count   ]
-///      [Compressed Data --------------------------------------]
-///      [------------------------------------------------------]
-///      [------------------------------------------------------]
+/// * Memory Option     
+/// * Magic Number
+/// * File Extension
+/// * Final Block Size
+/// * Block Size
+/// * Block Count
+/// * Footer Pointer
+/// * Compressed Data
+/// * Footer
+///    
+/// The footer for a non-solid archive contains a list of 
+/// compressed sizes for each block, each value being 8 bytes.
 ///
-/// Solid: (nB = n byte value)
+/// ## Solid Archive
 ///
-///      8B[Memory Option] 8B[Magic Number] 8B[Block Size] 8B[Files Pointer]
-///      [Compressed Data -------------------------------------------------]
-///      [-----------------------------------------------------------------]
-///      [-----------------------------------------------------------------]
-///      nB S[Files]*
-///      
-///      *Files Structure ---------------------------------------------
-///          
-///      8B[Number of files] 
-///      nB[1B[File Path Length] nB[File Path       ]
-///         8B[Block Count     ] 8B[Final Block Size]]
-///       
-///      Files consists of an 8 byte value denoting the number of 
-///      compressed files, followed by a list of file paths, block 
-///      counts, and final block sizes.
-///      
-///      The 8 byte 'number of files' value and the 1 byte 'file path
-///      length' values are included for ease of parsing.
+/// * Memory Option
+/// * Magic Number
+/// * Block Size
+/// * Footer Pointer
+/// * Compressed Data
+/// * Footer
+///     
+/// A solid archive footer consists of an 8 byte value denoting  
+/// the number of compressed files, followed by a list of file 
+/// paths, block counts, and final block sizes.
+/// 
 ///
-///
-/// Memory Option = 1 << 20..1 << 29,
-/// Magic Number  = 'prisirv ' for non-solid archives,
-///                 'prisirvS' for solid archives,
-/// Block Size    = 1 << 20,
-///
-/// =====================================================================================
+/// Memory Option: 1 << 20..1 << 29,
+/// Magic Number:  'prsv' for non-solid archives, 'PRSV' for solid archives,
+/// Block Size:    1 << 20,
 
 #[derive(Debug)]
 pub struct Metadata {
@@ -56,14 +53,12 @@ pub struct Metadata {
     pub fblk_sz:  usize, // Final block size
     pub blk_sz:   usize, // Block size
     pub blk_c:    usize, // Block count
+    pub f_ptr:    usize, // Pointer to footer
     pub enc_blk_szs: Vec<usize>, // Commpressed block sizes
-    
-    // Solid archives only ---------------
-    pub f_ptr: usize, // Pointer to 'files'
-    // Path, block_count, final_block_size
-    pub files: Vec<(String, usize, usize)>,      
+    pub files: Vec<(String, usize, usize)>, // Path, block_count, final_block_size    
 }
 impl Metadata {
+    /// Initialize new metadata.
     pub fn new() -> Metadata {
         Metadata {
             mgc:      0x7673_7270,
@@ -77,7 +72,8 @@ impl Metadata {
             enc_blk_szs: Vec::new(),
         }
     }
-    // Set metadata extension field
+
+    /// Set metadata extension field to the input file's extension.
     pub fn set_ext(&mut self, path: &Path) {
         // Handle no extension
         let ext = match path.extension() {
@@ -92,7 +88,8 @@ impl Metadata {
             self.ext = (self.ext << 8) | *byte as usize;
         }
     }
-    // Get metadata extension field
+
+    /// Get metadata extension field.
     pub fn get_ext(&self) -> String {
         // Ignoring 00 bytes, convert ext to string
         String::from_utf8(

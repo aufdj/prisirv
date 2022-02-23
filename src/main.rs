@@ -8,7 +8,6 @@ mod progress;
 
 use std::{
     path::{Path, PathBuf},
-    time::Instant,
     env,  
 };
 use crate::{
@@ -37,14 +36,6 @@ pub enum Arch {
     NonSolid,
 }
 
-
-pub fn file_path_ext(path: &Path) -> String {
-    path.to_str().unwrap().to_string()
-}
-pub fn file_len(path: &Path) -> u64 {
-    path.metadata().unwrap().len()
-}
-
 // Recursively collect all files into a vector for sorting before compression.
 fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
@@ -54,7 +45,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
 
     for file in files.iter() {
         mta.files.push(
-            (file_path_ext(file), 0, 0)
+            (file.display().to_string(), 0, 0)
         );
     }
     for dir in dirs.iter() {
@@ -100,68 +91,6 @@ fn print_config(cfg: &Config, dir_out: &str) {
     }
 }
 
-
-#[derive(Copy, Clone, Debug)]
-pub struct Progress {
-    in_size: u64,
-    blks: u64,
-    total_blks: u64,
-    blk_sz: u64,
-    time: Instant,
-    quiet: bool,
-    mode: Mode,
-}
-impl Progress {
-    pub fn new(cfg: &Config, mode: Mode) -> Progress {
-        Progress {
-            in_size: 0,
-            blks: 0,
-            total_blks: 0,
-            blk_sz: cfg.blk_sz as u64,
-            quiet: cfg.quiet,
-            time: Instant::now(),
-            mode,
-        }
-    }
-    pub fn get_input_size_enc(&mut self, input: &Path) {
-        self.in_size = file_len(&input);
-        self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
-    }
-    pub fn get_input_size_dec(&mut self, input: &Path, blk_c: usize) {
-        self.in_size = file_len(&input);
-        self.total_blks = blk_c as u64;
-    }
-    pub fn update(&mut self) {
-        self.blks += 1;
-        self.print_block_stats();
-    }
-    pub fn print_block_stats(&self) {
-        if !self.quiet {
-            match self.mode {
-                Mode::Compress => {
-                    println!("Compressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
-                    self.blks, self.total_blks, 
-                    (self.blks as f64/self.total_blks as f64)*100.0,
-                    self.time.elapsed());
-                }
-                Mode::Decompress =>  {
-                    println!("Decompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
-                    self.blks, self.total_blks, 
-                    (self.blks as f64/self.total_blks as f64)*100.0,
-                    self.time.elapsed());
-                }
-            }
-            
-        }
-    }
-    pub fn print_file_stats(&self, out_size: u64) {
-        if !self.quiet {
-            println!("{} bytes -> {} bytes in {:.2?}\n", 
-                self.in_size, out_size, self.time.elapsed());
-        }
-    }
-}
-
 fn main() {
     let cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
 
@@ -181,7 +110,7 @@ fn main() {
             // Walk through directories and collect all files
             for file in files.iter() {
                 mta.files.push(
-                    (file_path_ext(file), 0, 0)
+                    (file.display().to_string(), 0, 0)
                 );
             }
             for dir in dirs.iter() {
@@ -242,12 +171,8 @@ fn main() {
 
             let mut extr = Extractor::new(cfg);
             for file_in in files.iter() {
-                //let time = Instant::now();
-                if !quiet { println!("Decompressing {}", file_in.display()); }
-                //let file_in_size  = file_len(file_in); 
+                if !quiet { println!("Decompressing {}", file_in.display()); } 
                 extr.decompress_file(file_in, &dir_out);
-                //if !quiet { println!("{} bytes -> {} bytes in {:.2?}\n", 
-                //    file_in_size, file_out_size, time.elapsed()); } 
             }
             for dir_in in dirs.iter() {
                 extr.decompress_dir(dir_in, &mut dir_out, true);      

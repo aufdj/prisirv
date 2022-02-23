@@ -3,21 +3,20 @@
 Prisirv is a context mixing archiver based on [lpaq1 by Matt Mahoney.](http://mattmahoney.net/dc/#lpaq)
 
 <pre>
-USAGE: PROG_NAME [c|d] [-out [path]] [-mem [0..9]] [-sld] [-sort [..]] [-i [files|dirs]] [-q] [-clbr] [-blk [n]]
-
-Option [c|d] must be first, all other options can be in any order.
+USAGE: PROG_NAME [c|d] [OPTIONS]
 
 OPTIONS (Mandatory*):
-   c      Compress*
-   d      Decompress*
-  -out    Specify output path
-  -sld    Create solid archive
-  -mem    Specify memory usage (Default - 27 MiB)
-  -sort   Sort files (solid archives only) (Default - none)
-  -i      Specify list of input files/dirs*
-  -q      Suppresses output other than errors
-  -clbr   Allows clobbering files
-  -blk    Specify block size in MiB (Default - 1 MiB)
+   c        Compress*
+   d        Decompress*
+  -out      Specify output path
+  -sld      Create solid archive
+  -mem      Specify memory usage (Default - 27 MiB)
+  -sort     Sort files (solid archives only) (Default - none)
+  -i        Specify list of input files/dirs*
+  -q        Suppresses output other than errors
+  -clbr     Allows clobbering files
+  -blk      Specify block size in MiB (Default - 1 MiB)
+  -threads  Specify thread count (non-solid archives only) 
 
    Sorting Methods:
       -sort ext       Sort by extension

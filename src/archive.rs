@@ -4,17 +4,15 @@ use std::{
 };
 
 use crate::{
-    Arch,
-    Mode,
-    Progress,
-    file_len, 
+    Arch, Mode,
+    progress::Progress,
     metadata::Metadata,
     encoder::Encoder,
     decoder::Decoder,
     parse_args::Config,
     threads::ThreadPool,
     buffered_io::{
-        BufferedRead, BufferedWrite, BufferState,
+        BufferedRead, BufferedWrite, BufferState, file_len, 
         new_input_file, new_output_file, new_dir_checked,
     },
     formatting::{

@@ -4,27 +4,30 @@ use std::{
 };
 use crate::{Mode, Arch, parse_args::Config};
 
-// Get file name or path without extension
+/// Get file name without extension.
 fn file_name_no_ext(path: &Path) -> &str {
     path.file_name().unwrap()
     .to_str().unwrap()
     .split('.').next().unwrap()
 }
+/// Get file path without extension.
 fn file_path_no_ext(path: &Path) -> &str {
     path.to_str().unwrap()
     .split('.').next().unwrap()
 }
 
-// Get file name or path with extension 
+/// Get file name with extension.
 fn file_name_ext(path: &Path) -> &str {
     path.file_name().unwrap()
     .to_str().unwrap()
 }
+/// Get file path with extension.
 fn file_path_ext(path: &Path) -> String {
     path.to_str().unwrap().to_string()
 }
 
 
+/// Used for determining archive name.
 #[derive(PartialEq, Eq)]
 enum Format {
     Archive,
@@ -33,14 +36,11 @@ enum Format {
     ExtractSolid,
 }
 
-/// Format root directory path of archive ===============================================
-///
+
 /// Creates a new archive or extracted archive path. This is 
 /// a directory, except in the case of a solid archive, where
 /// it is a file. The user can specify an output path, otherwise
 /// a default will be chosen.
-///
-/// =====================================================================================
 pub fn fmt_root_output_dir(cfg: &Config) -> String {
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
@@ -59,7 +59,7 @@ pub fn fmt_root_output_dir(cfg: &Config) -> String {
 }
 
 /// Format output directory given a format, an optional user  
-/// specified output, and the first input file or directory =============================
+/// specified output, and the first input file or directory
 ///
 /// An -out option containing \'s will be treated as an absolute path.
 ///
@@ -68,8 +68,6 @@ pub fn fmt_root_output_dir(cfg: &Config) -> String {
 ///
 /// i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive \baz\arch,
 /// while option '-out arch' creates archive \foo\arch.
-///
-/// =====================================================================================
 fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
@@ -108,15 +106,13 @@ fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
     dir_out
 }
 
-/// Format new output file in non-solid archive =========================================
+/// Format new output file in non-solid archive
 ///
 /// Since each compressed file is given the .prsv extension, two files
 /// with different extensions but identical names could overwrite
 /// each other. To avoid this, a different file name is found for a duplicate file.
 /// i.e. foo/bar.txt -> foo/bar.prsv
 ///      foo/bar.bin -> foo/bar.prsv -> foo/bar(1).prsv
-///
-/// =====================================================================================
 pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, files: &[PathBuf]) -> PathBuf {
     // Variable for keeping track of number of duplicates.
     let mut dup = 1;
@@ -166,14 +162,12 @@ pub fn fmt_nested_dir_ns_archive(dir_out: &str, dir_in: &Path) -> String {
     dir_out, file_name_ext(dir_in))
 }
 
-/// Format output file in extracted non-solid archive ===================================
+/// Format output file in extracted non-solid archive
 ///
 /// Create output file path from current output directory, 
 /// input file name without extension, and file's original
 /// extension, stored in the header.
 /// i.e. foo/bar.prsv -> foo/bar.txt
-///
-/// =====================================================================================
 pub fn fmt_file_out_ns_extract(ext: &str, dir_out: &str, file_in_path: &Path) -> PathBuf {
     if ext.is_empty() { // Handle no extension
         PathBuf::from(
@@ -189,13 +183,11 @@ pub fn fmt_file_out_ns_extract(ext: &str, dir_out: &str, file_in_path: &Path) ->
     }
 }
 
-/// Format new nested directory in extracted non-solid archive ==========================
+/// Format new nested directory in extracted non-solid archive
 ///
 /// Create new nested directory from current output 
 /// directory and input directory name. If current 
 /// output directory is root, replace rather than nest.
-///
-/// =====================================================================================
 pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> String {
     if root { dir_out.to_string() }
     else { 
@@ -204,7 +196,7 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
     }
 }
 
-/// Format output file in extracted solid archive =======================================
+/// Format output file in extracted solid archive
 ///
 /// Reconstruct original directory structure based on output directory  
 /// and absolute path of the file being compressed. This is done by 
@@ -214,8 +206,6 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
 ///
 /// If the parent directory of the output path doesn't exist, 
 /// it and other required directories are created.
-///
-/// =====================================================================================
 pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf { 
     let path = 
     PathBuf::from(

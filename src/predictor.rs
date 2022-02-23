@@ -9,10 +9,10 @@ use crate::{
 };
 
 
-/// Predictor ===========================================================================
+/// # Predictor
 ///
 /// Prisirv is a context mixing compressor with the same model as lpaq1
-/// by Matt Mahoney (http://mattmahoney.net/dc/#lpaq). The model combines 7 
+/// by Matt Mahoney <http://mattmahoney.net/dc/#lpaq>. The model combines 7 
 /// contexts: orders 1, 2, 3, 4, 6, a lowercase unigram word context 
 /// (for ASCII text), and a "match" order, which predicts the next
 /// bit in the last matching context. The independent bit predictions of

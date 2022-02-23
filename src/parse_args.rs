@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use crate::{sort::Sort, Mode, Arch};
 
 
-// Parse command line arguments.
+/// Parse command line arguments.
 enum Parse {
     Mode,
     DirOut,
@@ -31,7 +31,7 @@ pub struct Config {
 }
 impl Config {
     pub fn new(args: &[String]) -> Config {
-        if args.len() == 0 { print_program_info(); }
+        if args.is_empty() { print_program_info(); }
 
         let mut parser = Parse::Mode;
         let mut sort = Sort::None;
@@ -186,7 +186,7 @@ impl Config {
     }
 }
 
-
+/// Print information about prisirv.
 fn print_program_info() {
     println!();
     println!("     ______   ______     ________  ______    ________  ______    __   __     
@@ -202,8 +202,6 @@ fn print_program_info() {
     println!("Source code available at https://github.com/aufdj/prisirv");
     println!();
     println!("USAGE: PROG_NAME [c|d] [OPTIONS]");
-    println!();
-    println!("Option [c|d] must be first, all other options can be in any order.");
     println!();
     println!("OPTIONS:");
     println!("   c        Compress");

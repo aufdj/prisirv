@@ -12,7 +12,7 @@ use crate::{
     decoder::SubDecoder,
     metadata::Metadata,
     buffered_io::BufferedWrite,
-    Progress,
+    progress::Progress,
 };
 
 pub enum Message {
