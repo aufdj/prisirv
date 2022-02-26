@@ -1,18 +1,20 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     io::{Seek, SeekFrom},
     cmp::min,
 };
 
 use crate::{
-    Arch,
+    Arch, Mode,
     metadata::Metadata,
     encoder::Encoder,
     decoder::Decoder,
+    threads::ThreadPool,
+    progress::Progress,
     formatting::fmt_file_out_s_extract,
     parse_args::Config,
     buffered_io::{
-        BufferedRead, BufferedWrite, BufferState,
+        BufferedRead, BufferedWrite, BufferState, file_len,
         new_input_file, new_output_file, new_dir_checked,
     },
 };
@@ -41,49 +43,62 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
     }
 }
 
-/// Solid Archiver ======================================================================
-///
-/// A solid archiver creates solid archives. A solid archive is an archive containing 
-/// files compressed as one stream. Solid archives can take advantage of redundancy 
-/// across files and therefore achieve better compression ratios than non-solid 
+
+/// A solid archiver creates solid archives. A solid archive is an archive containing
+/// files compressed as one stream. Solid archives can take advantage of redundancy
+/// across files and therefore achieve better compression ratios than non-solid
 /// archives, but don't allow for extracting individual files.
-///
-/// =====================================================================================
 pub struct SolidArchiver {
     pub enc:  Encoder,
     mta:      Metadata,
     cfg:      Config,
+    prg:      Progress,
 }
 impl SolidArchiver {
     pub fn new(enc: Encoder, mta: Metadata, cfg: Config) -> SolidArchiver {
+        let prg = Progress::new(&cfg, Mode::Compress);
         SolidArchiver {
-            enc, mta, cfg,
+            enc, mta, cfg, prg,
         }
     }
     pub fn create_archive(&mut self) {
-        for curr_file in 0..self.mta.files.len() {
-            if !self.cfg.quiet { println!("Compressing {}", self.mta.files[curr_file].0); }
-            let archive_size = self.compress_file_solid(curr_file);
-            if !self.cfg.quiet { println!("Total archive size: {}\n", archive_size); }
-        }
-        self.enc.flush();
-    }
-    pub fn compress_file_solid(&mut self, curr_file: usize) -> u64 {
-        // Create input file with buffer = block size
-        let mut file_in = 
-            new_input_file(
-                self.mta.blk_sz, 
-                Path::new(&self.mta.files[curr_file].0)
-            );
+        self.prg.get_input_size_solid(&self.mta.files);
+        let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
 
-        // Compress
-        loop {
-            if file_in.fill_buffer() == BufferState::Empty { break; }
-            self.mta.files[curr_file].2 = file_in.buffer().len();
-            self.enc.compress_block(file_in.buffer());
-            self.mta.files[curr_file].1 += 1;
+        let mut blk = Vec::with_capacity(self.cfg.blk_sz);
+        let mut rem_cap = blk.capacity();
+        let mut index = 0;
+        let mut blks_wrtn = 0;
+
+        for curr_file in 0..self.mta.files.len() {
+            //let file_len = file_len(file_path);
+            let file_path = Path::new(&self.mta.files[curr_file].0);
+            let mut file_in = new_input_file(rem_cap, file_path);
+
+            while file_in.fill_buffer() == BufferState::NotEmpty {
+                blk.append(&mut file_in.buffer().to_vec());
+                rem_cap = blk.capacity() - blk.len();
+                self.mta.fblk_sz = blk.len();
+                // Compress full block
+                if rem_cap == 0 {
+                    tp.compress_block(blk.clone(), index, blk.len());
+                    self.mta.blk_c += 1;
+                    index += 1;
+                    blk.clear();
+                    rem_cap = blk.capacity();
+                }
+            }
         }
-        self.enc.file_out.stream_position().unwrap()
+        // Compress final block
+        tp.compress_block(blk.clone(), index, blk.len());
+        self.mta.blk_c += 1;
+
+        // Output blocks
+        while blks_wrtn != self.mta.blk_c {
+            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.enc);
+        }
+        //self.enc.flush();
+        self.enc.file_out.flush_buffer();
     }
     fn write_footer(&mut self) {
         // Get index to end of file metadata
@@ -110,10 +125,14 @@ impl SolidArchiver {
             self.enc.file_out.write_usize(file.1);
             self.enc.file_out.write_usize(file.2);
         }
+        // Write compressed block sizes
+        for blk_sz in self.mta.enc_blk_szs.iter() {
+            self.enc.file_out.write_usize(*blk_sz);
+        }
 
         // Return final archive size including footer
         if !self.cfg.quiet {
-            println!("Final archive size: {}", 
+            println!("Final archive size: {}",
             self.enc.file_out.seek(SeekFrom::End(0)).unwrap());
         }
     }
@@ -128,40 +147,67 @@ impl SolidArchiver {
 
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
-    dec:    Decoder,
-    mta:    Metadata,
-    cfg:    Config,
+    dec:  Decoder,
+    mta:  Metadata,
+    cfg:  Config,
+    prg:  Progress,
 }
 impl SolidExtractor {
     pub fn new(dec: Decoder, mta: Metadata, cfg: Config) -> SolidExtractor {
+        let prg = Progress::new(&cfg, Mode::Decompress);
         SolidExtractor {
-            dec, mta, cfg,
+            dec, mta, cfg, prg,
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
         new_dir_checked(dir_out, self.cfg.clbr);
-        for curr_file in 0..self.mta.files.len() {
-            if !self.cfg.quiet { println!("Decompressing {}", self.mta.files[curr_file].0); }
-            self.decompress_file_solid(dir_out, curr_file);
-        }
-    }
-    pub fn decompress_file_solid(&mut self, dir_out: &str, curr_file: usize) {
-        let file_out_path = fmt_file_out_s_extract(dir_out, Path::new(&self.mta.files[curr_file].0));
-        let mut file_out = new_output_file(4096, &file_out_path);
 
-        // Decompress full blocks
-        for _ in 0..((self.mta.files[curr_file].1) - 1) {
-            let block = self.dec.decompress_block(self.mta.blk_sz);
-            for byte in block.iter() {
-                file_out.write_byte(*byte);
+        let mut index = 0;
+        let mut blks_wrtn = 0;
+        let mut tp = ThreadPool::new(self.cfg.threads, self.dec.mem, self.prg);
+
+        // Decompress blocks --------------------------------------
+        for _ in 0..self.mta.blk_c-1 {
+            let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
+            for _ in 0..self.mta.enc_blk_szs[index] {
+                blk_in.push(self.dec.file_in.read_byte());
+            }
+            tp.decompress_block(blk_in, index, self.mta.blk_sz);
+            index += 1;
+        }
+        let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
+        for _ in 0..self.mta.enc_blk_szs[index] {
+            blk_in.push(self.dec.file_in.read_byte());
+        }
+        tp.decompress_block(blk_in, index, self.mta.fblk_sz);
+        // --------------------------------------------------------
+
+        let mut file_paths = 
+            self.mta.files.iter()
+            .map(|f| PathBuf::from(f.0.clone()));
+            
+        let mut file_in_path = file_paths.next().unwrap_or_else(|| std::process::exit(0));
+        let mut file_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+        let mut file_in_len = file_len(&file_in_path);
+        let mut file_out = new_output_file(4096, &file_path);
+        
+        while blks_wrtn != self.mta.blk_c {
+            match tp.bq.lock().unwrap().try_get_block() {
+                Some(block) => {
+                    blks_wrtn += 1;
+                    for byte in block.iter() {
+                        if file_out.stream_position().unwrap() == file_in_len {
+                            file_in_path = file_paths.next().unwrap_or_else(|| std::process::exit(0));
+                            file_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+                            file_in_len = file_len(&file_in_path);
+                            file_out = new_output_file(4096, &file_path);
+                        }
+                        file_out.write_byte(*byte);
+                    }
+                }
+                None => {},
             }
         }
-        // Decompress final variable size block
-        let block = self.dec.decompress_block(self.mta.files[curr_file].2);
-        for byte in block.iter() {
-            file_out.write_byte(*byte);
-        }
-        file_out.flush_buffer();
     }
     fn read_footer(&mut self) {
         // Seek to end of file metadata
@@ -189,19 +235,22 @@ impl SolidExtractor {
             );
             path.clear();
         }
+        for _ in 0..self.mta.blk_c {
+            self.mta.enc_blk_szs.push(self.dec.file_in.read_usize());
+        }
 
         // Seek back to beginning of compressed data
         #[cfg(target_pointer_width = "64")]
-        self.dec.file_in.seek(SeekFrom::Start(32)).unwrap();
+        self.dec.file_in.seek(SeekFrom::Start(48)).unwrap();
 
         #[cfg(target_pointer_width = "32")]
-        self.dec.file_in.seek(SeekFrom::Start(16)).unwrap();
+        self.dec.file_in.seek(SeekFrom::Start(24)).unwrap();
     }
     // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
         self.mta = self.dec.read_header(Arch::Solid);
         verify_magic_number(self.mta.mgcs, Arch::Solid);
         self.read_footer();
-        self.dec.init_x();
+        //self.dec.init_x();
     }
 }

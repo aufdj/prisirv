@@ -71,9 +71,11 @@ impl Decoder {
         let mut mta: Metadata = Metadata::new();
         match arch {
             Arch::Solid => {
-                mta.mgcs =   self.file_in.read_usize();
-                mta.blk_sz = self.file_in.read_usize();
-                mta.f_ptr =  self.file_in.read_usize();
+                mta.mgcs =    self.file_in.read_usize();
+                mta.blk_sz =  self.file_in.read_usize();
+                mta.fblk_sz = self.file_in.read_usize();
+                mta.blk_c =   self.file_in.read_usize();
+                mta.f_ptr =   self.file_in.read_usize();
             }
             Arch::NonSolid => {
                 mta.mgc =     self.file_in.read_usize();

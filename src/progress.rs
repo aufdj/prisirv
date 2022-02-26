@@ -1,4 +1,7 @@
-use std::{path::Path, time::Instant};
+use std::{
+    path::{Path, PathBuf},
+    time::Instant
+};
 
 use crate::{
     Mode,
@@ -7,7 +10,7 @@ use crate::{
 };
 
 
-/// Tracks the current file's compression or decompression progress.
+/// Tracks compression or decompression progress.
 #[derive(Copy, Clone, Debug)]
 pub struct Progress {
     in_size: u64,
@@ -44,6 +47,13 @@ impl Progress {
     pub fn get_input_size_dec(&mut self, input: &Path, blk_c: usize) {
         self.in_size = file_len(&input);
         self.total_blks = blk_c as u64;
+    }
+
+    pub fn get_input_size_solid(&mut self, files: &Vec<(String, usize, usize)>) {
+        for file in files.iter().map(|f| f.clone().0).map(PathBuf::from) {
+            self.in_size += file_len(&file);
+        }
+        self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
 
     /// Increase current block count by 1 and print current stats.

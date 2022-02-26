@@ -5,13 +5,14 @@ use std::{
         Arc, Mutex,
     },
     fs::File,
-    io::BufWriter,
+    io::{Seek, BufWriter},
+    path::{Path, PathBuf},
 };
 use crate::{
     encoder::{Encoder, SubEncoder},
     decoder::SubDecoder,
     metadata::Metadata,
-    buffered_io::BufferedWrite,
+    buffered_io::{BufferedWrite, new_output_file, file_len},
     progress::Progress,
 };
 
@@ -29,15 +30,14 @@ pub struct ThreadPool {
     mem: usize,
     pub bq: Arc<Mutex<BlockQueue>>,
 }
-
 impl ThreadPool {
     pub fn new(size: usize, mem: usize, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
         let mut workers = Vec::with_capacity(size);
 
         let rcvr = Arc::new(Mutex::new(rcvr));
-        let bq = Arc::new(Mutex::new(BlockQueue::new()));
-        let prg = Arc::new(Mutex::new(prg));
+        let bq   = Arc::new(Mutex::new(BlockQueue::new()));
+        let prg  = Arc::new(Mutex::new(prg));
 
         for _ in 0..size {
             workers.push(Worker::new(Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)));
@@ -85,8 +85,8 @@ impl Drop for ThreadPool {
 }
 
 type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
-type SharedReceiver = Arc<Mutex<Receiver<Message>>>;
-type SharedProgress = Arc<Mutex<Progress>>;
+type SharedReceiver   = Arc<Mutex<Receiver<Message>>>;
+type SharedProgress   = Arc<Mutex<Progress>>;
 
 struct Worker {
     thread: Option<JoinHandle<()>>,
@@ -108,6 +108,7 @@ impl Worker {
                     let queue_guard = bq.lock().unwrap();
                     match queue_guard {
                         mut queue => {
+                            println!("pushing block");
                             queue.blocks.push((block, index));
                         }
                     }; 
@@ -121,7 +122,7 @@ impl Worker {
 
 pub struct BlockQueue {
     pub blocks: Vec<(Vec<u8>, usize)>, // Blocks to be output
-    next_out: usize, // Next block to be output
+    next_out:   usize, // Next block to be output
 }
 impl BlockQueue {
     pub fn new() -> BlockQueue {
@@ -147,7 +148,6 @@ impl BlockQueue {
         let blocks_written: usize = (len - self.blocks.len()) as usize;
         self.next_out += blocks_written;
         blocks_written
-        
     }
     pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> usize {
         let len = self.blocks.len();
@@ -165,5 +165,29 @@ impl BlockQueue {
         let blocks_written: usize = (len - self.blocks.len()) as usize;
         self.next_out += blocks_written;
         blocks_written
+    }
+    pub fn try_get_block(&mut self) -> Option<Vec<u8>> {
+        let mut index = None;
+        let mut blk_out = Vec::new();
+
+        for (blk_i, mut blk) in self.blocks.clone().into_iter().enumerate() {
+            if blk.1 == self.next_out {
+                self.next_out += 1;
+                blk_out.append(&mut blk.0);
+                index = Some(blk_i);
+            }
+        }
+        match index {
+            Some(i) =>  {
+                self.blocks.swap_remove(i);
+            }
+            None => {},
+        }
+        if blk_out.is_empty() {
+            return None;
+        }
+        else {
+            return Some(blk_out);
+        }
     }
 }

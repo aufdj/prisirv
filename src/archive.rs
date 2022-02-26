@@ -65,10 +65,8 @@ impl Archiver {
         }
     }
 
-    /// Compresses a single file. If single threaded, a single encoder is used to 
-    /// compress. If multithreaded, the main thread parses the file into blocks and 
-    /// each block is compressed by a seperate encoder, so files compressed 
-    /// with a single thread can't be decompressed with multiple threads, or vice versa.
+    /// Compresses a single file. The main thread parses the file into blocks and 
+    /// each block is compressed by a seperate encoder.
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
         self.prg.get_input_size_enc(file_in_path);
 
@@ -106,7 +104,7 @@ impl Archiver {
         self.prg.print_file_stats(file_len(&file_out_path));
     }
     
-    /// Compress any nested directories.
+    /// Compresses every file in a directory.
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
         let mut dir_out = fmt_nested_dir_ns_archive(dir_out, dir_in);
         new_dir_checked(&dir_out, self.cfg.clbr);

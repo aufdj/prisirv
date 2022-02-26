@@ -30,7 +30,7 @@ impl Encoder {
         };
         // Metadata placeholder
         for _ in match cfg.arch {
-            Arch::Solid    => { 0..4 } 
+            Arch::Solid    => { 0..6 } 
             Arch::NonSolid => { 0..7 }
         } { enc.file_out.write_usize(0); }
         enc
@@ -71,6 +71,8 @@ impl Encoder {
             Arch::Solid => {
                 self.file_out.write_usize(mta.mgcs);
                 self.file_out.write_usize(mta.blk_sz);
+                self.file_out.write_usize(mta.fblk_sz);
+                self.file_out.write_usize(mta.blk_c);
                 self.file_out.write_usize(mta.f_ptr);
             }
             Arch::NonSolid => {
