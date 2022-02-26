@@ -146,11 +146,6 @@ pub fn new_output_file(capacity: usize, file_name: &Path) -> BufWriter<File> {
         capacity, File::create(file_name).unwrap()
     )
 }
-pub fn new_output_file_no_trunc(capacity: usize, file_name: &Path) -> BufWriter<File> {
-    BufWriter::with_capacity(
-        capacity, OpenOptions::new().write(true).create(true).truncate(false).open(file_name).unwrap()
-    )
-}
 pub fn new_dir(path: &str) {
     let path = Path::new(path);
     match create_dir(path) {

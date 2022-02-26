@@ -110,6 +110,7 @@ impl Worker {
                         mut queue => {
                             println!("pushing block");
                             queue.blocks.push((block, index));
+                            println!("finished pushing block");
                         }
                     }; 
                 }

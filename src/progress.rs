@@ -35,26 +35,58 @@ impl Progress {
             mode,
         }
     }
+    
+    // Non-Solid Archives ==========================
 
-    /// Get the input file size and calculate total block count by dividing input size by block size.
+    /// Get input file size and calculate total block count by dividing input size by block size.
     pub fn get_input_size_enc(&mut self, input: &Path) {
         self.in_size = file_len(&input);
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
 
-    /// Get the input file size and total block count. Since compressed blocks are variable size, the 
+    /// Get the input size and total block count of a file. Since compressed blocks are variable size, the 
     /// count can't be calculated and is instead obtained directly from metadata.
     pub fn get_input_size_dec(&mut self, input: &Path, blk_c: usize) {
         self.in_size = file_len(&input);
         self.total_blks = blk_c as u64;
     }
 
+    /// Print final compressed file size and time elapsed.
+    pub fn print_file_stats(&self, out_size: u64) {
+        if !self.quiet {
+            println!("{} bytes -> {} bytes in {:.2?}\n", 
+                self.in_size, out_size, self.time.elapsed());
+        }
+    }
+
+
+
+    // Solid Archives ==============================
+
+    /// Get input archive size and calculate total block count by dividing input size by block size.
     pub fn get_input_size_solid(&mut self, files: &Vec<(String, usize, usize)>) {
-        for file in files.iter().map(|f| f.clone().0).map(PathBuf::from) {
+        for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
             self.in_size += file_len(&file);
         }
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
+    /// Get the input size and total block count of an archive. Since compressed blocks are variable size, the 
+    /// count can't be calculated and is instead obtained directly from metadata.
+    pub fn get_input_size_solid_dec(&mut self, files: &Vec<(String, usize, usize)>, blk_c: usize) {
+        for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
+            self.in_size += file_len(&file);
+        }
+        self.total_blks = blk_c as u64;
+    }
+    /// Print final compressed archive size and time elapsed.
+    pub fn print_archive_stats(&self, out_size: u64) {
+        if !self.quiet {
+            println!("{} bytes -> {} bytes in {:.2?}\n", 
+                self.in_size, out_size, self.time.elapsed());
+        }
+    }
+
+
 
     /// Increase current block count by 1 and print current stats.
     pub fn update(&mut self) {
@@ -78,16 +110,7 @@ impl Progress {
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
                 }
-            }
-            
-        }
-    }
-
-    /// Print final compressed file size and time elapsed.
-    pub fn print_file_stats(&self, out_size: u64) {
-        if !self.quiet {
-            println!("{} bytes -> {} bytes in {:.2?}\n", 
-                self.in_size, out_size, self.time.elapsed());
+            } 
         }
     }
 }

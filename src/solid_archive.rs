@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     io::{Seek, SeekFrom},
+    process::exit,
     cmp::min,
 };
 
@@ -28,17 +29,17 @@ fn verify_magic_number(mgc: usize, arch: Arch) {
         (Arch::Solid, 0x7673_7270) => {
             println!();
             println!("Expected solid archive, found non-solid archive.");
-            std::process::exit(0);
+            exit(0);
         },
         (Arch::NonSolid, 0x7673_7270) => {},
         (Arch::NonSolid, 0x5653_5250) => {
             println!();
             println!("Expected non-solid archive, found solid archive.");
-            std::process::exit(0);
+            exit(0);
         }
         (_, _) => {
             println!("Not a prisirv archive.");
-            std::process::exit(0);
+            exit(0);
         }
     }
 }
@@ -131,10 +132,7 @@ impl SolidArchiver {
         }
 
         // Return final archive size including footer
-        if !self.cfg.quiet {
-            println!("Final archive size: {}",
-            self.enc.file_out.seek(SeekFrom::End(0)).unwrap());
-        }
+        self.prg.print_archive_stats(self.enc.file_out.seek(SeekFrom::End(0)).unwrap());
     }
     // For more info on metadata structure, see metadata.rs
     pub fn write_metadata(&mut self) {
@@ -160,6 +158,7 @@ impl SolidExtractor {
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
+        self.prg.get_input_size_solid_dec(&self.mta.files, self.mta.blk_c);
         new_dir_checked(dir_out, self.cfg.clbr);
 
         let mut index = 0;
@@ -182,22 +181,23 @@ impl SolidExtractor {
         tp.decompress_block(blk_in, index, self.mta.fblk_sz);
         // --------------------------------------------------------
 
-        let mut file_paths = 
-            self.mta.files.iter()
-            .map(|f| PathBuf::from(f.0.clone()));
+        let mut file_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));
             
-        let mut file_in_path = file_paths.next().unwrap_or_else(|| std::process::exit(0));
+        let mut file_in_path = file_paths.next().unwrap_or_else(|| exit(0));
         let mut file_path = fmt_file_out_s_extract(dir_out, &file_in_path);
         let mut file_in_len = file_len(&file_in_path);
         let mut file_out = new_output_file(4096, &file_path);
         
         while blks_wrtn != self.mta.blk_c {
-            match tp.bq.lock().unwrap().try_get_block() {
+            let mut queue = tp.bq.lock().unwrap();
+            match queue.try_get_block() {
                 Some(block) => {
                     blks_wrtn += 1;
+                    println!("blocks written: {}", blks_wrtn);
+                    println!("block count: {}", self.mta.blk_c);
                     for byte in block.iter() {
                         if file_out.stream_position().unwrap() == file_in_len {
-                            file_in_path = file_paths.next().unwrap_or_else(|| std::process::exit(0));
+                            file_in_path = file_paths.next().unwrap_or_else(|| exit(0));
                             file_path = fmt_file_out_s_extract(dir_out, &file_in_path);
                             file_in_len = file_len(&file_in_path);
                             file_out = new_output_file(4096, &file_path);
