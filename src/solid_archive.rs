@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf},
-    io::{Seek, SeekFrom},
+    io::{Seek, SeekFrom, BufWriter},
+    fs::File,
     process::exit,
     cmp::min,
 };
@@ -65,36 +66,30 @@ impl SolidArchiver {
     pub fn create_archive(&mut self) {
         self.prg.get_input_size_solid_enc(&self.mta.files);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
-
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
-        let mut rem_cap = blk.capacity();
-        let mut index = 0;
-        let mut blks_wrtn = 0;
 
-        for curr_file in 0..self.mta.files.len() {
-            //let file_len = file_len(file_path);
-            let file_path = Path::new(&self.mta.files[curr_file].0);
-            let mut file_in = new_input_file(rem_cap, file_path);
+        for file in self.mta.files.iter() {
+            let file_path = Path::new(&file.0);
+            let mut file_in = new_input_file(blk.capacity(), file_path);
 
             while file_in.fill_buffer() == BufferState::NotEmpty {
                 blk.append(&mut file_in.buffer().to_vec());
-                rem_cap = blk.capacity() - blk.len();
                 self.mta.fblk_sz = blk.len();
+                
                 // Compress full block
-                if rem_cap == 0 {
-                    tp.compress_block(blk.clone(), index, blk.len());
+                if blk.capacity() - blk.len() == 0 { 
+                    tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
                     self.mta.blk_c += 1;
-                    index += 1;
                     blk.clear();
-                    rem_cap = blk.capacity();
                 }
             }
         }
         // Compress final block
-        tp.compress_block(blk.clone(), index, blk.len());
+        tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
         self.mta.blk_c += 1;
 
         // Output blocks
+        let mut blks_wrtn = 0;
         while blks_wrtn != self.mta.blk_c {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.enc);
         }
@@ -122,9 +117,8 @@ impl SolidArchiver {
                 self.enc.file_out.write_byte(*byte);
             }
 
-            // Output block count and final block size
-            self.enc.file_out.write_usize(file.1);
-            self.enc.file_out.write_usize(file.2);
+            // Output file length
+            self.enc.file_out.write_u64(file.1);
         }
         // Write compressed block sizes
         for blk_sz in self.mta.enc_blk_szs.iter() {
@@ -181,14 +175,15 @@ impl SolidExtractor {
         tp.decompress_block(blk_in, index, self.mta.fblk_sz);
         // --------------------------------------------------------
 
-        let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));
-            
-        let mut file_in_path = file_in_paths.next().unwrap_or_else(|| exit(0));
-        let mut file_in_len = file_len(&file_in_path);
-        let mut file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
-        let mut file_out = new_output_file(4096, &file_out_path);
+        let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));   
+        let mut file_out_paths = Vec::new();
+
+        let (mut file_in_len, mut file_out) = 
+            next_file(
+                &file_in_paths.next().unwrap_or_else(|| exit(0)), 
+                dir_out, &mut file_out_paths
+            );
         let mut file_out_pos = 0;
-        let mut file_out_paths = vec![file_out_path];
         
         while blks_wrtn != self.mta.blk_c {
             match tp.bq.lock().unwrap().try_get_block() {
@@ -196,11 +191,11 @@ impl SolidExtractor {
                     blks_wrtn += 1;
                     for byte in block.iter() {
                         if file_out_pos == file_in_len {
-                            file_in_path = file_in_paths.next().unwrap_or_else(|| exit(0));
-                            file_in_len = file_len(&file_in_path);
-                            file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
-                            file_out = new_output_file(4096, &file_out_path);
-                            file_out_paths.push(file_out_path);
+                            (file_in_len, file_out) = 
+                                next_file(
+                                    &file_in_paths.next().unwrap_or_else(|| exit(0)), 
+                                    dir_out, &mut file_out_paths
+                                );
                             file_out_pos = 0;
                         }
                         file_out.write_byte(*byte);
@@ -221,12 +216,11 @@ impl SolidExtractor {
         // Get number of files
         let num_files = self.dec.file_in.read_usize();
 
-        // Parse files and lengths
         for _ in 0..num_files {
             // Get length of next path
             let len = self.dec.file_in.read_byte();
 
-            // Get path, block count, final block size
+            // Get file path and length
             for _ in 0..len {
                 path.push(self.dec.file_in.read_byte());
             }
@@ -234,11 +228,12 @@ impl SolidExtractor {
                 (path.iter().cloned()
                     .map(|b| b as char)
                     .collect::<String>(),
-                self.dec.file_in.read_usize(),
-                self.dec.file_in.read_usize())
+                self.dec.file_in.read_u64())
             );
             path.clear();
         }
+
+        // Get compressed block sizes
         for _ in 0..self.mta.blk_c {
             self.mta.enc_blk_szs.push(self.dec.file_in.read_usize());
         }
@@ -258,10 +253,28 @@ impl SolidExtractor {
     }
 }
 
+/// Get total size of directory
 fn dir_size(files: &[PathBuf]) -> u64 {
     let mut size: u64 = 0;
     for file in files.iter() {
         size += file_len(file);
     }
     size
+}
+
+/// Get the next output file and the input file length,
+/// the input file being the original file that was compressed.
+/// i.e. output file is foo_d\bar.txt, input file is foo\bar.txt
+///
+/// The input file length is needed to know when the output file
+/// is the correct size.
+///
+/// The output file paths are tracked so the final extracted archive
+/// size can be computed at the end of extraction.
+fn next_file(file_in_path: &Path, dir_out: &str, file_out_paths: &mut Vec<PathBuf>) -> (u64, BufWriter<File>) {
+    let file_in_len = file_len(&file_in_path);
+    let file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+    let file_out = new_output_file(4096, &file_out_path);
+    file_out_paths.push(file_out_path);
+    (file_in_len, file_out)
 }

@@ -55,7 +55,7 @@ pub struct Metadata {
     pub blk_c:    usize, // Block count
     pub f_ptr:    usize, // Pointer to footer
     pub enc_blk_szs: Vec<usize>, // Commpressed block sizes
-    pub files: Vec<(String, usize, usize)>, // Path, block_count, final_block_size    
+    pub files: Vec<(String, u64)>, // Path, length    
 }
 impl Metadata {
     /// Initialize new metadata.

@@ -16,6 +16,7 @@ pub enum BufferState {
 
 pub trait BufferedRead {
     fn read_byte(&mut self) -> u8;
+    fn read_u64(&mut self) -> u64;
     fn read_usize(&mut self) -> usize;
     fn fill_buffer(&mut self) -> BufferState;
 }
@@ -40,6 +41,27 @@ impl BufferedRead for BufReader<File> {
             }
         }
         u8::from_le_bytes(byte)
+    }
+    fn read_u64(&mut self) -> u64 {
+        let mut byte = [0u8; 8];
+        match self.read(&mut byte) {
+            Ok(_)  => {},
+            Err(e) => {
+                println!("Function read_byte failed.");
+                println!("Error: {}", e);
+            },
+        };
+        if self.buffer().is_empty() {
+            self.consume(self.capacity());
+            match self.fill_buf() {
+                Ok(_)  => {},
+                Err(e) => {
+                    println!("Function read_byte failed.");
+                    println!("Error: {}", e);
+                },
+            }
+        }
+        u64::from_le_bytes(byte)
     }
     fn read_usize(&mut self) -> usize {
         let mut bytes = [0u8; 8];
@@ -79,6 +101,7 @@ impl BufferedRead for BufReader<File> {
 }
 pub trait BufferedWrite {
     fn write_byte(&mut self, output: u8);
+    fn write_u64(&mut self, output: u64);
     fn write_usize(&mut self, output: usize);
     fn flush_buffer(&mut self);
 }
@@ -99,6 +122,24 @@ impl BufferedWrite for BufWriter<File> {
                     println!("Error: {}", e);
                 },
             }
+        }
+    }
+    fn write_u64(&mut self, output: u64) {
+        match self.write(&output.to_le_bytes()[..]) {
+            Ok(_)  => {},
+            Err(e) => {
+                println!("Function write_usize failed.");
+                println!("Error: {}", e);
+            },
+        }
+        if self.buffer().len() >= self.capacity() {
+            match self.flush() {
+                Ok(_)  => {},
+                Err(e) => {
+                    println!("Function write_usize failed.");
+                    println!("Error: {}", e);
+                },
+            } 
         }
     }
     fn write_usize(&mut self, output: usize) {

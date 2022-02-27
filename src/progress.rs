@@ -67,7 +67,7 @@ impl Progress {
     // Solid Archives ==============================
 
     /// Get input archive size and calculate total block count by dividing input size by block size.
-    pub fn get_input_size_solid_enc(&mut self, files: &Vec<(String, usize, usize)>) {
+    pub fn get_input_size_solid_enc(&mut self, files: &Vec<(String, u64)>) {
         for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
             self.in_size += file_len(&file);
         }
@@ -107,7 +107,6 @@ impl Progress {
                     CLEAR, self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
-                    
                 }
                 Mode::Decompress =>  {
                     println!("{}Decompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 

@@ -21,7 +21,7 @@ use crate::{
     parse_args::Config,
     buffered_io::{
         new_input_file, new_dir_checked, 
-        new_output_file_checked,
+        new_output_file_checked, file_len,
     },
 };
 
@@ -45,7 +45,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
 
     for file in files.iter() {
         mta.files.push(
-            (file.display().to_string(), 0, 0)
+            (file.display().to_string(), file_len(&file))
         );
     }
     for dir in dirs.iter() {
@@ -110,7 +110,7 @@ fn main() {
             // Walk through directories and collect all files
             for file in files.iter() {
                 mta.files.push(
-                    (file.display().to_string(), 0, 0)
+                    (file.display().to_string(), file_len(&file))
                 );
             }
             for dir in dirs.iter() {
