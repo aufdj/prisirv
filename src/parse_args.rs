@@ -51,19 +51,19 @@ impl Config {
                     parser = Parse::Sort;
                     continue;
                 }, 
-                "-out" => {
+                "-out" | "-outputdir" => {
                     parser = Parse::DirOut;
                     continue;
                 },     
-                "-i" => { 
+                "-i" | "-inputs" => { 
                     parser = Parse::Inputs;
                     continue;
                 },
-                "-mem" => {
+                "-mem" | "-memory" => {
                     parser = Parse::Mem;
                     continue;
                 }
-                "-blk" => {
+                "-blk" | "-blocksize" => {
                     parser = Parse::BlkSz;
                     continue;
                 }
@@ -71,9 +71,9 @@ impl Config {
                     parser = Parse::Threads;
                     continue;
                 }
-                "-sld"  => parser = Parse::Solid,
-                "-q"    => parser = Parse::Quiet,
-                "-clbr" => parser = Parse::Clobber,
+                "-sld"  | "-solid"   => parser = Parse::Solid,
+                "-q"    | "-quiet"   => parser = Parse::Quiet,
+                "-clb"  | "-clobber" => parser = Parse::Clobber,
                 "help" => print_program_info(),
                 _ => {},
             }
@@ -86,7 +86,7 @@ impl Config {
                         "crtd"   => Sort::Created,
                         "accd"   => Sort::Accessed,
                         "mod"    => Sort::Modified,
-                        "prtdir" => {
+                        "prt"    => {
                             parser = Parse::Lvl;
                             Sort::PrtDir(1)
                         },
@@ -103,8 +103,8 @@ impl Config {
                 Parse::Clobber => clbr = true,
                 Parse::Mode => {
                     mode = match arg.as_str() {
-                        "c" => Mode::Compress,
-                        "d" => Mode::Decompress,
+                        "c" | "compress"   => Mode::Compress,
+                        "d" | "decompress" => Mode::Decompress,
                         _ => {
                             println!("Invalid mode.");
                             std::process::exit(0);
@@ -197,50 +197,66 @@ fn print_program_info() {
        \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
         \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
                                                                              ");
+    println!("  
+    Prisirv, Context Mixing File Archiver
+    Copyright (C) 2022 aufdj
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.");
+    println!("
+    Source code available at https://github.com/aufdj/prisirv");
     println!();
-    println!("Prisirv is a context mixing archiver based on lpaq1");
-    println!("Source code available at https://github.com/aufdj/prisirv");
     println!();
-    println!("USAGE: PROG_NAME [c|d] [OPTIONS]");
+    println!("  USAGE: PROG_NAME [c|d] [OPTIONS]");
     println!();
-    println!("OPTIONS:");
-    println!("   c        Compress");
-    println!("   d        Decompress");
-    println!("  -out      Specify output path");
-    println!("  -sld      Create solid archive");
-    println!("  -mem      Specify memory usage");
-    println!("  -sort     Sort files (solid archives only)");
-    println!("  -i        Specify list of input files/dirs");
-    println!("  -q        Suppresses output other than errors");
-    println!("  -clbr     Allows clobbering files");
-    println!("  -threads  Specify thread count (non-solid archives only)");
+    println!("  OPTIONS:");
+    println!("     c,     compress,      Compress");
+    println!("     d,     decompress,    Decompress");
+    println!("    -out,  -outputdir,     Specify output path");
+    println!("    -sld,  -solid,         Create solid archive");
+    println!("    -mem,  -memory,        Specify memory usage (default 3)");
+    println!("    -sort                  Sort files (solid archives only) (default none)");
+    println!("    -i,    -inputs,        Specify list of input files/dirs");
+    println!("    -q,    -quiet,         Suppresses output other than errors");
+    println!("    -clb,  -clobber,       Allows clobbering files");
+    println!("    -threads               Specify thread count (default 4)");
     println!();
-    println!("      Sorting Methods (Default - none):");
-    println!("          -sort ext       Sort by extension");
-    println!("          -sort name      Sort by name");
-    println!("          -sort len       Sort by length");
-    println!("          -sort prtdir n  Sort by nth parent directory");
-    println!("          -sort crtd      Sort by creation time");
-    println!("          -sort accd      Sort by last access time");
-    println!("          -sort mod       Sort by last modification time");
+    println!("  Sorting Methods:");
+    println!("      -sort ext      Sort by extension");
+    println!("      -sort name     Sort by name");
+    println!("      -sort len      Sort by length");
+    println!("      -sort prt n    Sort by nth parent directory");
+    println!("      -sort crtd     Sort by creation time");
+    println!("      -sort accd     Sort by last access time");
+    println!("      -sort mod      Sort by last modification time");
     println!();
-    println!("      Memory Options (Default - 3):");
-    println!("          -mem 0  6 MB   -mem 5  99 MB");
-    println!("          -mem 1  9 MB   -mem 6  195 MB");
-    println!("          -mem 2  15 MB  -mem 7  387 MB");
-    println!("          -mem 3  27 MB  -mem 8  771 MB");
-    println!("          -mem 4  51 MB  -mem 9  1539 MB");
+    println!("  Memory Options:");
+    println!("      -mem 0  6 MB   -mem 5  99 MB");
+    println!("      -mem 1  9 MB   -mem 6  195 MB");
+    println!("      -mem 2  15 MB  -mem 7  387 MB");
+    println!("      -mem 3  27 MB  -mem 8  771 MB");
+    println!("      -mem 4  51 MB  -mem 9  1539 MB");
     println!();
-    println!("      Decompression requires same memory option used for compression.");
-    println!("      Any memory option specified for decompression will be ignored.");
+    println!("  Decompression requires same memory option used for compression.");
+    println!("  Any memory option specified for decompression will be ignored.");
     println!();
-    println!("EXAMPLE:");
-    println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
+    println!("  EXAMPLE:");
+    println!("      Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
     println!();
-    println!("      prisirv c -out arch -sld -sort crtd -i \\foo\\bar.txt \\baz");
+    println!("          prisirv c -out arch -sld -sort crtd -i \\foo\\bar.txt \\baz");
     println!();
-    println!("  Decompress the archive:");
+    println!("      Decompress the archive:");
     println!();
-    println!("      prisirv d -sld -i \\foo\\arch.pri");
+    println!("          prisirv d -sld -i \\foo\\arch.pri");
     std::process::exit(0);
 }
