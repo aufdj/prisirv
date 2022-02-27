@@ -63,7 +63,7 @@ impl SolidArchiver {
         }
     }
     pub fn create_archive(&mut self) {
-        self.prg.get_input_size_solid(&self.mta.files);
+        self.prg.get_input_size_solid_enc(&self.mta.files);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
 
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
@@ -158,7 +158,7 @@ impl SolidExtractor {
         }
     }
     pub fn extract_archive(&mut self, dir_out: &str) {
-        self.prg.get_input_size_solid_dec(&self.mta.files, self.mta.blk_c);
+        self.prg.get_input_size_solid_dec(&self.cfg.inputs, self.mta.blk_c);
         new_dir_checked(dir_out, self.cfg.clbr);
 
         let mut index = 0;
@@ -181,33 +181,37 @@ impl SolidExtractor {
         tp.decompress_block(blk_in, index, self.mta.fblk_sz);
         // --------------------------------------------------------
 
-        let mut file_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));
+        let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));
             
-        let mut file_in_path = file_paths.next().unwrap_or_else(|| exit(0));
-        let mut file_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+        let mut file_in_path = file_in_paths.next().unwrap_or_else(|| exit(0));
         let mut file_in_len = file_len(&file_in_path);
-        let mut file_out = new_output_file(4096, &file_path);
+        let mut file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+        let mut file_out = new_output_file(4096, &file_out_path);
+        let mut file_out_pos = 0;
+        let mut file_out_paths = vec![file_out_path];
         
         while blks_wrtn != self.mta.blk_c {
-            let mut queue = tp.bq.lock().unwrap();
-            match queue.try_get_block() {
+            match tp.bq.lock().unwrap().try_get_block() {
                 Some(block) => {
                     blks_wrtn += 1;
-                    println!("blocks written: {}", blks_wrtn);
-                    println!("block count: {}", self.mta.blk_c);
                     for byte in block.iter() {
-                        if file_out.stream_position().unwrap() == file_in_len {
-                            file_in_path = file_paths.next().unwrap_or_else(|| exit(0));
-                            file_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+                        if file_out_pos == file_in_len {
+                            file_in_path = file_in_paths.next().unwrap_or_else(|| exit(0));
                             file_in_len = file_len(&file_in_path);
-                            file_out = new_output_file(4096, &file_path);
+                            file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+                            file_out = new_output_file(4096, &file_out_path);
+                            file_out_paths.push(file_out_path);
+                            file_out_pos = 0;
                         }
                         file_out.write_byte(*byte);
+                        file_out_pos += 1;
                     }
                 }
                 None => {},
             }
         }
+        file_out.flush_buffer();
+        self.prg.print_archive_stats(dir_size(&file_out_paths));
     }
     fn read_footer(&mut self) {
         // Seek to end of file metadata
@@ -251,6 +255,13 @@ impl SolidExtractor {
         self.mta = self.dec.read_header(Arch::Solid);
         verify_magic_number(self.mta.mgcs, Arch::Solid);
         self.read_footer();
-        //self.dec.init_x();
     }
+}
+
+fn dir_size(files: &[PathBuf]) -> u64 {
+    let mut size: u64 = 0;
+    for file in files.iter() {
+        size += file_len(file);
+    }
+    size
 }

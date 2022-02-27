@@ -15,7 +15,6 @@ fn file_path_no_ext(path: &Path) -> &str {
     path.to_str().unwrap()
     .split('.').next().unwrap()
 }
-
 /// Get file name with extension.
 fn file_name_ext(path: &Path) -> &str {
     path.file_name().unwrap()
@@ -127,13 +126,15 @@ pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, f
         ); 
     
     // If file_out_path already exists, find different path.
-    // If clobbering is enabled, this code won't run and an existing  
-    // file will be overwitten. This is correct behavior if the existing 
-    // file is an old one and not part of the new archive, but if there
-    // are duplicate files added to the same archive, the first file would
-    // be overwritten anyway. To avoid this, each newly compressed file
-    // is added to a Vec<PathBUf> files, and if a duplicate file found   
-    // is in this list, ignore the clobbering option.
+    // If clobbering is enabled, this code won't run and an 
+    // existing file will be overwitten. This is correct  
+    // behavior if the existing file is an old one and not 
+    // part of the new archive, but if there are duplicate 
+    // files added to the same archive, the first file would 
+    // be overwritten anyway. To avoid this, each newly 
+    // compressed file is added to a Vec<PathBUf> files,   
+    // and if a duplicate file found is in this list, ignore 
+    // the clobbering option.
     while file_out_path.exists() && !clbr || files.contains(&file_out_path) {
         file_out_path = 
         if dup == 1 {
@@ -189,7 +190,9 @@ pub fn fmt_file_out_ns_extract(ext: &str, dir_out: &str, file_in_path: &Path) ->
 /// directory and input directory name. If current 
 /// output directory is root, replace rather than nest.
 pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> String {
-    if root { dir_out.to_string() }
+    if root { 
+        dir_out.to_string() 
+    }
     else { 
         format!("{}\\{}", 
         dir_out, file_name_ext(dir_in)) 
@@ -208,14 +211,14 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
 /// it and other required directories are created.
 pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf { 
     let path = 
-    PathBuf::from(
-        Path::new(dir_out).iter()
-        .filter(|p| p.to_str().unwrap() != "C:")
-        .chain(file_in_path.iter().skip(2))
-        .map(|s| format!("\\{}", s.to_str().unwrap()))
-        .skip(1)
-        .collect::<String>()
-    );
+        PathBuf::from(
+            Path::new(dir_out).iter()
+            .filter(|p| p.to_str().unwrap() != "C:")
+            .chain(file_in_path.iter().skip(2))
+            .map(|s| format!("\\{}", s.to_str().unwrap()))
+            .skip(1)
+            .collect::<String>()
+        );
     let parent = path.parent().unwrap();
     if !parent.exists() {
         create_dir_all(parent).unwrap();

@@ -74,7 +74,7 @@ impl Config {
                 "-sld"  => parser = Parse::Solid,
                 "-q"    => parser = Parse::Quiet,
                 "-clbr" => parser = Parse::Clobber,
-                "-help" => print_program_info(),
+                "help" => print_program_info(),
                 _ => {},
             }
             match parser {

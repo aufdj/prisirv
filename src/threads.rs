@@ -108,9 +108,9 @@ impl Worker {
                     let queue_guard = bq.lock().unwrap();
                     match queue_guard {
                         mut queue => {
-                            println!("pushing block");
+                            //println!("pushing block");
                             queue.blocks.push((block, index));
-                            println!("finished pushing block");
+                            //println!("finished pushing block");
                         }
                     }; 
                 }
@@ -171,24 +171,24 @@ impl BlockQueue {
         let mut index = None;
         let mut blk_out = Vec::new();
 
-        for (blk_i, mut blk) in self.blocks.clone().into_iter().enumerate() {
+        // Try to find next block to be output
+        for (blk_i, blk) in self.blocks.iter_mut().enumerate() {
             if blk.1 == self.next_out {
                 self.next_out += 1;
                 blk_out.append(&mut blk.0);
                 index = Some(blk_i);
             }
         }
+
+        // If next block was found, remove from list
         match index {
-            Some(i) =>  {
-                self.blocks.swap_remove(i);
-            }
+            Some(i) => { self.blocks.swap_remove(i); }
             None => {},
         }
-        if blk_out.is_empty() {
-            return None;
-        }
-        else {
-            return Some(blk_out);
-        }
+
+        // If no block found, return none, 
+        // otherwise return found block.
+        if blk_out.is_empty() { return None; }
+        else { return Some(blk_out); }
     }
 }
