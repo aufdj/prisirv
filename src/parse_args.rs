@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    process::exit,
+};
 use crate::{sort::Sort, Mode, Arch};
 
 
@@ -92,7 +95,7 @@ impl Config {
                         },
                         _ => {
                             println!("No valid sort criteria found.");
-                            std::process::exit(0);
+                            exit(0);
                         }
                     }
                 }
@@ -107,7 +110,7 @@ impl Config {
                         "d" | "decompress" => Mode::Decompress,
                         _ => {
                             println!("Invalid mode.");
-                            std::process::exit(0);
+                            exit(0);
                         }
                     };
                 }  
@@ -168,7 +171,7 @@ impl Config {
 
         if inputs.is_empty() {
             println!("No inputs found.");
-            std::process::exit(0);
+            exit(0);
         }
         // Filter invalid inputs
         let inputs: Vec<PathBuf> = 
@@ -258,5 +261,5 @@ fn print_program_info() {
     println!("      Decompress the archive:");
     println!();
     println!("          prisirv d -sld -i \\foo\\arch.pri");
-    std::process::exit(0);
+    exit(0);
 }

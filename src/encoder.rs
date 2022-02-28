@@ -12,6 +12,7 @@ use crate::{
 
 
 // Encoder ------------------------------------------------------------------------------------------------------------------------ Encoder
+#[allow(dead_code)]
 pub struct Encoder {
     high:          u32,       // Right endpoint of range
     low:           u32,       // Left endpoint of range
@@ -19,6 +20,7 @@ pub struct Encoder {
     mem:           usize,     // Memory option
     pub file_out:  BufWriter<File>, 
 }
+#[allow(dead_code)]
 impl Encoder {
     pub fn new(file_out: BufWriter<File>, cfg: &Config) -> Encoder {
         let mut enc = Encoder {

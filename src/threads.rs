@@ -5,14 +5,13 @@ use std::{
         Arc, Mutex,
     },
     fs::File,
-    io::{Seek, BufWriter},
-    path::{Path, PathBuf},
+    io::BufWriter,
 };
 use crate::{
     encoder::{Encoder, SubEncoder},
     decoder::SubDecoder,
     metadata::Metadata,
-    buffered_io::{BufferedWrite, new_output_file, file_len},
+    buffered_io::BufferedWrite,
     progress::Progress,
 };
 
@@ -108,9 +107,7 @@ impl Worker {
                     let queue_guard = bq.lock().unwrap();
                     match queue_guard {
                         mut queue => {
-                            //println!("pushing block");
                             queue.blocks.push((block, index));
-                            //println!("finished pushing block");
                         }
                     }; 
                 }

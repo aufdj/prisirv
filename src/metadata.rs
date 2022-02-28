@@ -38,7 +38,7 @@ use std::{
 ///     
 /// A solid archive footer consists of an 8 byte value denoting  
 /// the number of compressed files, followed by a list of file 
-/// paths, block counts, and final block sizes.
+/// paths and lengths.
 /// 
 ///
 /// Memory Option: 1 << 20..1 << 29,
@@ -54,7 +54,7 @@ pub struct Metadata {
     pub blk_sz:   usize, // Block size
     pub blk_c:    usize, // Block count
     pub f_ptr:    usize, // Pointer to footer
-    pub enc_blk_szs: Vec<usize>, // Commpressed block sizes
+    pub enc_blk_szs: Vec<usize>,   // Commpressed block sizes
     pub files: Vec<(String, u64)>, // Path, length    
 }
 impl Metadata {

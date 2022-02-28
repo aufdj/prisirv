@@ -9,7 +9,7 @@ use crate::{
     Arch,
 };
 
-
+#[allow(dead_code)]
 pub struct Decoder {
     high:         u32,
     low:          u32,
@@ -18,6 +18,7 @@ pub struct Decoder {
     x:            u32, // 4 byte sliding window of compressed data
     pub mem:      usize,
 }
+#[allow(dead_code)]
 impl Decoder {
     pub fn new(mut file_in: BufReader<File>) -> Decoder {
         let mem: usize = file_in.read_usize();

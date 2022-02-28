@@ -93,7 +93,6 @@ impl SolidArchiver {
         while blks_wrtn != self.mta.blk_c {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.enc);
         }
-        //self.enc.flush();
         self.enc.file_out.flush_buffer();
     }
     fn write_footer(&mut self) {
@@ -155,11 +154,10 @@ impl SolidExtractor {
         self.prg.get_input_size_solid_dec(&self.cfg.inputs, self.mta.blk_c);
         new_dir_checked(dir_out, self.cfg.clbr);
 
-        let mut index = 0;
-        let mut blks_wrtn = 0;
         let mut tp = ThreadPool::new(self.cfg.threads, self.dec.mem, self.prg);
-
-        // Decompress blocks --------------------------------------
+        let mut index = 0;
+        
+        // Decompress blocks ----------------------------------------
         for _ in 0..self.mta.blk_c-1 {
             let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
             for _ in 0..self.mta.enc_blk_szs[index] {
@@ -173,7 +171,7 @@ impl SolidExtractor {
             blk_in.push(self.dec.file_in.read_byte());
         }
         tp.decompress_block(blk_in, index, self.mta.fblk_sz);
-        // --------------------------------------------------------
+        // ----------------------------------------------------------
 
         let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));   
         let mut file_out_paths = Vec::new();
@@ -183,12 +181,13 @@ impl SolidExtractor {
                 &file_in_paths.next().unwrap_or_else(|| exit(0)), 
                 dir_out, &mut file_out_paths
             );
+
         let mut file_out_pos = 0;
-        
+        let mut blks_wrtn = 0;
+        // Write blocks to output -----------------------------------
         while blks_wrtn != self.mta.blk_c {
             match tp.bq.lock().unwrap().try_get_block() {
                 Some(block) => {
-                    blks_wrtn += 1;
                     for byte in block.iter() {
                         if file_out_pos == file_in_len {
                             (file_in_len, file_out) = 
@@ -201,12 +200,15 @@ impl SolidExtractor {
                         file_out.write_byte(*byte);
                         file_out_pos += 1;
                     }
+                    blks_wrtn += 1;
                 }
                 None => {},
             }
         }
+        // ----------------------------------------------------------
+
         file_out.flush_buffer();
-        self.prg.print_archive_stats(dir_size(&file_out_paths));
+        self.prg.print_archive_stats(file_out_paths.iter().map(|f| file_len(f)).sum());
     }
     fn read_footer(&mut self) {
         // Seek to end of file metadata
@@ -253,15 +255,6 @@ impl SolidExtractor {
     }
 }
 
-/// Get total size of directory
-fn dir_size(files: &[PathBuf]) -> u64 {
-    let mut size: u64 = 0;
-    for file in files.iter() {
-        size += file_len(file);
-    }
-    size
-}
-
 /// Get the next output file and the input file length,
 /// the input file being the original file that was compressed.
 /// i.e. output file is foo_d\bar.txt, input file is foo\bar.txt
@@ -272,9 +265,9 @@ fn dir_size(files: &[PathBuf]) -> u64 {
 /// The output file paths are tracked so the final extracted archive
 /// size can be computed at the end of extraction.
 fn next_file(file_in_path: &Path, dir_out: &str, file_out_paths: &mut Vec<PathBuf>) -> (u64, BufWriter<File>) {
-    let file_in_len = file_len(&file_in_path);
+    let file_in_len   = file_len(&file_in_path);
     let file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
-    let file_out = new_output_file(4096, &file_out_path);
+    let file_out      = new_output_file(4096, &file_out_path);
     file_out_paths.push(file_out_path);
     (file_in_len, file_out)
 }
