@@ -1,14 +1,14 @@
 use std::{
     path::{Path, PathBuf},
     io::{Seek, SeekFrom},
+    fs::File,
+    io::{BufReader, BufWriter},
 };
 
 use crate::{
     Arch, Mode,
     progress::Progress,
     metadata::Metadata,
-    encoder::Encoder,
-    decoder::Decoder,
     parse_args::Config,
     threads::ThreadPool,
     buffered_io::{
@@ -72,13 +72,15 @@ impl Archiver {
 
         let mut mta: Metadata = Metadata::new();
         mta.blk_sz = self.cfg.blk_sz;
+        mta.mem = self.cfg.mem;
 
         let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
         if self.cfg.clbr { self.files.push(file_out_path.clone()); }
         
         // Create input file with buffer = block size
-        let mut file_in = new_input_file(mta.blk_sz, file_in_path);
-        let mut enc = Encoder::new(new_output_file(4096, &file_out_path), &self.cfg);
+        let mut file_in  = new_input_file(mta.blk_sz, file_in_path);
+        let mut file_out = new_output_file(4096, &file_out_path);
+        for _ in 0..7 { file_out.write_usize(0); }
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
@@ -94,12 +96,11 @@ impl Archiver {
             mta.blk_c += 1;
         }
         while blks_wrtn != mta.blk_c {
-            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut enc);
+            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut file_out);
         }   
 
-        enc.flush();
-        self.write_footer(&mut enc, &mut mta);
-        enc.write_header(&mta, Arch::NonSolid);
+        self.write_footer(&mut file_out, &mut mta);
+        self.write_header(&mut file_out, &mut mta);
 
         self.prg.print_file_stats(file_len(&file_out_path));
     }
@@ -124,17 +125,26 @@ impl Archiver {
             self.compress_dir(dir_in, &mut dir_out);
         }
     } 
-
+    fn write_header(&mut self, file_out: &mut BufWriter<File>, mta: &Metadata) {
+        file_out.rewind().unwrap();
+        file_out.write_usize(mta.mem);
+        file_out.write_usize(mta.mgc);
+        file_out.write_usize(mta.ext);
+        file_out.write_usize(mta.fblk_sz);
+        file_out.write_usize(mta.blk_sz);
+        file_out.write_usize(mta.blk_c);
+        file_out.write_usize(mta.f_ptr);
+    }
     /// If compression is multithreaded, write compressed block sizes to archive
     /// so that compressed blocks can be parsed ahead of time during decompression.
-    fn write_footer(&mut self, enc: &mut Encoder, mta: &mut Metadata) {
+    fn write_footer(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
         // Get index to end of file metadata
         mta.f_ptr =
-            enc.file_out.stream_position()
+            file_out.stream_position()
             .unwrap() as usize;
 
         for blk_sz in mta.enc_blk_szs.iter() {
-            enc.file_out.write_usize(*blk_sz);
+            file_out.write_usize(*blk_sz);
         }
     } 
 }
@@ -152,10 +162,10 @@ impl Extractor {
         }
     }
     pub fn decompress_file(&mut self, file_in_path: &Path, dir_out: &str) {
-        let mut dec = Decoder::new(new_input_file(4096, file_in_path));
-        let mut mta: Metadata = dec.read_header(Arch::NonSolid);
+        let mut file_in = new_input_file(4096, file_in_path);
+        let mut mta: Metadata = self.read_header(&mut file_in);
 
-        self.read_footer(&mut dec, &mut mta);
+        self.read_footer(&mut file_in, &mut mta);
         self.prg.get_input_size_dec(&file_in_path, mta.enc_blk_szs.len());
 
         verify_magic_number(mta.mgc, Arch::NonSolid);
@@ -165,13 +175,13 @@ impl Extractor {
         
         let mut index = 0;
         let mut blks_wrtn = 0;
-        let mut tp = ThreadPool::new(self.cfg.threads, dec.mem, self.prg);
+        let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
         
         for _ in 0..(mta.blk_c-1) {
             // Read and decompress compressed blocks
             let mut block_in = Vec::with_capacity(mta.blk_sz);
             for _ in 0..mta.enc_blk_szs[index] {
-                block_in.push(dec.file_in.read_byte());
+                block_in.push(file_in.read_byte());
             }
             tp.decompress_block(block_in, index, mta.blk_sz);
             index += 1;
@@ -180,7 +190,7 @@ impl Extractor {
         // Read and decompress final compressed block
         let mut block_in = Vec::with_capacity(mta.blk_sz);
         for _ in 0..mta.enc_blk_szs[index] {
-            block_in.push(dec.file_in.read_byte());
+            block_in.push(file_in.read_byte());
         }
         tp.decompress_block(block_in, index, mta.fblk_sz);
 
@@ -191,7 +201,6 @@ impl Extractor {
         file_out.flush_buffer();
         self.prg.print_file_stats(file_len(&file_out_path));
     }
-    
     pub fn decompress_dir(&mut self, dir_in: &Path, dir_out: &mut String, root: bool) {
         let mut dir_out = fmt_nested_dir_ns_extract(dir_out, dir_in, root);
         new_dir_checked(&dir_out, self.cfg.clbr);
@@ -211,20 +220,31 @@ impl Extractor {
             self.decompress_dir(dir_in, &mut dir_out, false); 
         }
     }
-    fn read_footer(&mut self, dec: &mut Decoder, mta: &mut Metadata) {
+    fn read_header(&mut self, file_in: &mut BufReader<File>) -> Metadata {
+        let mut mta: Metadata = Metadata::new();
+        mta.mem =     file_in.read_usize();
+        mta.mgc =     file_in.read_usize();
+        mta.ext =     file_in.read_usize();
+        mta.fblk_sz = file_in.read_usize();
+        mta.blk_sz =  file_in.read_usize();
+        mta.blk_c =   file_in.read_usize();
+        mta.f_ptr =   file_in.read_usize();
+        mta
+    }
+    fn read_footer(&mut self, file_in: &mut BufReader<File>, mta: &mut Metadata) {
         // Seek to end of file metadata
-        dec.file_in.seek(SeekFrom::Start(mta.f_ptr as u64)).unwrap();
+        file_in.seek(SeekFrom::Start(mta.f_ptr as u64)).unwrap();
 
         for _ in 0..mta.blk_c {
-            mta.enc_blk_szs.push(dec.file_in.read_usize());
+            mta.enc_blk_szs.push(file_in.read_usize());
         }
 
         // Seek back to beginning of compressed data
         #[cfg(target_pointer_width = "64")]
-        dec.file_in.seek(SeekFrom::Start(56)).unwrap();
+        file_in.seek(SeekFrom::Start(56)).unwrap();
 
         #[cfg(target_pointer_width = "32")]
-        dec.file_in.seek(SeekFrom::Start(28)).unwrap();
+        file_in.seek(SeekFrom::Start(28)).unwrap();
     }
 }
 

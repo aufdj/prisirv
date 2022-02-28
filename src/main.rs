@@ -11,18 +11,13 @@ use std::{
     env,  
 };
 use crate::{
-    encoder::Encoder,
-    decoder::Decoder,
     metadata::Metadata,
     archive::{Archiver, Extractor},
     solid_archive::{SolidArchiver, SolidExtractor},
     sort::{Sort, sort_files},
     formatting::fmt_root_output_dir,
     parse_args::Config,
-    buffered_io::{
-        new_input_file, new_dir_checked, 
-        new_output_file_checked, file_len,
-    },
+    buffered_io::{new_dir_checked, file_len},
 };
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -45,7 +40,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
 
     for file in files.iter() {
         mta.files.push(
-            (file.display().to_string(), file_len(&file))
+            (file.display().to_string(), file_len(file))
         );
     }
     for dir in dirs.iter() {
@@ -82,10 +77,10 @@ fn print_config(cfg: &Config, dir_out: &str) {
                 Sort::Modified => "Last modified time",
                 Sort::PrtDir(_) => "Parent Directory",
             });
-            println!(" {}", format!("Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3));
-            println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);
-            println!(" Threads: Up to {}", cfg.threads);
+            println!(" Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3);
+            println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);    
         }
+        println!(" Threads: Up to {}", cfg.threads);
         println!("=======================================================================");
         println!();
     }
@@ -110,7 +105,7 @@ fn main() {
             // Walk through directories and collect all files
             for file in files.iter() {
                 mta.files.push(
-                    (file.display().to_string(), file_len(&file))
+                    (file.display().to_string(), file_len(file))
                 );
             }
             for dir in dirs.iter() {
@@ -123,10 +118,7 @@ fn main() {
                 _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &cfg.sort)),
             }
 
-            let file_out = new_output_file_checked(&dir_out, cfg.clbr);
-
-            let enc = Encoder::new(file_out, &cfg);
-            let mut sld_arch = SolidArchiver::new(enc, mta, cfg);
+            let mut sld_arch = SolidArchiver::new(&dir_out, mta, cfg);
 
             sld_arch.create_archive();
             sld_arch.write_metadata();
@@ -140,8 +132,7 @@ fn main() {
                 std::process::exit(0);
             }
 
-            let dec = Decoder::new(new_input_file(4096, &cfg.inputs[0]));
-            let mut sld_extr = SolidExtractor::new(dec, mta, cfg);
+            let mut sld_extr = SolidExtractor::new(mta, cfg);
 
             sld_extr.read_metadata();
             sld_extr.extract_archive(&dir_out);

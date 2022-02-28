@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-// Convenience functions for buffered I/O ---------------------------------------------------------- Convenience functions for buffered I/O
+// Convenience functions for buffered I/O 
 #[derive(PartialEq, Eq)]
 pub enum BufferState {
     NotEmpty,
@@ -170,6 +170,9 @@ impl BufferedWrite for BufWriter<File> {
         }    
     }
 }
+
+
+// File and Directory Creation
 pub fn new_input_file(capacity: usize, file_name: &Path) -> BufReader<File> {
     BufReader::with_capacity(
         capacity, 
@@ -237,7 +240,7 @@ pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     else {}
     new_output_file(4096, path)
 }
-// ----------------------------------------------------------------------------------------------------------------------------------------
+
 pub fn file_len(path: &Path) -> u64 {
     path.metadata().unwrap().len()
 }

@@ -47,6 +47,7 @@ use std::{
 
 #[derive(Debug)]
 pub struct Metadata {
+    pub mem:      usize, // Memory Usage
     pub mgc:      usize, // Magic Number
     pub mgcs:     usize, // Magic Number (Solid)
     pub ext:      usize, // Extension
@@ -61,6 +62,7 @@ impl Metadata {
     /// Initialize new metadata.
     pub fn new() -> Metadata {
         Metadata {
+            mem:      0,
             mgc:      0x7673_7270,
             mgcs:     0x5653_5250,
             ext:      0,

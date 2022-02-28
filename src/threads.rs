@@ -8,8 +8,8 @@ use std::{
     io::BufWriter,
 };
 use crate::{
-    encoder::{Encoder, SubEncoder},
-    decoder::SubDecoder,
+    encoder::Encoder,
+    decoder::Decoder,
     metadata::Metadata,
     buffered_io::BufferedWrite,
     progress::Progress,
@@ -48,7 +48,7 @@ impl ThreadPool {
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut enc = SubEncoder::new(mem, blk_sz);
+                    let mut enc = Encoder::new(mem, blk_sz);
                     enc.compress_block(&block);
                     (enc.out, index)
                 })
@@ -60,7 +60,7 @@ impl ThreadPool {
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut dec = SubDecoder::new(block, mem);
+                    let mut dec = Decoder::new(block, mem);
                     dec.init_x();
                     let block_out = dec.decompress_block(blk_sz);
                     (block_out, index)
@@ -129,7 +129,7 @@ impl BlockQueue {
             next_out: 0,
         }
     }
-    pub fn try_write_block_enc(&mut self, mta: &mut Metadata, enc: &mut Encoder) -> usize {
+    pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> usize {
         let len = self.blocks.len();
         let next_out = self.next_out;
 
@@ -137,7 +137,7 @@ impl BlockQueue {
             if block.1 == next_out {
                 mta.enc_blk_szs.push(block.0.len());
                 for byte in block.0.iter() {
-                    enc.file_out.write_byte(*byte);
+                    file_out.write_byte(*byte);
                 }
                 false
             }
@@ -178,14 +178,13 @@ impl BlockQueue {
         }
 
         // If next block was found, remove from list
-        match index {
-            Some(i) => { self.blocks.swap_remove(i); }
-            None => {},
+        if let Some(i) = index {
+            self.blocks.swap_remove(i);
         }
 
         // If no block found, return none, 
         // otherwise return found block.
-        if blk_out.is_empty() { return None; }
-        else { return Some(blk_out); }
+        if blk_out.is_empty() { None }
+        else { Some(blk_out) }
     }
 }

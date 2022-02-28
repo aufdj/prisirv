@@ -41,7 +41,7 @@ impl Progress {
 
     /// Get input file size and calculate total block count by dividing input size by block size.
     pub fn get_input_size_enc(&mut self, input: &Path) {
-        self.in_size = file_len(&input);
+        self.in_size = file_len(input);
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
 
@@ -50,7 +50,7 @@ impl Progress {
     /// can't be calculated and is instead obtained directly 
     /// from metadata.
     pub fn get_input_size_dec(&mut self, input: &Path, blk_c: usize) {
-        self.in_size = file_len(&input);
+        self.in_size = file_len(input);
         self.total_blks = blk_c as u64;
     }
 
@@ -67,7 +67,7 @@ impl Progress {
     // Solid Archives ==============================
 
     /// Get input archive size and calculate total block count by dividing input size by block size.
-    pub fn get_input_size_solid_enc(&mut self, files: &Vec<(String, u64)>) {
+    pub fn get_input_size_solid_enc(&mut self, files: &[(String, u64)]) {
         for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
             self.in_size += file_len(&file);
         }
@@ -78,7 +78,7 @@ impl Progress {
     /// obtained directly from metadata.
     pub fn get_input_size_solid_dec(&mut self, files: &[PathBuf], blk_c: usize) {
         for file in files.iter() {
-            self.in_size += file_len(&file);
+            self.in_size += file_len(file);
         }
         self.total_blks = blk_c as u64;
     }
