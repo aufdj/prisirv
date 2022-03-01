@@ -185,7 +185,10 @@ impl SolidExtractor {
         // ----------------------------------------------------------
 
 
-        let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));   
+        let mut file_in_paths = 
+            self.mta.files.iter()
+            .map(|f| PathBuf::from(f.0.clone()))
+            .collect::<Vec<PathBuf>>().into_iter();  
         let mut file_out_paths = Vec::new();
 
         let file_in_path = match file_in_paths.next() {
@@ -210,6 +213,7 @@ impl SolidExtractor {
                         // When current output file reaches the 
                         // correct size, move to next file.
                         if file_out_pos == file_in_len {
+                            
                             let file_in_path = match file_in_paths.next() {
                                 Some(path) => {
                                     if !path.is_file() { break; }
@@ -238,7 +242,7 @@ impl SolidExtractor {
     fn read_footer(&mut self) {
         // Seek to end of file metadata
         self.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
-        let mut path: Vec<u8> = Vec::new();
+        let mut path: Vec<u8> = Vec::with_capacity(64);
 
         // Get number of files
         let num_files = self.file_in.read_usize();
@@ -251,12 +255,11 @@ impl SolidExtractor {
             for _ in 0..len {
                 path.push(self.file_in.read_byte());
             }
-            self.mta.files.push(
-                (path.iter().cloned()
-                    .map(|b| b as char)
-                    .collect::<String>(),
-                self.file_in.read_u64())
-            );
+
+            let path_string = path.iter().cloned().map(|b| b as char).collect::<String>();
+            let file_len = self.file_in.read_u64();
+
+            self.mta.files.push((path_string, file_len));
             path.clear();
         }
 

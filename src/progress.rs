@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf},
-    time::Instant
+    time::Instant,
+    io::Write,
 };
 
 use crate::{
@@ -57,7 +58,7 @@ impl Progress {
     /// Print final compressed file size and time elapsed.
     pub fn print_file_stats(&self, out_size: u64) {
         if !self.quiet {
-            println!("{} bytes -> {} bytes in {:.2?}\n", 
+            println!("\n{} bytes -> {} bytes in {:.2?}\n", 
                 self.in_size, out_size, self.time.elapsed());
         }
     }
@@ -85,7 +86,7 @@ impl Progress {
     /// Print final compressed archive size and time elapsed.
     pub fn print_archive_stats(&self, out_size: u64) {
         if !self.quiet {
-            println!("{} bytes -> {} bytes in {:.2?}\n", 
+            println!("\n{} bytes -> {} bytes in {:.2?}\n", 
                 self.in_size, out_size, self.time.elapsed());
         }
     }
@@ -103,16 +104,18 @@ impl Progress {
         if !self.quiet {
             match self.mode {
                 Mode::Compress => {
-                    println!("Compressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
+                    print!("\rCompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
                     self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
+                    std::io::stdout().flush().unwrap();
                 }
                 Mode::Decompress =>  {
-                    println!("Decompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
+                    print!("\rDecompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
                     self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
+                    std::io::stdout().flush().unwrap();
                 }
             } 
         }

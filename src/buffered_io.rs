@@ -43,12 +43,13 @@ impl BufferedRead for BufReader<File> {
         u8::from_le_bytes(byte)
     }
     fn read_u64(&mut self) -> u64 {
-        let mut byte = [0u8; 8];
-        match self.read(&mut byte) {
-            Ok(_)  => {},
+        let mut bytes = [0u8; 8];
+        let len = match self.read(&mut bytes) {
+            Ok(len)  => { len },
             Err(e) => {
                 println!("Function read_byte failed.");
                 println!("Error: {}", e);
+                0
             },
         };
         if self.buffer().is_empty() {
@@ -60,8 +61,11 @@ impl BufferedRead for BufReader<File> {
                     println!("Error: {}", e);
                 },
             }
+            if len < 8 {
+                self.read(&mut bytes[len..]).unwrap();
+            }
         }
-        u64::from_le_bytes(byte)
+        u64::from_le_bytes(bytes)
     }
     fn read_usize(&mut self) -> usize {
         let mut bytes = [0u8; 8];
