@@ -3,10 +3,11 @@ use std::{
     io::{Seek, SeekFrom},
     fs::File,
     io::{BufReader, BufWriter},
+    process::exit,
 };
 
 use crate::{
-    Arch, Mode,
+    Mode,
     progress::Progress,
     metadata::Metadata,
     parse_args::Config,
@@ -26,23 +27,17 @@ use crate::{
 /// Check for a valid magic number.
 /// Non-solid archives - 'prsv'
 /// Solid archives     - 'PRSV'
-fn verify_magic_number(mgc: usize, arch: Arch) {
-    match (arch, mgc) {
-        (Arch::Solid, 0x5653_5250) => {},
-        (Arch::Solid, 0x7673_7270) => {
-            println!();
-            println!("Expected solid archive, found non-solid archive.");
-            std::process::exit(0);
-        },
-        (Arch::NonSolid, 0x7673_7270) => {},
-        (Arch::NonSolid, 0x5653_5250) => {
+fn verify_magic_number(mgc: usize) {
+    match mgc {
+        0x7673_7270 => {},
+        0x5653_5250 => {
             println!();
             println!("Expected non-solid archive, found solid archive.");
-            std::process::exit(0);
+            exit(0);
         }
-        (_, _) => {
+        _ => {
             println!("Not a prisirv archive.");
-            std::process::exit(0);
+            exit(0);
         }
     }
 }
@@ -168,7 +163,7 @@ impl Extractor {
         self.read_footer(&mut file_in, &mut mta);
         self.prg.get_input_size_dec(&file_in_path, mta.enc_blk_szs.len());
 
-        verify_magic_number(mta.mgc, Arch::NonSolid);
+        verify_magic_number(mta.mgc);
 
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
