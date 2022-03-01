@@ -4,7 +4,7 @@ mod archive;       mod statemap;    mod tables;
 mod solid_archive; mod apm;         mod sort;
 mod buffered_io;   mod hash_table;  mod parse_args;
 mod formatting;    mod match_model; mod threads;
-mod progress;
+mod progress;      
 
 use std::{
     path::{Path, PathBuf},
@@ -15,7 +15,6 @@ use crate::{
     archive::{Archiver, Extractor},
     solid_archive::{SolidArchiver, SolidExtractor},
     sort::{Sort, sort_files},
-    formatting::fmt_root_output_dir,
     parse_args::Config,
     buffered_io::{new_dir_checked, file_len},
 };
@@ -48,50 +47,8 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     }
 }
 
-fn print_config(cfg: &Config, dir_out: &str) {
-    if !cfg.quiet {
-        println!();
-        println!("=======================================================================");
-        println!(" {} {} Archive of Inputs:", 
-            if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
-            if cfg.arch == Arch::Solid { "Solid" } else { "Non-Solid" });
-        for input in cfg.inputs.iter() {
-            println!("    {} ({})", 
-                input.display(),
-                if input.is_file() { "File" }
-                else if input.is_dir() { "Directory" }
-                else { "" }
-            );
-        }
-        println!();
-        println!(" Output Directory: {}", dir_out);
-        if cfg.mode == Mode::Compress {
-            println!(" Sorting by: {}", 
-            match cfg.sort {
-                Sort::None     => "None",
-                Sort::Ext      => "Extension",
-                Sort::Name     => "Name",
-                Sort::Len      => "Length",
-                Sort::Created  => "Creation time",
-                Sort::Accessed => "Last accessed time",
-                Sort::Modified => "Last modified time",
-                Sort::PrtDir(_) => "Parent Directory",
-            });
-            println!(" Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3);
-            println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);    
-        }
-        println!(" Threads: Up to {}", cfg.threads);
-        println!("=======================================================================");
-        println!();
-    }
-}
-
 fn main() {
-    let cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
-
-    let mut dir_out = fmt_root_output_dir(&cfg);
-
-    print_config(&cfg, &dir_out);
+    let mut cfg = Config::new(&env::args().skip(1).collect::<Vec<String>>());
 
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
@@ -118,10 +75,8 @@ fn main() {
                 _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &cfg.sort)),
             }
 
-            let mut sld_arch = SolidArchiver::new(&dir_out, mta, cfg);
-
+            let mut sld_arch = SolidArchiver::new(mta, cfg);
             sld_arch.create_archive();
-            sld_arch.write_metadata();
         }
         (Arch::Solid, Mode::Decompress) => {
             let mta: Metadata = Metadata::new();
@@ -133,40 +88,36 @@ fn main() {
             }
 
             let mut sld_extr = SolidExtractor::new(mta, cfg);
-
-            sld_extr.read_metadata();
-            sld_extr.extract_archive(&dir_out);
+            sld_extr.extract_archive();
         }
         (Arch::NonSolid, Mode::Compress) => {
-            new_dir_checked(&dir_out, cfg.clbr);
-            let quiet = cfg.quiet;
+            new_dir_checked(&cfg.dir_out, cfg.clbr);
             
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                 cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
-            let mut arch = Archiver::new(cfg);
+            let mut arch = Archiver::new(cfg.clone());
             for file_in in files.iter() {
-                if !quiet { println!("Compressing {}", file_in.display()); }
-                arch.compress_file(file_in, &dir_out);
+                if !cfg.quiet { println!("Compressing {}", file_in.display()); }
+                arch.compress_file(file_in, &cfg.dir_out);
             }
             for dir_in in dirs.iter() {
-                arch.compress_dir(dir_in, &mut dir_out);      
+                arch.compress_dir(dir_in, &mut cfg.dir_out);      
             }
         }
         (Arch::NonSolid, Mode::Decompress) => {
-            new_dir_checked(&dir_out, cfg.clbr);
-            let quiet = cfg.quiet;
+            new_dir_checked(&cfg.dir_out, cfg.clbr);
             
             let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
                 cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
-            let mut extr = Extractor::new(cfg);
+            let mut extr = Extractor::new(cfg.clone());
             for file_in in files.iter() {
-                if !quiet { println!("Decompressing {}", file_in.display()); } 
-                extr.decompress_file(file_in, &dir_out);
+                if !cfg.quiet { println!("Decompressing {}", file_in.display()); } 
+                extr.decompress_file(file_in, &cfg.dir_out);
             }
             for dir_in in dirs.iter() {
-                extr.decompress_dir(dir_in, &mut dir_out, true);      
+                extr.decompress_dir(dir_in, &mut cfg.dir_out, true);      
             }
         }
     }  

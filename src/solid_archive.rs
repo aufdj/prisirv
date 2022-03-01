@@ -56,9 +56,9 @@ pub struct SolidArchiver {
     prg:      Progress,
 }
 impl SolidArchiver {
-    pub fn new(dir_out: &str, mut mta: Metadata, cfg: Config) -> SolidArchiver {
+    pub fn new(mut mta: Metadata, cfg: Config) -> SolidArchiver {
         let prg = Progress::new(&cfg, Mode::Compress);
-        let mut file_out = new_output_file_checked(dir_out, cfg.clbr);
+        let mut file_out = new_output_file_checked(&cfg.dir_out, cfg.clbr);
         for _ in 0..6 { file_out.write_usize(0); }
         mta.mem = cfg.mem;
         SolidArchiver {
@@ -96,9 +96,18 @@ impl SolidArchiver {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.file_out);
         }
         self.file_out.flush_buffer();
+
+        self.write_metadata();
     }
+
+    /// Write footer, then go back to beginning of file and write header.
+    pub fn write_metadata(&mut self) {
+        self.write_footer();
+        self.write_header();
+    }
+
     fn write_footer(&mut self) {
-        // Get index to end of file metadata
+        // Get index to footer
         self.mta.f_ptr =
             self.file_out.stream_position()
             .unwrap() as usize;
@@ -138,21 +147,15 @@ impl SolidArchiver {
         self.file_out.write_usize(self.mta.blk_c);
         self.file_out.write_usize(self.mta.f_ptr);
     }
-    // For more info on metadata structure, see metadata.rs
-    pub fn write_metadata(&mut self) {
-        self.write_footer();
-        // Go back to beginning of file and write header
-        self.write_header();
-    }
 }
 
 
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
     file_in:  BufReader<File>,
-    mta:  Metadata,
-    cfg:  Config,
-    prg:  Progress,
+    mta:      Metadata,
+    cfg:      Config,
+    prg:      Progress,
 }
 impl SolidExtractor {
     pub fn new(mta: Metadata, cfg: Config) -> SolidExtractor {
@@ -162,9 +165,10 @@ impl SolidExtractor {
             file_in, mta, cfg, prg, 
         }
     }
-    pub fn extract_archive(&mut self, dir_out: &str) {
+    pub fn extract_archive(&mut self) {
+        self.read_metadata();
         self.prg.get_input_size_solid_dec(&self.cfg.inputs, self.mta.blk_c);
-        new_dir_checked(dir_out, self.cfg.clbr);
+        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
         let mut index = 0;
@@ -185,13 +189,14 @@ impl SolidExtractor {
         tp.decompress_block(blk_in, index, self.mta.fblk_sz);
         // ----------------------------------------------------------
 
+
         let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));   
         let mut file_out_paths = Vec::new();
 
         let (mut file_in_len, mut file_out) = 
             next_file(
                 &file_in_paths.next().unwrap_or_else(|| exit(0)), 
-                dir_out, &mut file_out_paths
+                &self.cfg.dir_out, &mut file_out_paths
             );
 
         let mut file_out_pos = 0;
@@ -200,15 +205,19 @@ impl SolidExtractor {
         while blks_wrtn != self.mta.blk_c {
             match tp.bq.lock().unwrap().try_get_block() {
                 Some(block) => {
+                    // Output block
                     for byte in block.iter() {
+                        // When current output file reaches the 
+                        // correct size, move to next file.
                         if file_out_pos == file_in_len {
                             (file_in_len, file_out) = 
                                 next_file(
                                     &file_in_paths.next().unwrap_or_else(|| exit(0)), 
-                                    dir_out, &mut file_out_paths
+                                    &self.cfg.dir_out, &mut file_out_paths
                                 );
                             file_out_pos = 0;
                         }
+
                         file_out.write_byte(*byte);
                         file_out_pos += 1;
                     }

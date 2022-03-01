@@ -2,7 +2,7 @@ use std::{
     path::{Path, PathBuf},
     fs::create_dir_all,
 };
-use crate::{Mode, Arch, parse_args::Config};
+use crate::{Mode, Arch};
 
 /// Get file name without extension.
 fn file_name_no_ext(path: &Path) -> &str {
@@ -40,19 +40,19 @@ enum Format {
 /// a directory, except in the case of a solid archive, where
 /// it is a file. The user can specify an output path, otherwise
 /// a default will be chosen.
-pub fn fmt_root_output_dir(cfg: &Config) -> String {
-    match (cfg.arch, cfg.mode) {
+pub fn fmt_root_output_dir(arch: Arch, mode: Mode, user_out: &str, first_input: &Path) -> String {
+    match (arch, mode) {
         (Arch::Solid, Mode::Compress) => {
-            fmt_dir_out(Format::ArchiveSolid, &cfg.user_out, &cfg.inputs[0])
+            fmt_dir_out(Format::ArchiveSolid, user_out, first_input)
         }
         (Arch::Solid, Mode::Decompress) => {
-            fmt_dir_out(Format::ExtractSolid, &cfg.user_out, &cfg.inputs[0])   
+            fmt_dir_out(Format::ExtractSolid, user_out, first_input)   
         }
         (Arch::NonSolid, Mode::Compress) => {
-            fmt_dir_out(Format::Archive,      &cfg.user_out, &cfg.inputs[0])
+            fmt_dir_out(Format::Archive,      user_out, first_input)
         }
         (Arch::NonSolid, Mode::Decompress) => {
-            fmt_dir_out(Format::Extract,      &cfg.user_out, &cfg.inputs[0])
+            fmt_dir_out(Format::Extract,      user_out, first_input)
         }
     }
 }

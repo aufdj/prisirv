@@ -2,7 +2,10 @@ use std::{
     path::PathBuf,
     process::exit,
 };
-use crate::{sort::Sort, Mode, Arch};
+use crate::{
+    sort::Sort, Mode, Arch,
+    formatting::fmt_root_output_dir,
+};
 
 
 /// Parse command line arguments.
@@ -20,17 +23,19 @@ enum Parse {
     Threads,
 }
 
-pub struct Config { 
-    pub sort:       Sort,         // Sorting method (solid archives only)
-    pub user_out:   String,       // User specified output directory (optional)
-    pub inputs:     Vec<PathBuf>, // Inputs to be archived or extracted
-    pub arch:       Arch,         // Solid or non-solid archive
-    pub quiet:      bool,         // Suppresses output other than errors
-    pub mode:       Mode,         // Compress or decompress
-    pub mem:        usize,        // Memory usage
-    pub clbr:       bool,         // Allow clobbering files
-    pub blk_sz:     usize,        // Block size
-    pub threads:    usize,        // Maximum number of threads
+#[derive(Clone)]
+pub struct Config {
+    pub sort:      Sort,         // Sorting method (solid archives only)
+    pub user_out:  String,       // User specified output directory (optional)
+    pub dir_out:   String,       // Output directory
+    pub inputs:    Vec<PathBuf>, // Inputs to be archived or extracted
+    pub arch:      Arch,         // Solid or non-solid archive
+    pub quiet:     bool,         // Suppresses output other than errors
+    pub mode:      Mode,         // Compress or decompress
+    pub mem:       usize,        // Memory usage
+    pub clbr:      bool,         // Allow clobbering files
+    pub blk_sz:    usize,        // Block size
+    pub threads:   usize,        // Maximum number of threads
 }
 impl Config {
     pub fn new(args: &[String]) -> Config {
@@ -180,14 +185,58 @@ impl Config {
         .filter(|i| i.is_file() || i.is_dir())
         .collect();
 
-        Config {
-            sort, user_out, inputs,  
-            arch, quiet,    mode,
-            mem,  clbr,     blk_sz,
-            threads,
-        }
+        let dir_out = fmt_root_output_dir(arch, mode, &user_out, &inputs[0]);
+
+        let cfg = Config {
+            sort,    user_out, inputs,  
+            arch,    quiet,    mode,
+            mem,     clbr,     blk_sz,
+            threads, dir_out,
+        };
+        print_config(&cfg);
+        cfg
     }
 }
+
+
+fn print_config(cfg: &Config) {
+    if !cfg.quiet {
+        println!();
+        println!("=======================================================================");
+        println!(" {} {} Archive of Inputs:", 
+            if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
+            if cfg.arch == Arch::Solid { "Solid" } else { "Non-Solid" });
+        for input in cfg.inputs.iter() {
+            println!("    {} ({})", 
+                input.display(),
+                if input.is_file() { "File" }
+                else if input.is_dir() { "Directory" }
+                else { "" }
+            );
+        }
+        println!();
+        println!(" Output Directory: {}", cfg.dir_out);
+        if cfg.mode == Mode::Compress {
+            println!(" Sorting by: {}", 
+            match cfg.sort {
+                Sort::None     => "None",
+                Sort::Ext      => "Extension",
+                Sort::Name     => "Name",
+                Sort::Len      => "Length",
+                Sort::Created  => "Creation time",
+                Sort::Accessed => "Last accessed time",
+                Sort::Modified => "Last modified time",
+                Sort::PrtDir(_) => "Parent Directory",
+            });
+            println!(" Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3);
+            println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);    
+        }
+        println!(" Threads: Up to {}", cfg.threads);
+        println!("=======================================================================");
+        println!();
+    }
+}
+
 
 /// Print information about prisirv.
 fn print_program_info() {
