@@ -14,9 +14,9 @@ use crate::{
     formatting::fmt_file_out_s_extract,
     parse_args::Config,
     buffered_io::{
-        BufferedRead, BufferedWrite, BufferState, file_len,
-        new_input_file, new_output_file, new_dir_checked,
-        new_output_file_checked,
+        BufferedRead, BufferedWrite, file_len,
+        new_input_file, new_output_file, 
+        new_dir_checked, new_output_file_checked,
     },
 };
 
@@ -72,20 +72,21 @@ impl SolidArchiver {
 
         for file in self.mta.files.iter() {
             let file_path = Path::new(&file.0);
+            let file_len = file_len(file_path);
             let mut file_in = new_input_file(blk.capacity(), file_path);
 
-            while file_in.fill_buffer() == BufferState::NotEmpty {
-                blk.append(&mut file_in.buffer().to_vec());
-                self.mta.fblk_sz = blk.len();
+            for _ in 0..file_len {
+                blk.push(file_in.read_byte());
                 
                 // Compress full block
-                if blk.capacity() - blk.len() == 0 {
+                if blk.len() == self.cfg.blk_sz {
                     tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
                     self.mta.blk_c += 1;
                     blk.clear();
                 }
             }
         }
+        self.mta.fblk_sz = blk.len();
         // Compress final block
         tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
         self.mta.blk_c += 1;
@@ -193,11 +194,16 @@ impl SolidExtractor {
         let mut file_in_paths = self.mta.files.iter().map(|f| PathBuf::from(f.0.clone()));   
         let mut file_out_paths = Vec::new();
 
+        let file_in_path = match file_in_paths.next() {
+            Some(path) => {
+                if !path.is_file() { exit(0); }
+                path
+            }
+            None => exit(0),
+        };
+
         let (mut file_in_len, mut file_out) = 
-            next_file(
-                &file_in_paths.next().unwrap_or_else(|| exit(0)), 
-                &self.cfg.dir_out, &mut file_out_paths
-            );
+            next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
 
         let mut file_out_pos = 0;
         let mut blks_wrtn = 0;
@@ -210,11 +216,15 @@ impl SolidExtractor {
                         // When current output file reaches the 
                         // correct size, move to next file.
                         if file_out_pos == file_in_len {
-                            (file_in_len, file_out) = 
-                                next_file(
-                                    &file_in_paths.next().unwrap_or_else(|| exit(0)), 
-                                    &self.cfg.dir_out, &mut file_out_paths
-                                );
+                            let file_in_path = match file_in_paths.next() {
+                                Some(path) => {
+                                    if !path.is_file() { break; }
+                                    path
+                                }
+                                None => break,
+                            };
+                            (file_in_len, file_out) =  
+                                next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
                             file_out_pos = 0;
                         }
 

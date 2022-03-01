@@ -9,7 +9,7 @@ use crate::{
     buffered_io::file_len,
 };
 
-const CLEAR: &str = "\x1B[2J\x1B[1;1H";
+// const CLEAR: &str = "\x1B[2J\x1B[1;1H";
 
 /// Tracks compression or decompression progress.
 #[derive(Copy, Clone, Debug)]
@@ -103,14 +103,14 @@ impl Progress {
         if !self.quiet {
             match self.mode {
                 Mode::Compress => {
-                    println!("{}Compressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
-                    CLEAR, self.blks, self.total_blks, 
+                    println!("Compressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
+                    self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
                 }
                 Mode::Decompress =>  {
-                    println!("{}Decompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
-                    CLEAR, self.blks, self.total_blks, 
+                    println!("Decompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
+                    self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
                 }
