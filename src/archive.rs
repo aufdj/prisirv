@@ -27,7 +27,7 @@ use crate::{
 /// Check for a valid magic number.
 /// Non-solid archives - 'prsv'
 /// Solid archives     - 'PRSV'
-fn verify_magic_number(mgc: usize) {
+fn verify_magic_number(mgc: u64) {
     match mgc {
         0x7673_7270 => {},
         0x5653_5250 => {
@@ -75,13 +75,13 @@ impl Archiver {
         // Create input file with buffer = block size
         let mut file_in  = new_input_file(mta.blk_sz, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
-        for _ in 0..7 { file_out.write_usize(0); }
+        for _ in 0..7 { file_out.write_u64(0); }
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
         
-        let mut index = 0;
-        let mut blks_wrtn = 0;
+        let mut index: u64 = 0;
+        let mut blks_wrtn: u64 = 0;
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
 
         while file_in.fill_buffer() == BufferState::NotEmpty {
@@ -122,24 +122,22 @@ impl Archiver {
     } 
     fn write_header(&mut self, file_out: &mut BufWriter<File>, mta: &Metadata) {
         file_out.rewind().unwrap();
-        file_out.write_usize(mta.mem);
-        file_out.write_usize(mta.mgc);
-        file_out.write_usize(mta.ext);
-        file_out.write_usize(mta.fblk_sz);
-        file_out.write_usize(mta.blk_sz);
-        file_out.write_usize(mta.blk_c);
-        file_out.write_usize(mta.f_ptr);
+        file_out.write_u64(mta.mem);
+        file_out.write_u64(mta.mgc);
+        file_out.write_u64(mta.ext);
+        file_out.write_u64(mta.fblk_sz as u64);
+        file_out.write_u64(mta.blk_sz as u64);
+        file_out.write_u64(mta.blk_c);
+        file_out.write_u64(mta.f_ptr);
     }
     /// If compression is multithreaded, write compressed block sizes to archive
     /// so that compressed blocks can be parsed ahead of time during decompression.
     fn write_footer(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
         // Get index to end of file metadata
-        mta.f_ptr =
-            file_out.stream_position()
-            .unwrap() as usize;
+        mta.f_ptr = file_out.stream_position().unwrap();
 
         for blk_sz in mta.enc_blk_szs.iter() {
-            file_out.write_usize(*blk_sz);
+            file_out.write_u64(*blk_sz);
         }
     } 
 }
@@ -168,14 +166,14 @@ impl Extractor {
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
         
-        let mut index = 0;
-        let mut blks_wrtn = 0;
+        let mut index: u64 = 0;
+        let mut blks_wrtn: u64 = 0;
         let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
         
         for _ in 0..(mta.blk_c-1) {
             // Read and decompress compressed blocks
             let mut block_in = Vec::with_capacity(mta.blk_sz);
-            for _ in 0..mta.enc_blk_szs[index] {
+            for _ in 0..mta.enc_blk_szs[index as usize] {
                 block_in.push(file_in.read_byte());
             }
             tp.decompress_block(block_in, index, mta.blk_sz);
@@ -184,7 +182,7 @@ impl Extractor {
 
         // Read and decompress final compressed block
         let mut block_in = Vec::with_capacity(mta.blk_sz);
-        for _ in 0..mta.enc_blk_szs[index] {
+        for _ in 0..mta.enc_blk_szs[index as usize] {
             block_in.push(file_in.read_byte());
         }
         tp.decompress_block(block_in, index, mta.fblk_sz);
@@ -217,29 +215,25 @@ impl Extractor {
     }
     fn read_header(&mut self, file_in: &mut BufReader<File>) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        mta.mem =     file_in.read_usize();
-        mta.mgc =     file_in.read_usize();
-        mta.ext =     file_in.read_usize();
-        mta.fblk_sz = file_in.read_usize();
-        mta.blk_sz =  file_in.read_usize();
-        mta.blk_c =   file_in.read_usize();
-        mta.f_ptr =   file_in.read_usize();
+        mta.mem =     file_in.read_u64();
+        mta.mgc =     file_in.read_u64();
+        mta.ext =     file_in.read_u64();
+        mta.fblk_sz = file_in.read_u64() as usize;
+        mta.blk_sz =  file_in.read_u64() as usize;
+        mta.blk_c =   file_in.read_u64();
+        mta.f_ptr =   file_in.read_u64();
         mta
     }
     fn read_footer(&mut self, file_in: &mut BufReader<File>, mta: &mut Metadata) {
         // Seek to end of file metadata
-        file_in.seek(SeekFrom::Start(mta.f_ptr as u64)).unwrap();
+        file_in.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
 
         for _ in 0..mta.blk_c {
-            mta.enc_blk_szs.push(file_in.read_usize());
+            mta.enc_blk_szs.push(file_in.read_u64());
         }
 
         // Seek back to beginning of compressed data
-        #[cfg(target_pointer_width = "64")]
         file_in.seek(SeekFrom::Start(56)).unwrap();
-
-        #[cfg(target_pointer_width = "32")]
-        file_in.seek(SeekFrom::Start(28)).unwrap();
     }
 }
 

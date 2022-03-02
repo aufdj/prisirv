@@ -23,7 +23,7 @@ use crate::{
 /// Check for a valid magic number.
 /// Non-solid archives - 'prsv'
 /// Solid archives     - 'PRSV'
-fn verify_magic_number(mgc: usize) {
+fn verify_magic_number(mgc: u64) {
     match mgc {
         0x5653_5250 => {},
         0x7673_7270 => {
@@ -52,9 +52,12 @@ pub struct SolidArchiver {
 impl SolidArchiver {
     pub fn new(mut mta: Metadata, cfg: Config) -> SolidArchiver {
         let prg = Progress::new(&cfg, Mode::Compress);
+
         let mut file_out = new_output_file_checked(&cfg.dir_out, cfg.clbr);
-        for _ in 0..6 { file_out.write_usize(0); }
+        for _ in 0..6 { file_out.write_u64(0); }
+
         mta.mem = cfg.mem;
+
         SolidArchiver {
             file_out, mta, cfg, prg,
         }
@@ -80,13 +83,13 @@ impl SolidArchiver {
                 }
             }
         }
-        self.mta.fblk_sz = blk.len();
+        self.mta.fblk_sz = blk.len(); // FIXME: flbk_sz will be 0 if block size is equal to or multiple of archive size
         // Compress final block
         tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
         self.mta.blk_c += 1;
 
         // Output blocks
-        let mut blks_wrtn = 0;
+        let mut blks_wrtn: u64 = 0;
         while blks_wrtn != self.mta.blk_c {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.file_out);
         }
@@ -103,12 +106,10 @@ impl SolidArchiver {
 
     fn write_footer(&mut self) {
         // Get index to footer
-        self.mta.f_ptr =
-            self.file_out.stream_position()
-            .unwrap() as usize;
+        self.mta.f_ptr = self.file_out.stream_position().unwrap();
 
         // Output number of files
-        self.file_out.write_usize(self.mta.files.len());
+        self.file_out.write_u64(self.mta.files.len() as u64);
 
         for file in self.mta.files.iter() {
             // Get path as byte slice, truncated if longer than 255 bytes
@@ -125,9 +126,10 @@ impl SolidArchiver {
             // Output file length
             self.file_out.write_u64(file.1);
         }
+
         // Write compressed block sizes
         for blk_sz in self.mta.enc_blk_szs.iter() {
-            self.file_out.write_usize(*blk_sz);
+            self.file_out.write_u64(*blk_sz);
         }
 
         // Return final archive size including footer
@@ -135,12 +137,12 @@ impl SolidArchiver {
     }
     fn write_header(&mut self) {
         self.file_out.rewind().unwrap();
-        self.file_out.write_usize(self.mta.mem);     
-        self.file_out.write_usize(self.mta.mgcs);
-        self.file_out.write_usize(self.mta.blk_sz);
-        self.file_out.write_usize(self.mta.fblk_sz);
-        self.file_out.write_usize(self.mta.blk_c);
-        self.file_out.write_usize(self.mta.f_ptr);
+        self.file_out.write_u64(self.mta.mem);     
+        self.file_out.write_u64(self.mta.mgcs);
+        self.file_out.write_u64(self.mta.blk_sz as u64);
+        self.file_out.write_u64(self.mta.fblk_sz as u64);
+        self.file_out.write_u64(self.mta.blk_c);
+        self.file_out.write_u64(self.mta.f_ptr);
     }
 }
 
@@ -166,19 +168,19 @@ impl SolidExtractor {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
-        let mut index = 0;
+        let mut index: u64 = 0;
         
         // Decompress blocks ----------------------------------------
         for _ in 0..self.mta.blk_c-1 {
             let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
-            for _ in 0..self.mta.enc_blk_szs[index] {
+            for _ in 0..self.mta.enc_blk_szs[index as usize] {
                 blk_in.push(self.file_in.read_byte());
             }
             tp.decompress_block(blk_in, index, self.mta.blk_sz);
             index += 1;
         }
         let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
-        for _ in 0..self.mta.enc_blk_szs[index] {
+        for _ in 0..self.mta.enc_blk_szs[index as usize] {
             blk_in.push(self.file_in.read_byte());
         }
         tp.decompress_block(blk_in, index, self.mta.fblk_sz);
@@ -188,7 +190,8 @@ impl SolidExtractor {
         let mut file_in_paths = 
             self.mta.files.iter()
             .map(|f| PathBuf::from(f.0.clone()))
-            .collect::<Vec<PathBuf>>().into_iter();  
+            .collect::<Vec<PathBuf>>().into_iter();
+
         let mut file_out_paths = Vec::new();
 
         let file_in_path = match file_in_paths.next() {
@@ -203,35 +206,31 @@ impl SolidExtractor {
             next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
 
         let mut file_out_pos = 0;
-        let mut blks_wrtn = 0;
+        let mut blks_wrtn: u64 = 0;
         // Write blocks to output -----------------------------------
         while blks_wrtn != self.mta.blk_c {
-            match tp.bq.lock().unwrap().try_get_block() {
-                Some(block) => {
-                    // Output block
-                    for byte in block.iter() {
-                        // When current output file reaches the 
-                        // correct size, move to next file.
-                        if file_out_pos == file_in_len {
-                            
-                            let file_in_path = match file_in_paths.next() {
-                                Some(path) => {
-                                    if !path.is_file() { break; }
-                                    path
-                                }
-                                None => break,
-                            };
-                            (file_in_len, file_out) =  
-                                next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
-                            file_out_pos = 0;
-                        }
-
-                        file_out.write_byte(*byte);
-                        file_out_pos += 1;
+            if let Some(block) = tp.bq.lock().unwrap().try_get_block() { 
+                // Output block
+                for byte in block.iter() {
+                    // When current output file reaches the 
+                    // correct size, move to next file.
+                    if file_out_pos == file_in_len {
+                        
+                        let file_in_path = match file_in_paths.next() {
+                            Some(path) => {
+                                if !path.is_file() { break; }
+                                path
+                            }
+                            None => break,
+                        };
+                        (file_in_len, file_out) =  
+                            next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
+                        file_out_pos = 0;
                     }
-                    blks_wrtn += 1;
+                    file_out.write_byte(*byte);
+                    file_out_pos += 1;
                 }
-                None => {},
+                blks_wrtn += 1;   
             }
         }
         // ----------------------------------------------------------
@@ -241,11 +240,11 @@ impl SolidExtractor {
     }
     fn read_footer(&mut self) {
         // Seek to end of file metadata
-        self.file_in.seek(SeekFrom::Start(self.mta.f_ptr as u64)).unwrap();
+        self.file_in.seek(SeekFrom::Start(self.mta.f_ptr)).unwrap();
         let mut path: Vec<u8> = Vec::with_capacity(64);
 
         // Get number of files
-        let num_files = self.file_in.read_usize();
+        let num_files = self.file_in.read_u64();
 
         for _ in 0..num_files {
             // Get length of next path
@@ -265,24 +264,20 @@ impl SolidExtractor {
 
         // Get compressed block sizes
         for _ in 0..self.mta.blk_c {
-            self.mta.enc_blk_szs.push(self.file_in.read_usize());
+            self.mta.enc_blk_szs.push(self.file_in.read_u64());
         }
 
         // Seek back to beginning of compressed data
-        #[cfg(target_pointer_width = "64")]
         self.file_in.seek(SeekFrom::Start(48)).unwrap();
-
-        #[cfg(target_pointer_width = "32")]
-        self.file_in.seek(SeekFrom::Start(24)).unwrap();
     }
     fn read_header(&mut self) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        mta.mem =     self.file_in.read_usize();
-        mta.mgcs =    self.file_in.read_usize();
-        mta.blk_sz =  self.file_in.read_usize();
-        mta.fblk_sz = self.file_in.read_usize();
-        mta.blk_c =   self.file_in.read_usize();
-        mta.f_ptr =   self.file_in.read_usize();
+        mta.mem =     self.file_in.read_u64();
+        mta.mgcs =    self.file_in.read_u64();
+        mta.blk_sz =  self.file_in.read_u64() as usize;
+        mta.fblk_sz = self.file_in.read_u64() as usize;
+        mta.blk_c =   self.file_in.read_u64();
+        mta.f_ptr =   self.file_in.read_u64();
         mta
     }
     // For more info on metadata structure, see metadata.rs

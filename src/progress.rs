@@ -77,11 +77,11 @@ impl Progress {
     /// Get the input size and total block count of an archive. Since compressed 
     /// blocks are variable size, the count can't be calculated and is instead 
     /// obtained directly from metadata.
-    pub fn get_input_size_solid_dec(&mut self, files: &[PathBuf], blk_c: usize) {
+    pub fn get_input_size_solid_dec(&mut self, files: &[PathBuf], blk_c: u64) {
         for file in files.iter() {
             self.in_size += file_len(file);
         }
-        self.total_blks = blk_c as u64;
+        self.total_blks = blk_c;
     }
     /// Print final compressed archive size and time elapsed.
     pub fn print_archive_stats(&self, out_size: u64) {
@@ -104,14 +104,14 @@ impl Progress {
         if !self.quiet {
             match self.mode {
                 Mode::Compress => {
-                    print!("\rCompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
+                    print!("\rCompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})  ", 
                     self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());
                     std::io::stdout().flush().unwrap();
                 }
                 Mode::Decompress =>  {
-                    print!("\rDecompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})", 
+                    print!("\rDecompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})  ", 
                     self.blks, self.total_blks, 
                     (self.blks as f64/self.total_blks as f64)*100.0,
                     self.time.elapsed());

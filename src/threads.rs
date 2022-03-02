@@ -21,16 +21,16 @@ pub enum Message {
 }
 
 
-type Job = Box<dyn FnOnce() -> (Vec<u8>, usize) + Send + 'static>;
+type Job = Box<dyn FnOnce() -> (Vec<u8>, u64) + Send + 'static>;
 
 pub struct ThreadPool {
-    workers: Vec<Worker>,
-    sndr: Sender<Message>,
-    mem: usize,
-    pub bq: Arc<Mutex<BlockQueue>>,
+    workers:  Vec<Worker>,
+    sndr:     Sender<Message>,
+    mem:      u64,
+    pub bq:   Arc<Mutex<BlockQueue>>,
 }
 impl ThreadPool {
-    pub fn new(size: usize, mem: usize, prg: Progress) -> ThreadPool {
+    pub fn new(size: usize, mem: u64, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
         let mut workers = Vec::with_capacity(size);
 
@@ -43,8 +43,8 @@ impl ThreadPool {
         }
         ThreadPool { workers, sndr, mem, bq }
     }
-    pub fn compress_block(&mut self, block: Vec<u8>, index: usize, blk_sz: usize) {
-        let mem = self.mem;
+    pub fn compress_block(&mut self, block: Vec<u8>, index: u64, blk_sz: usize) {
+        let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
@@ -55,13 +55,13 @@ impl ThreadPool {
             )
         ).unwrap();   
     }
-    pub fn decompress_block(&mut self, block: Vec<u8>, index: usize, blk_sz: usize) {
-        let mem = self.mem;
+    pub fn decompress_block(&mut self, block: Vec<u8>, index: u64, blk_sz: usize) {
+        let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
                     let mut dec = Decoder::new(block, mem);
-                    dec.init_x();
+                    dec.init_x(); // TODO: Move init_x into new
                     let block_out = dec.decompress_block(blk_sz);
                     (block_out, index)
                 })
@@ -119,8 +119,8 @@ impl Worker {
 }
 
 pub struct BlockQueue {
-    pub blocks: Vec<(Vec<u8>, usize)>, // Blocks to be output
-    next_out:   usize, // Next block to be output
+    pub blocks: Vec<(Vec<u8>, u64)>, // Blocks to be output
+    next_out:   u64, // Next block to be output
 }
 impl BlockQueue {
     pub fn new() -> BlockQueue {
@@ -129,13 +129,13 @@ impl BlockQueue {
             next_out: 0,
         }
     }
-    pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> usize {
+    pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> u64 {
         let len = self.blocks.len();
         let next_out = self.next_out;
 
         self.blocks.retain(|block|
             if block.1 == next_out {
-                mta.enc_blk_szs.push(block.0.len());
+                mta.enc_blk_szs.push(block.0.len() as u64);
                 for byte in block.0.iter() {
                     file_out.write_byte(*byte);
                 }
@@ -143,11 +143,11 @@ impl BlockQueue {
             }
             else { true }
         );
-        let blocks_written: usize = (len - self.blocks.len()) as usize;
+        let blocks_written = (len - self.blocks.len()) as u64;
         self.next_out += blocks_written;
         blocks_written
     }
-    pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> usize {
+    pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> u64 {
         let len = self.blocks.len();
         let next_out = self.next_out;
 
@@ -160,7 +160,7 @@ impl BlockQueue {
             }
             else { true } 
         );
-        let blocks_written: usize = (len - self.blocks.len()) as usize;
+        let blocks_written = (len - self.blocks.len()) as u64;
         self.next_out += blocks_written;
         blocks_written
     }

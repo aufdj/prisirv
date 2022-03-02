@@ -32,7 +32,7 @@ pub struct Config {
     pub arch:      Arch,         // Solid or non-solid archive
     pub quiet:     bool,         // Suppresses output other than errors
     pub mode:      Mode,         // Compress or decompress
-    pub mem:       usize,        // Memory usage
+    pub mem:       u64,          // Memory usage
     pub clbr:      bool,         // Allow clobbering files
     pub blk_sz:    usize,        // Block size
     pub threads:   usize,        // Maximum number of threads

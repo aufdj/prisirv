@@ -17,7 +17,6 @@ pub enum BufferState {
 pub trait BufferedRead {
     fn read_byte(&mut self) -> u8;
     fn read_u64(&mut self) -> u64;
-    fn read_usize(&mut self) -> usize;
     fn fill_buffer(&mut self) -> BufferState;
 }
 impl BufferedRead for BufReader<File> {
@@ -67,27 +66,6 @@ impl BufferedRead for BufReader<File> {
         }
         u64::from_le_bytes(bytes)
     }
-    fn read_usize(&mut self) -> usize {
-        let mut bytes = [0u8; 8];
-        match self.read(&mut bytes) {
-            Ok(_)  => {},
-            Err(e) => {
-                println!("Function read_usize failed.");
-                println!("Error: {}", e);
-            },
-        };
-        if self.buffer().is_empty() {
-            self.consume(self.capacity());
-            match self.fill_buf() {
-                Ok(_)  => {},
-                Err(e) => {
-                    println!("Function read_usize failed.");
-                    println!("Error: {}", e);
-                },
-            }
-        }
-        usize::from_le_bytes(bytes)
-    }
     fn fill_buffer(&mut self) -> BufferState {
         self.consume(self.capacity());
         match self.fill_buf() {
@@ -106,7 +84,6 @@ impl BufferedRead for BufReader<File> {
 pub trait BufferedWrite {
     fn write_byte(&mut self, output: u8);
     fn write_u64(&mut self, output: u64);
-    fn write_usize(&mut self, output: usize);
     fn flush_buffer(&mut self);
 }
 impl BufferedWrite for BufWriter<File> {
@@ -129,24 +106,6 @@ impl BufferedWrite for BufWriter<File> {
         }
     }
     fn write_u64(&mut self, output: u64) {
-        match self.write(&output.to_le_bytes()[..]) {
-            Ok(_)  => {},
-            Err(e) => {
-                println!("Function write_usize failed.");
-                println!("Error: {}", e);
-            },
-        }
-        if self.buffer().len() >= self.capacity() {
-            match self.flush() {
-                Ok(_)  => {},
-                Err(e) => {
-                    println!("Function write_usize failed.");
-                    println!("Error: {}", e);
-                },
-            } 
-        }
-    }
-    fn write_usize(&mut self, output: usize) {
         match self.write(&output.to_le_bytes()[..]) {
             Ok(_)  => {},
             Err(e) => {

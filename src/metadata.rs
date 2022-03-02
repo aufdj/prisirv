@@ -47,15 +47,15 @@ use std::{
 
 #[derive(Debug)]
 pub struct Metadata {
-    pub mem:      usize, // Memory Usage
-    pub mgc:      usize, // Magic Number
-    pub mgcs:     usize, // Magic Number (Solid)
-    pub ext:      usize, // Extension
+    pub mem:      u64,   // Memory Usage
+    pub mgc:      u64,   // Magic Number
+    pub mgcs:     u64,   // Magic Number (Solid)
+    pub ext:      u64, // Extension
     pub fblk_sz:  usize, // Final block size
     pub blk_sz:   usize, // Block size
-    pub blk_c:    usize, // Block count
-    pub f_ptr:    usize, // Pointer to footer
-    pub enc_blk_szs: Vec<usize>,   // Commpressed block sizes
+    pub blk_c:    u64,   // Block count
+    pub f_ptr:    u64,   // Pointer to footer
+    pub enc_blk_szs: Vec<u64>,   // Commpressed block sizes
     pub files: Vec<(String, u64)>, // Path, length    
 }
 impl Metadata {
@@ -87,7 +87,7 @@ impl Metadata {
         ext = &ext[..min(ext.len(), 8)];
 
         for byte in ext.iter().rev() {
-            self.ext = (self.ext << 8) | *byte as usize;
+            self.ext = (self.ext << 8) | *byte as u64;
         }
     }
 
