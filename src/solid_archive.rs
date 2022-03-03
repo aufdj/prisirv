@@ -20,24 +20,6 @@ use crate::{
     },
 };
 
-/// Check for a valid magic number.
-/// Non-solid archives - 'prsv'
-/// Solid archives     - 'PRSV'
-fn verify_magic_number(mgc: u64) {
-    match mgc {
-        0x5653_5250 => {},
-        0x7673_7270 => {
-            println!();
-            println!("Expected solid archive, found non-solid archive.");
-            exit(0);
-        },
-        _ => {
-            println!("Not a prisirv archive.");
-            exit(0);
-        }
-    }
-}
-
 
 /// A solid archiver creates solid archives. A solid archive is an archive containing
 /// files compressed as one stream. Solid archives can take advantage of redundancy
@@ -45,9 +27,9 @@ fn verify_magic_number(mgc: u64) {
 /// archives, but don't allow for extracting individual files.
 pub struct SolidArchiver {
     pub file_out:  BufWriter<File>,
-    mta:      Metadata,
-    cfg:      Config,
-    prg:      Progress,
+    mta:           Metadata,
+    cfg:           Config,
+    prg:           Progress,
 }
 impl SolidArchiver {
     pub fn new(mut mta: Metadata, cfg: Config) -> SolidArchiver {
@@ -162,6 +144,7 @@ impl SolidExtractor {
             file_in, mta, cfg, prg, 
         }
     }
+
     pub fn extract_archive(&mut self) {
         self.read_metadata();
         self.prg.get_input_size_solid_dec(&self.cfg.inputs, self.mta.blk_c);
@@ -238,6 +221,7 @@ impl SolidExtractor {
         file_out.flush_buffer();
         self.prg.print_archive_stats(file_out_paths.iter().map(|f| file_len(f)).sum());
     }
+
     fn read_footer(&mut self) {
         // Seek to end of file metadata
         self.file_in.seek(SeekFrom::Start(self.mta.f_ptr)).unwrap();
@@ -270,21 +254,41 @@ impl SolidExtractor {
         // Seek back to beginning of compressed data
         self.file_in.seek(SeekFrom::Start(48)).unwrap();
     }
+
     fn read_header(&mut self) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        mta.mem =     self.file_in.read_u64();
-        mta.mgcs =    self.file_in.read_u64();
-        mta.blk_sz =  self.file_in.read_u64() as usize;
+        mta.mem     = self.file_in.read_u64();
+        mta.mgcs    = self.file_in.read_u64();
+        mta.blk_sz  = self.file_in.read_u64() as usize;
         mta.fblk_sz = self.file_in.read_u64() as usize;
-        mta.blk_c =   self.file_in.read_u64();
-        mta.f_ptr =   self.file_in.read_u64();
+        mta.blk_c   = self.file_in.read_u64();
+        mta.f_ptr   = self.file_in.read_u64();
         mta
     }
+
     // For more info on metadata structure, see metadata.rs
     pub fn read_metadata(&mut self) {
         self.mta = self.read_header();
-        verify_magic_number(self.mta.mgcs);
+        self.verify_magic_number(self.mta.mgcs);
         self.read_footer();
+    }
+
+    /// Check for a valid magic number.
+    /// * Non-solid archives - 'prsv'
+    /// * Solid archives     - 'PRSV'
+    fn verify_magic_number(&self, mgc: u64) {
+        match mgc {
+            0x5653_5250 => {},
+            0x7673_7270 => {
+                println!();
+                println!("Expected solid archive, found non-solid archive.");
+                exit(0);
+            },
+            _ => {
+                println!("Not a prisirv archive.");
+                exit(0);
+            }
+        }
     }
 }
 

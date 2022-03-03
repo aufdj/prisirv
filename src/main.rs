@@ -97,6 +97,7 @@ fn main() {
                 cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
             let mut arch = Archiver::new(cfg.clone());
+
             for file_in in files.iter() {
                 if !cfg.quiet { println!("Compressing {}", file_in.display()); }
                 arch.compress_file(file_in, &cfg.dir_out);
@@ -112,6 +113,7 @@ fn main() {
                 cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
             let mut extr = Extractor::new(cfg.clone());
+            
             for file_in in files.iter() {
                 if !cfg.quiet { println!("Decompressing {}", file_in.display()); } 
                 extr.decompress_file(file_in, &cfg.dir_out);

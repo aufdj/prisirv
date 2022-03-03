@@ -7,9 +7,9 @@ use std::{
 
 /// # Metadata Structure 
 ///
-/// * A prisirv non-solid archive contains a 7 * sizeof(usize) byte header followed by compressed 
+/// * A prisirv non-solid archive contains a 56 byte header followed by compressed 
 /// data, followed by a footer containing the size of each compressed block.
-/// * A prisirv solid archive contains a 4 * sizeof(usize) byte header followed by compressed data,
+/// * A prisirv solid archive contains a 48 byte header followed by compressed data,
 /// followed by a footer containing information about each compressed file.
 ///
 /// ## Non-Solid Archive
@@ -50,12 +50,12 @@ pub struct Metadata {
     pub mem:      u64,   // Memory Usage
     pub mgc:      u64,   // Magic Number
     pub mgcs:     u64,   // Magic Number (Solid)
-    pub ext:      u64, // Extension
+    pub ext:      u64,   // Extension
     pub fblk_sz:  usize, // Final block size
     pub blk_sz:   usize, // Block size
     pub blk_c:    u64,   // Block count
     pub f_ptr:    u64,   // Pointer to footer
-    pub enc_blk_szs: Vec<u64>,   // Commpressed block sizes
+    pub enc_blk_szs: Vec<u64>, // Compressed block sizes
     pub files: Vec<(String, u64)>, // Path, length    
 }
 impl Metadata {

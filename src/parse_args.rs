@@ -41,17 +41,17 @@ impl Config {
     pub fn new(args: &[String]) -> Config {
         if args.is_empty() { print_program_info(); }
 
-        let mut parser = Parse::Mode;
-        let mut sort = Sort::None;
+        let mut parser   = Parse::Mode;
+        let mut sort     = Sort::None;
         let mut user_out = String::new();
+        let mut blk_sz   = 1 << 20;
+        let mut mem      = 1 << 23;
+        let mut arch     = Arch::NonSolid;
+        let mut mode     = Mode::Compress;
+        let mut quiet    = false;
+        let mut clbr     = false;
+        let mut threads  = 4;
         let mut inputs: Vec<String> = Vec::new();
-        let mut mem = 1 << 23;
-        let mut arch = Arch::NonSolid;
-        let mut quiet = false;
-        let mut clbr = false;
-        let mut mode = Mode::Compress;
-        let mut blk_sz = 1 << 20;
-        let mut threads = 4;
         
         for arg in args.iter() {
             match arg.as_str() {
@@ -122,7 +122,7 @@ impl Config {
                 Parse::Mem => {
                     // Parse memory option. If input is not a number
                     // or not 0..9, ignore and use default option.
-                    mem = match arg.parse::<usize>() {
+                    mem = match arg.parse::<u64>() {
                         Ok(opt) => match opt {
                             0..=9 => 1 << (20 + opt),
                             _ => {
@@ -193,47 +193,45 @@ impl Config {
             mem,     clbr,     blk_sz,
             threads, dir_out,
         };
-        print_config(&cfg);
+        cfg.print();
         cfg
     }
-}
-
-
-fn print_config(cfg: &Config) {
-    if !cfg.quiet {
-        println!();
-        println!("=======================================================================");
-        println!(" {} {} Archive of Inputs:", 
-            if cfg.mode == Mode::Compress { "Creating" } else { "Extracting" },
-            if cfg.arch == Arch::Solid { "Solid" } else { "Non-Solid" });
-        for input in cfg.inputs.iter() {
-            println!("    {} ({})", 
-                input.display(),
-                if input.is_file() { "File" }
-                else if input.is_dir() { "Directory" }
-                else { "" }
-            );
+    fn print(&self) {
+        if !self.quiet {
+            println!();
+            println!("=======================================================================");
+            println!(" {} {} Archive of Inputs:", 
+                if self.mode == Mode::Compress { "Creating" } else { "Extracting" },
+                if self.arch == Arch::Solid { "Solid" } else { "Non-Solid" });
+            for input in self.inputs.iter() {
+                println!("    {} ({})", 
+                    input.display(),
+                    if input.is_file() { "File" }
+                    else if input.is_dir() { "Directory" }
+                    else { "" }
+                );
+            }
+            println!();
+            println!(" Output Directory: {}", self.dir_out);
+            if self.mode == Mode::Compress {
+                println!(" Sorting by: {}", 
+                match self.sort {
+                    Sort::None     => "None",
+                    Sort::Ext      => "Extension",
+                    Sort::Name     => "Name",
+                    Sort::Len      => "Length",
+                    Sort::Created  => "Creation time",
+                    Sort::Accessed => "Last accessed time",
+                    Sort::Modified => "Last modified time",
+                    Sort::PrtDir(_) => "Parent Directory",
+                });
+                println!(" Memory Usage: {} MiB", 3 + (self.mem >> 20) * 3);
+                println!(" Block Size: {} MiB", self.blk_sz/1024/1024);    
+            }
+            println!(" Threads: Up to {}", self.threads);
+            println!("=======================================================================");
+            println!();
         }
-        println!();
-        println!(" Output Directory: {}", cfg.dir_out);
-        if cfg.mode == Mode::Compress {
-            println!(" Sorting by: {}", 
-            match cfg.sort {
-                Sort::None     => "None",
-                Sort::Ext      => "Extension",
-                Sort::Name     => "Name",
-                Sort::Len      => "Length",
-                Sort::Created  => "Creation time",
-                Sort::Accessed => "Last accessed time",
-                Sort::Modified => "Last modified time",
-                Sort::PrtDir(_) => "Parent Directory",
-            });
-            println!(" Memory Usage: {} MB", 3 + (cfg.mem >> 20) * 3);
-            println!(" Block Size: {} MB", cfg.blk_sz/1024/1024);    
-        }
-        println!(" Threads: Up to {}", cfg.threads);
-        println!("=======================================================================");
-        println!();
     }
 }
 
@@ -269,19 +267,24 @@ fn print_program_info() {
     Source code available at https://github.com/aufdj/prisirv");
     println!();
     println!();
-    println!("  USAGE: PROG_NAME [c|d] [OPTIONS]");
+    println!("  USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]");
+    println!();
+    println!("  REQUIRED:");
+    println!("      c,     compress      Compress");
+    println!("      d,     decompress    Decompress");
+    println!("     -i,    -inputs        Specify list of input files/dirs");
     println!();
     println!("  OPTIONS:");
-    println!("     c,     compress,      Compress");
-    println!("     d,     decompress,    Decompress");
-    println!("    -out,  -outputdir,     Specify output path");
-    println!("    -sld,  -solid,         Create solid archive");
-    println!("    -mem,  -memory,        Specify memory usage (default 3)");
-    println!("    -sort                  Sort files (solid archives only) (default none)");
-    println!("    -i,    -inputs,        Specify list of input files/dirs");
-    println!("    -q,    -quiet,         Suppresses output other than errors");
-    println!("    -clb,  -clobber,       Allows clobbering files");
-    println!("    -threads               Specify thread count (default 4)");
+    println!("    -out,   -outputdir     Specify output path");
+    println!("    -mem,   -memory        Specify memory usage (Default 3)");
+    println!("    -blk,   -blocksize     Specify block size (Default - 1MiB");
+    println!("    -threads               Specify thread count (Default 4)");
+    println!("    -sort                  Sort files (solid archives only) (Default - none)");
+    println!();
+    println!("  FLAGS:");
+    println!("    -sld,   -solid         Create solid archive");
+    println!("    -q,     -quiet         Suppresses output other than errors");
+    println!("    -clb,   -clobber       Allows clobbering files");
     println!();
     println!("  Sorting Methods:");
     println!("      -sort ext      Sort by extension");
@@ -303,12 +306,12 @@ fn print_program_info() {
     println!("  Any memory option specified for decompression will be ignored.");
     println!();
     println!("  EXAMPLE:");
-    println!("      Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n  sorting files by creation time:");
+    println!("      Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n      sorting files by creation time:");
     println!();
-    println!("          prisirv c -out arch -sld -sort crtd -i \\foo\\bar.txt \\baz");
+    println!("          prisirv c -i \\foo\\bar.txt \\baz -out arch -sld -sort crtd ");
     println!();
     println!("      Decompress the archive:");
     println!();
-    println!("          prisirv d -sld -i \\foo\\arch.pri");
+    println!("          prisirv d -i \\foo\\arch.prsv -sld ");
     exit(0);
 }

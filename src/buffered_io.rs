@@ -2,8 +2,8 @@ use std::{
     fs::{File, create_dir},
     path::Path,
     io::{
-    Read, Write, BufReader, BufWriter, 
-    BufRead, ErrorKind
+        Read, Write, BufReader, BufWriter, 
+        BufRead, ErrorKind
     },
 };
 
@@ -183,7 +183,7 @@ pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     // If directory exists and is not empty, abort if user disallowed clobbering (default)
     else if !clbr {
         println!("Directory {} already exists.", dir_out);
-        println!("To overwrite existing directories, use option '-clbr'.");
+        println!("To overwrite existing directories, enable flag '-clb'.");
         std::process::exit(0);
     }
     // If directory exists and is not empty and user allowed clobbering, continue as normal.
@@ -196,7 +196,7 @@ pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     // If file exists or is not empty, abort if user disallowed clobbering (default)
     else if !clbr {
         println!("Archive {} already exists.", dir_out);
-        println!("To overwrite existing archives, use option '-clbr'.");
+        println!("To overwrite existing archives, enable flag '-clb'.");
         std::process::exit(0);
     }
     // If file exists and is not empty and user allowed clobbering, continue as normal.

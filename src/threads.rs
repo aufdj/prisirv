@@ -24,7 +24,7 @@ pub enum Message {
 type Job = Box<dyn FnOnce() -> (Vec<u8>, u64) + Send + 'static>;
 
 pub struct ThreadPool {
-    workers:  Vec<Worker>,
+    threads:  Vec<Thread>,
     sndr:     Sender<Message>,
     mem:      u64,
     pub bq:   Arc<Mutex<BlockQueue>>,
@@ -32,16 +32,16 @@ pub struct ThreadPool {
 impl ThreadPool {
     pub fn new(size: usize, mem: u64, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
-        let mut workers = Vec::with_capacity(size);
+        let mut threads = Vec::with_capacity(size);
 
         let rcvr = Arc::new(Mutex::new(rcvr));
         let bq   = Arc::new(Mutex::new(BlockQueue::new()));
         let prg  = Arc::new(Mutex::new(prg));
 
         for _ in 0..size {
-            workers.push(Worker::new(Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)));
+            threads.push(Thread::new(Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)));
         }
-        ThreadPool { workers, sndr, mem, bq }
+        ThreadPool { threads, sndr, mem, bq }
     }
     pub fn compress_block(&mut self, block: Vec<u8>, index: u64, blk_sz: usize) {
         let mem = self.mem as usize;
@@ -71,13 +71,13 @@ impl ThreadPool {
 }
 impl Drop for ThreadPool {
     fn drop(&mut self) {
-        for _ in &self.workers {
+        for _ in &self.threads {
             self.sndr.send(Message::Terminate).unwrap();
         }
 
-        for worker in &mut self.workers {
-            if let Some(thread) = worker.thread.take() {
-                thread.join().unwrap();
+        for thread in &mut self.threads {
+            if let Some(handle) = thread.handle.take() {
+                handle.join().unwrap();
             }
         }
     }
@@ -87,13 +87,13 @@ type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
 type SharedReceiver   = Arc<Mutex<Receiver<Message>>>;
 type SharedProgress   = Arc<Mutex<Progress>>;
 
-struct Worker {
-    thread: Option<JoinHandle<()>>,
+struct Thread {
+    handle: Option<JoinHandle<()>>,
 }
-impl Worker {
-    fn new(receiver: SharedReceiver, bq: SharedBlockQueue, prg: SharedProgress) -> Worker {
-        let thread = thread::spawn(move || loop {
-            let message = receiver.lock().unwrap().recv().unwrap();
+impl Thread {
+    fn new(rcvr: SharedReceiver, bq: SharedBlockQueue, prg: SharedProgress) -> Thread {
+        let handle = thread::spawn(move || loop {
+            let message = rcvr.lock().unwrap().recv().unwrap();
 
             match message {
                 Message::NewJob(job) => { 
@@ -114,7 +114,7 @@ impl Worker {
                 Message::Terminate => { break; }
             }
         });
-        Worker { thread: Some(thread) }
+        Thread { handle: Some(handle) }
     }
 }
 
