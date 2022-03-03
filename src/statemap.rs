@@ -44,7 +44,7 @@ impl StateMap {
         let pr_err = ((bit << 22) - pr) >> 3; // Prediction error
         let rec_v = self.rec_t[count] as i32; // Reciprocal value
         self.cxt_map[self.cxt] = 
-        self.cxt_map[self.cxt].wrapping_add((pr_err * rec_v & PR_MSK) as u32);
+        self.cxt_map[self.cxt].wrapping_add(((pr_err * rec_v) & PR_MSK) as u32);
     }
 }
 // ----------------------------------------------------------------------------------------------------------------------------------------

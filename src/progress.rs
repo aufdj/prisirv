@@ -10,30 +10,29 @@ use crate::{
     buffered_io::file_len,
 };
 
-// const CLEAR: &str = "\x1B[2J\x1B[1;1H";
 
 /// Tracks compression or decompression progress.
 #[derive(Copy, Clone, Debug)]
 pub struct Progress {
-    in_size: u64,
-    blks: u64,
-    total_blks: u64,
-    blk_sz: u64,
-    time: Instant,
-    quiet: bool,
-    mode: Mode,
+    in_size:     u64,
+    blks:        u64,
+    total_blks:  u64,
+    blk_sz:      u64,
+    time:        Instant,
+    quiet:       bool,
+    mode:        Mode,
 }
 #[allow(dead_code)]
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
     pub fn new(cfg: &Config, mode: Mode) -> Progress {
         Progress {
-            in_size: 0,
-            blks: 0,
-            total_blks: 0,
-            blk_sz: cfg.blk_sz as u64,
-            quiet: cfg.quiet,
-            time: Instant::now(),
+            in_size:     0,
+            blks:        0,
+            total_blks:  0,
+            blk_sz:      cfg.blk_sz as u64,
+            quiet:       cfg.quiet,
+            time:        Instant::now(),
             mode,
         }
     }
@@ -74,6 +73,7 @@ impl Progress {
         }
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
+
     /// Get the input size and total block count of an archive. Since compressed 
     /// blocks are variable size, the count can't be calculated and is instead 
     /// obtained directly from metadata.
@@ -83,6 +83,7 @@ impl Progress {
         }
         self.total_blks = blk_c;
     }
+
     /// Print final compressed archive size and time elapsed.
     pub fn print_archive_stats(&self, out_size: u64) {
         if !self.quiet {

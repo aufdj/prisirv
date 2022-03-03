@@ -1,5 +1,6 @@
 use std::{
     fs::{File, create_dir},
+    process::exit,
     path::Path,
     io::{
         Read, Write, BufReader, BufWriter, 
@@ -14,12 +15,15 @@ pub enum BufferState {
     Empty,
 }
 
+/// A trait for handling buffered reading.
 pub trait BufferedRead {
     fn read_byte(&mut self) -> u8;
     fn read_u64(&mut self) -> u64;
     fn fill_buffer(&mut self) -> BufferState;
 }
 impl BufferedRead for BufReader<File> {
+
+    /// Read one byte from an input file.
     fn read_byte(&mut self) -> u8 {
         let mut byte = [0u8; 1];
         match self.read(&mut byte) {
@@ -41,6 +45,8 @@ impl BufferedRead for BufReader<File> {
         }
         u8::from_le_bytes(byte)
     }
+
+    /// Read 8 bytes from an input file, taking care to handle reading across buffer boundaries.
     fn read_u64(&mut self) -> u64 {
         let mut bytes = [0u8; 8];
         let len = match self.read(&mut bytes) {
@@ -66,6 +72,8 @@ impl BufferedRead for BufReader<File> {
         }
         u64::from_le_bytes(bytes)
     }
+
+    /// Fills the input buffer, returning the buffer's state (empty or not empty).
     fn fill_buffer(&mut self) -> BufferState {
         self.consume(self.capacity());
         match self.fill_buf() {
@@ -81,12 +89,15 @@ impl BufferedRead for BufReader<File> {
         BufferState::NotEmpty
     }
 }
+
+/// A trait for handling buffered writing.
 pub trait BufferedWrite {
     fn write_byte(&mut self, output: u8);
     fn write_u64(&mut self, output: u64);
     fn flush_buffer(&mut self);
 }
 impl BufferedWrite for BufWriter<File> {
+    /// Write one byte to an output file.
     fn write_byte(&mut self, output: u8) {
         match self.write(&[output]) {
             Ok(_)  => {},
@@ -105,6 +116,8 @@ impl BufferedWrite for BufWriter<File> {
             }
         }
     }
+
+    /// Write 8 bytes to an output file.
     fn write_u64(&mut self, output: u64) {
         match self.write(&output.to_le_bytes()[..]) {
             Ok(_)  => {},
@@ -123,6 +136,8 @@ impl BufferedWrite for BufWriter<File> {
             } 
         }
     }
+
+    /// Flush buffer to file.
     fn flush_buffer(&mut self) {
         match self.flush() {
             Ok(_)  => {},
@@ -135,7 +150,7 @@ impl BufferedWrite for BufWriter<File> {
 }
 
 
-// File and Directory Creation
+/// Takes a file path and returns an input file wrapped in a BufReader.
 pub fn new_input_file(capacity: usize, file_name: &Path) -> BufReader<File> {
     BufReader::with_capacity(
         capacity, 
@@ -143,16 +158,20 @@ pub fn new_input_file(capacity: usize, file_name: &Path) -> BufReader<File> {
             Ok(file) => file,
             Err(_) => {
                 println!("Couldn't find file {}", file_name.display());
-                std::process::exit(0);
+                exit(0);
             }
         }
     )
 }
+
+/// Takes a file path and returns an output file wrapped in a BufWriter.
 pub fn new_output_file(capacity: usize, file_name: &Path) -> BufWriter<File> {
     BufWriter::with_capacity(
         capacity, File::create(file_name).unwrap()
     )
 }
+
+/// Creates a new directory.
 pub fn new_dir(path: &str) {
     let path = Path::new(path);
     match create_dir(path) {
@@ -161,7 +180,7 @@ pub fn new_dir(path: &str) {
             match err.kind() {
                 ErrorKind::AlreadyExists => {
                     println!("Directory {} already exists.", path.display());
-                    std::process::exit(1);
+                    exit(0);
                 },
                 ErrorKind::InvalidInput  => {
                     println!("Invalid directory name.");
@@ -172,6 +191,8 @@ pub fn new_dir(path: &str) {
         }
     }
 }
+
+/// Creates a new directory only after confirming the clobber flag is not set.
 pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     let path = Path::new(dir_out);
     // Create output directory if it doesn't exist.
@@ -184,11 +205,14 @@ pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     else if !clbr {
         println!("Directory {} already exists.", dir_out);
         println!("To overwrite existing directories, enable flag '-clb'.");
-        std::process::exit(0);
+        exit(0);
     }
     // If directory exists and is not empty and user allowed clobbering, continue as normal.
     else {}
 }
+
+
+/// Creates a new file only after confirming the clobber flag is not set.
 pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     let path = Path::new(&dir_out);
     // If file doesn't exist or is empty, ignore clobber option.
@@ -197,13 +221,14 @@ pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     else if !clbr {
         println!("Archive {} already exists.", dir_out);
         println!("To overwrite existing archives, enable flag '-clb'.");
-        std::process::exit(0);
+        exit(0);
     }
     // If file exists and is not empty and user allowed clobbering, continue as normal.
     else {}
     new_output_file(4096, path)
 }
 
+/// Returns the length of a file.
 pub fn file_len(path: &Path) -> u64 {
     path.metadata().unwrap().len()
 }

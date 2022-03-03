@@ -302,8 +302,8 @@ impl SolidExtractor {
 /// The output file paths are tracked so the final extracted archive
 /// size can be computed at the end of extraction.
 fn next_file(file_in_path: &Path, dir_out: &str, file_out_paths: &mut Vec<PathBuf>) -> (u64, BufWriter<File>) {
-    let file_in_len   = file_len(&file_in_path);
-    let file_out_path = fmt_file_out_s_extract(dir_out, &file_in_path);
+    let file_in_len   = file_len(file_in_path);
+    let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
     let file_out      = new_output_file(4096, &file_out_path);
     file_out_paths.push(file_out_path);
     (file_in_len, file_out)

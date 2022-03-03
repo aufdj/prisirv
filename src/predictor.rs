@@ -127,8 +127,8 @@ impl Predictor {
         self.h[1] = (cxt4 & 0xFFFF) << 5 | 0x57000000; // Order 2
         self.h[2] = (cxt4 << 8).wrapping_mul(3);       // Order 3
         self.h[3] =  cxt4.wrapping_mul(5);             // Order 4
-        self.h[4] =  self.h[4].wrapping_mul(11 << 5)   // Order 6
-                     + cxt * 13 & 0x3FFFFFFF;
+        self.h[4] = (self.h[4].wrapping_mul(11 << 5)   // Order 6
+                     + cxt * 13) & 0x3FFFFFFF;
         
         self.h[5] = match self.cxt { // Unigram Word Order
             65..=90 => {
@@ -174,7 +174,7 @@ impl Predictor {
         }
         else if self.bits > 0 {
             // Calculate new state array index
-            let j = ((bit as usize) + 1) << (self.bits & 3) - 1;
+            let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
             unsafe {
                 for i in 1..6 {
                     self.sp[i] = self.sp[i].add(j);
@@ -229,7 +229,7 @@ impl Predictor {
         self.pr = self.mxr.p();
 
         // 2 SSE stages
-        self.pr = self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cxt) >> 2;
-        self.pr = self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.h[0] >> 2) >> 2;
+        self.pr = (self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cxt)) >> 2;
+        self.pr = (self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.h[0] >> 2)) >> 2;
     }
 }

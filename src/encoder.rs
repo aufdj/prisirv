@@ -21,7 +21,7 @@ impl Encoder {
         
         let range = self.high - self.low;
         let mid: u32 = self.low + (range >> 12) * p
-                       + ((range & 0x0FFF) * p >> 12);
+                       + (((range & 0x0FFF) * p) >> 12);
                        
         if bit == 1 {
             self.high = mid;

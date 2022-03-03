@@ -80,7 +80,7 @@ impl Archiver {
         }   
 
         self.write_footer(&mut file_out, &mut mta);
-        self.write_header(&mut file_out, &mut mta);
+        self.write_header(&mut file_out, &mta);
 
         self.prg.print_file_stats(file_len(&file_out_path));
     }
@@ -149,7 +149,7 @@ impl Extractor {
         let mut mta: Metadata = self.read_header(&mut file_in);
 
         self.read_footer(&mut file_in, &mut mta);
-        self.prg.get_input_size_dec(&file_in_path, mta.enc_blk_szs.len());
+        self.prg.get_input_size_dec(file_in_path, mta.enc_blk_szs.len());
 
         self.verify_magic_number(mta.mgc);
 

@@ -23,7 +23,7 @@ impl Decoder {
 
         let range = self.high - self.low;
         let mid: u32 = self.low + (range >> 12) * p
-                       + ((range & 0x0FFF) * p >> 12);
+                       + (((range & 0x0FFF) * p) >> 12);
 
         let mut bit: i32 = 0;
         if self.x <= mid {
@@ -61,9 +61,6 @@ impl Decoder {
         }
     }
     fn next_byte(&mut self) -> u8 {
-        match self.block.next() {
-            Some(byte) => byte,
-            None => 0,
-        }
+        self.block.next().unwrap_or(0)
     }
 }

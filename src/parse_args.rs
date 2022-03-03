@@ -141,15 +141,23 @@ impl Config {
                     };
                 } 
                 Parse::Lvl => {
-                    match arg.parse::<usize>() {
-                        Ok(lvl) => sort = Sort::PrtDir(lvl),
-                        Err(_) => {},
+                    sort = match arg.parse::<usize>() {
+                        Ok(lvl) => Sort::PrtDir(lvl),
+                        Err(_) => {
+                            println!("Invalid sort criteria.");
+                            println!("Sorting by 1st parent directory.");
+                            Sort::PrtDir(1)
+                        },
                     }
                 }
                 Parse::BlkSz => {
-                    match arg.parse::<usize>() {
-                        Ok(size) => blk_sz = size*1024*1024,
-                        Err(_) => {},
+                    blk_sz = match arg.parse::<usize>() {
+                        Ok(size) => size*1024*1024,
+                        Err(_) => {
+                            println!("Invalid block size.");
+                            println!("Using default of 1 MiB");
+                            1 << 20
+                        },
                     }
                 }
                 Parse::Threads => {

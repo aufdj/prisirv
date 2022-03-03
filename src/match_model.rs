@@ -73,7 +73,7 @@ impl MatchModel {
 
         // Get n bits of byte at buf[mch_ptr], where n is number of bits in cxt
         // i.e. cxt currently has 3 bits, so get 3 bits of buf[mch_ptr]
-        let pr_cxt = (self.buf[self.mch_ptr] as usize) + 256 >> (8 - self.bits);
+        let pr_cxt = ((self.buf[self.mch_ptr] as usize) + 256) >> (8 - self.bits);
 
         // If the new value of pr_cxt (containing the next "predicted" bit) doesn't
         // match the new value of cxt (containing the next actual bit), reset the match.
@@ -85,7 +85,7 @@ impl MatchModel {
             if self.mch_len < 16 { cxt = self.mch_len * 2 + pr_bit; }
             else { cxt = (self.mch_len >> 2) * 2 + pr_bit + 24; }
             
-            let prev_byte = self.buf[self.buf_pos - 1 & self.buf_end];
+            let prev_byte = self.buf[(self.buf_pos - 1) & self.buf_end];
             cxt = cxt * 256 + prev_byte as usize;
         } 
         else {
@@ -136,9 +136,9 @@ impl MatchModel {
         if self.mch_ptr != self.buf_pos {
             // Byte before location indexed by hash (mch_ptr) - match length (mch_len)
             // i.e. if mch_ptr is 50 and mch_len is 3, prev_byte_h is 46 
-            let mut prev_byte_h = self.mch_ptr - self.mch_len - 1 & self.buf_end;
+            let mut prev_byte_h = (self.mch_ptr - self.mch_len - 1) & self.buf_end;
             // Byte before current byte - match length
-            let mut prev_byte   = self.buf_pos - self.mch_len - 1 & self.buf_end;
+            let mut prev_byte   = (self.buf_pos - self.mch_len - 1) & self.buf_end;
 
             // Check subsequent previous bytes, stopping at a mismatch
             while self.mch_len < MAX_LEN   
@@ -151,10 +151,10 @@ impl MatchModel {
         }
     }
     fn update_short_hash(&mut self) {
-        self.hash_s = self.hash_s * (5 << 5) + self.cxt & self.ht_end;
+        self.hash_s = (self.hash_s * (5 << 5) + self.cxt) & self.ht_end;
     }
     fn update_long_hash(&mut self) {
-        self.hash_l = self.hash_l * (3 << 3) + self.cxt & self.ht_end;
+        self.hash_l = (self.hash_l * (3 << 3) + self.cxt) & self.ht_end;
     }
     pub fn len(&self) -> usize {
         self.mch_len
