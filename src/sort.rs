@@ -6,7 +6,7 @@ use std::{
 
 /// Sort files to improve compression of solid archives.
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Sort {    // Sort By:
     None,          // No sorting
     Ext,           // Extension

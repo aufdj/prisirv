@@ -8,6 +8,7 @@ use std::{
 
 use crate::{
     Mode,
+    sort::{Sort, sort_files},
     metadata::Metadata,
     threads::ThreadPool,
     progress::Progress,
@@ -20,6 +21,22 @@ use crate::{
     },
 };
 
+// Recursively collect all files into a vector for sorting before compression.
+fn collect_files(dir_in: &Path, mta: &mut Metadata) {
+    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+        dir_in.read_dir().unwrap()
+        .map(|d| d.unwrap().path())
+        .partition(|f| f.is_file());
+
+    for file in files.iter() {
+        mta.files.push(
+            (file.display().to_string(), file_len(file))
+        );
+    }
+    for dir in dirs.iter() {
+        collect_files(dir, mta);
+    }
+}
 
 /// A solid archiver creates solid archives. A solid archive is an archive containing
 /// files compressed as one stream. Solid archives can take advantage of redundancy
@@ -32,19 +49,42 @@ pub struct SolidArchiver {
     prg:           Progress,
 }
 impl SolidArchiver {
-    pub fn new(mut mta: Metadata, cfg: Config) -> SolidArchiver {
+    pub fn new(cfg: Config) -> SolidArchiver {
+        let mut mta: Metadata = Metadata::new();
+        mta.blk_sz = cfg.blk_sz;
+        mta.mem = cfg.mem;
+
         let prg = Progress::new(&cfg, Mode::Compress);
 
         let mut file_out = new_output_file_checked(&cfg.dir_out, cfg.clbr);
         for _ in 0..6 { file_out.write_u64(0); }
-
-        mta.mem = cfg.mem;
 
         SolidArchiver {
             file_out, mta, cfg, prg,
         }
     }
     pub fn create_archive(&mut self) {
+        // Group files and directories 
+        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+            self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+
+        // Walk through directories and collect all files
+        for file in files.iter() {
+            self.mta.files.push(
+                (file.display().to_string(), file_len(file))
+            );
+        }
+        for dir in dirs.iter() {
+            collect_files(dir, &mut self.mta);
+        }
+
+        // Sort files to potentially improve compression of solid archives
+        let sort_method = self.cfg.sort;
+        match self.cfg.sort {
+            Sort::None => {},
+            _ => self.mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &sort_method)),
+        }
+
         self.prg.get_input_size_solid_enc(&self.mta.files);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
@@ -137,9 +177,17 @@ pub struct SolidExtractor {
     prg:      Progress,
 }
 impl SolidExtractor {
-    pub fn new(mta: Metadata, cfg: Config) -> SolidExtractor {
+    pub fn new(cfg: Config) -> SolidExtractor {
+        if !cfg.inputs[0].is_file() {
+            println!("Input {} is not a solid archive.", cfg.inputs[0].display());
+            println!("To extract a non-solid archive, omit option '-sld'.");
+            std::process::exit(0);
+        }
+
+        let mta: Metadata = Metadata::new();
         let prg = Progress::new(&cfg, Mode::Decompress);
         let file_in = new_input_file(4096, &cfg.inputs[0]);
+
         SolidExtractor {
             file_in, mta, cfg, prg, 
         }

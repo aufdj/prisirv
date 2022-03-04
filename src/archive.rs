@@ -38,11 +38,25 @@ impl Archiver {
     pub fn new(cfg: Config) -> Archiver {
         let prg = Progress::new(&cfg, Mode::Compress);
         Archiver {
-            cfg, prg,
-            files: Vec::with_capacity(32),
+            cfg, prg, files: Vec::with_capacity(32),
         }
     }
+    pub fn create_archive(&mut self) {
+        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
+        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+            self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+
+        let mut dir_out = self.cfg.dir_out.clone();
+
+        for file_in in files.iter() {
+            if !self.cfg.quiet { println!("Compressing {}", file_in.display()); }
+            self.compress_file(file_in, &dir_out);
+        }
+        for dir_in in dirs.iter() {
+            self.compress_dir(dir_in, &mut dir_out);      
+        }
+    }
     /// Compresses a single file. The main thread parses the file into 
     /// blocks and each block is compressed by a seperate encoder.
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
@@ -141,6 +155,22 @@ impl Extractor {
         let prg = Progress::new(&cfg, Mode::Decompress);
         Extractor {
             cfg, prg,
+        }
+    }
+    pub fn extract_archive(&mut self) {
+        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
+            
+        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+            self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+
+        let mut dir_out = self.cfg.dir_out.clone();
+
+        for file_in in files.iter() {
+            if !self.cfg.quiet { println!("Decompressing {}", file_in.display()); } 
+            self.decompress_file(file_in, &dir_out);
+        }
+        for dir_in in dirs.iter() {
+            self.decompress_dir(dir_in, &mut dir_out, true);      
         }
     }
 

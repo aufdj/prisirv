@@ -23,7 +23,7 @@ enum Parse {
     Threads,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub sort:      Sort,         // Sorting method (solid archives only)
     pub user_out:  String,       // User specified output directory (optional)
@@ -278,9 +278,9 @@ fn print_program_info() {
     println!("  USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]");
     println!();
     println!("  REQUIRED:");
-    println!("      c,     compress      Compress");
-    println!("      d,     decompress    Decompress");
-    println!("     -i,    -inputs        Specify list of input files/dirs");
+    println!("     c,      compress      Compress");
+    println!("     d,      decompress    Decompress");
+    println!("    -i,     -inputs        Specify list of input files/dirs");
     println!();
     println!("  OPTIONS:");
     println!("    -out,   -outputdir     Specify output path");
