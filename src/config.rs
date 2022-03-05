@@ -38,6 +38,21 @@ pub struct Config {
     pub threads:   usize,        // Maximum number of threads
 }
 impl Config {
+    pub fn new_empty() -> Config {
+        Config {
+            sort    : Sort::None,
+            user_out: String::new(),
+            blk_sz  : 1 << 20,
+            mem     : 1 << 23,
+            arch    : Arch::NonSolid,
+            mode    : Mode::Compress,
+            quiet   : false,
+            clbr    : false,
+            threads : 4,
+            inputs: Vec::new(),
+            dir_out: String::new(),
+        }
+    }
     pub fn new(args: &[String]) -> Config {
         if args.is_empty() { print_program_info(); }
 
@@ -186,6 +201,7 @@ impl Config {
             println!("No inputs found.");
             exit(0);
         }
+
         // Filter invalid inputs
         let inputs: Vec<PathBuf> = 
         inputs.iter()
@@ -204,7 +220,7 @@ impl Config {
         cfg.print();
         cfg
     }
-    fn print(&self) {
+    pub fn print(&self) {
         if !self.quiet {
             println!();
             println!("=======================================================================");

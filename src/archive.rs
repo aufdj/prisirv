@@ -10,7 +10,7 @@ use crate::{
     Mode,
     progress::Progress,
     metadata::Metadata,
-    parse_args::Config,
+    config::Config,
     threads::ThreadPool,
     buffered_io::{
         BufferedRead, BufferedWrite, BufferState, file_len, 

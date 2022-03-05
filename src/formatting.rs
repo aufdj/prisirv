@@ -210,6 +210,8 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
 /// If the parent directory of the output path doesn't exist, 
 /// it and other required directories are created.
 pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf { 
+    println!("dir out: {}", dir_out);
+    println!("file_in_path: {}", file_in_path.display());
     let path = 
         PathBuf::from(
             Path::new(dir_out).iter()
@@ -223,5 +225,6 @@ pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
     if !parent.exists() {
         create_dir_all(parent).unwrap();
     }
+    println!("new path: {}", path.display());
     path
 }

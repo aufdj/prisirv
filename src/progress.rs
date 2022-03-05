@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     Mode,
-    parse_args::Config,
+    config::Config,
     buffered_io::file_len,
 };
 

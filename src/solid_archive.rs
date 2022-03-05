@@ -13,7 +13,7 @@ use crate::{
     threads::ThreadPool,
     progress::Progress,
     formatting::fmt_file_out_s_extract,
-    parse_args::Config,
+    config::Config,
     buffered_io::{
         BufferedRead, BufferedWrite, file_len,
         new_input_file, new_output_file, 
