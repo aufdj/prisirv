@@ -132,7 +132,7 @@ pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, f
     // part of the new archive, but if there are duplicate 
     // files added to the same archive, the first file would 
     // be overwritten anyway. To avoid this, each newly 
-    // compressed file is added to a Vec<PathBUf> files,   
+    // compressed file is added to a Vec<PathBUf> 'files',   
     // and if a duplicate file found is in this list, ignore 
     // the clobbering option.
     while file_out_path.exists() && !clbr || files.contains(&file_out_path) {
@@ -209,22 +209,53 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
 ///
 /// If the parent directory of the output path doesn't exist, 
 /// it and other required directories are created.
-pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf { 
-    println!("dir out: {}", dir_out);
-    println!("file_in_path: {}", file_in_path.display());
+pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
+    let dir_path = Path::new(dir_out);
+
     let path = 
+    if dir_path.is_absolute() {
         PathBuf::from(
-            Path::new(dir_out).iter()
-            .filter(|p| p.to_str().unwrap() != "C:")
-            .chain(file_in_path.iter().skip(2))
+            dir_path.iter().skip(1)
+            .chain(
+                file_in_path.iter()
+                .filter(|c| c.to_str().unwrap() != "C:")
+                .filter(|c| c.to_str().unwrap() != "\\")
+            )
             .map(|s| format!("\\{}", s.to_str().unwrap()))
             .skip(1)
             .collect::<String>()
-        );
+        )
+    }
+    else if dir_path.starts_with("\\") {
+        PathBuf::from(
+            dir_path.iter()
+            .chain(
+                file_in_path.iter()
+                .filter(|c| c.to_str().unwrap() != "C:")
+                .filter(|c| c.to_str().unwrap() != "\\")
+            )
+            .map(|s| format!("\\{}", s.to_str().unwrap()))
+            .skip(1)
+            .collect::<String>()
+        )
+    }
+    else {
+        PathBuf::from(
+            dir_path.iter()
+            .chain(
+                file_in_path.iter()
+                .filter(|c| c.to_str().unwrap() != "C:")
+                .filter(|c| c.to_str().unwrap() != "\\")
+            )
+            .map(|s| format!("\\{}", s.to_str().unwrap()))
+            .collect::<String>().strip_prefix("\\").unwrap()
+        )
+    };
+
     let parent = path.parent().unwrap();
     if !parent.exists() {
         create_dir_all(parent).unwrap();
     }
-    println!("new path: {}", path.display());
+    
     path
 }

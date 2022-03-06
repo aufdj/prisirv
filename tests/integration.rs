@@ -6,7 +6,7 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn test() {
+    fn solid_archive_calgary_tar() {
         let inputs: Vec<&str>  = vec!["tests\\data\\calgary.tar"];
         Prisirv::new().solid().clobber().create_archive_of(&inputs);
 
@@ -14,10 +14,10 @@ mod tests {
         Prisirv::new().solid().clobber().extract_archive_of(&outputs);
         
         let crc1 = crc32(Path::new("tests\\data\\calgary.tar"));
-        let crc2 = crc32(Path::new("tests\\data\\calgary_d\\calgary.tar"));
+        let crc2 = crc32(Path::new("tests\\data\\calgary_d\\tests\\data\\calgary.tar"));
 
-        println!("Input crc: {}", crc1);
-        println!("Output crc: {}", crc2);
+        println!("Input crc: {:x}", crc1);
+        println!("Output crc: {:x}", crc2);
         
         assert!(crc1 == crc2);
     }

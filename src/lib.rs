@@ -89,7 +89,6 @@ impl Prisirv {
         self.cfg.inputs.extend_from_slice(&paths);
 
         self.cfg.dir_out = fmt_root_output_dir(self.cfg.arch, self.cfg.mode, &self.cfg.user_out, &self.cfg.inputs[0]);
-        println!("{}", self.cfg.dir_out);
 
         self.cfg.print();
         match self.cfg.arch {
