@@ -8,7 +8,7 @@ use crate::{
 };
 
 
-/// Parse command line arguments.
+/// An enum containing each possible parsing state.
 enum Parse {
     Mode,
     DirOut,
@@ -23,6 +23,7 @@ enum Parse {
     Threads,
 }
 
+/// A list of all possible user defined configuration settings.
 #[derive(Clone, Debug)]
 pub struct Config {
     pub sort:      Sort,         // Sorting method (solid archives only)
@@ -38,21 +39,23 @@ pub struct Config {
     pub threads:   usize,        // Maximum number of threads
 }
 impl Config {
+    /// Create a new default Config.
     pub fn new_empty() -> Config {
         Config {
-            sort    : Sort::None,
-            user_out: String::new(),
-            blk_sz  : 1 << 20,
-            mem     : 1 << 23,
-            arch    : Arch::NonSolid,
-            mode    : Mode::Compress,
-            quiet   : false,
-            clbr    : false,
-            threads : 4,
-            inputs: Vec::new(),
-            dir_out: String::new(),
+            sort:      Sort::None,
+            user_out:  String::new(),
+            blk_sz:    1 << 20,
+            mem:       1 << 23,
+            arch:      Arch::NonSolid,
+            mode:      Mode::Compress,
+            quiet:     false,
+            clbr:      false,
+            threads:   4,
+            inputs:    Vec::new(),
+            dir_out:   String::new(),
         }
     }
+    /// Create a new Config with the specified command line arguments.
     pub fn new(args: &[String]) -> Config {
         if args.is_empty() { print_program_info(); }
 
@@ -220,6 +223,8 @@ impl Config {
         cfg.print();
         cfg
     }
+
+    /// Print information about the current Config.
     pub fn print(&self) {
         if !self.quiet {
             println!();
@@ -260,7 +265,7 @@ impl Config {
 }
 
 
-/// Print information about prisirv.
+/// Print information about Prisirv.
 fn print_program_info() {
     println!();
     println!("     ______   ______     ________  ______    ________  ______    __   __     

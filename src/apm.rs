@@ -2,13 +2,15 @@ use std::iter::repeat;
 
 use crate::logistic::{stretch, squash};
 
-// Adaptive Probability Map -------------------------------------------------------------------------------------- Adaptive Probability Map
+/// An APM takes an existing prediction and a context, and interpolates a 
+/// new, refined prediction. Also known as Secondary Symbol Estimation (SSE).
 pub struct Apm {
     bin:       usize,    // A value used for interpolating a new prediction
     num_cxts:  usize,    // Number of possible contexts i.e 256 for order-0
     bin_map:   Vec<u16>, // Table mapping values 0..=32 to squashed 16 bit values
 }
 impl Apm {
+    /// Create a new Apm.
     pub fn new(n: usize) -> Apm {
         Apm {
             bin:       0,
@@ -21,6 +23,8 @@ impl Apm {
                        .collect::<Vec<u16>>(),
         }
     }
+
+    /// Interpolate a new prediction.
     pub fn p(&mut self, bit: i32, rate: i32, mut pr: i32, cxt: u32) -> i32 {
         assert!(bit == 0 || bit == 1 && pr >= 0 && pr < 4096);
         assert!(cxt < self.num_cxts as u32);
@@ -36,6 +40,8 @@ impl Apm {
         let u = self.bin_map[self.bin+1] as i32; // Upper bin
         ((l * (128 - i_w)) + (u * i_w)) >> 11 // Interpolate pr from bin and bin+1
     }
+
+    /// Update the two bins last used for interpolation.
     pub fn update(&mut self, bit: i32, rate: i32) {
         assert!(bit == 0 || bit == 1 && rate > 0 && rate < 32);
         
@@ -49,4 +55,4 @@ impl Apm {
         self.bin_map[self.bin+1] = (u + ((g - u) >> rate)) as u16;
     }
 }
-// ----------------------------------------------------------------------------------------------------------------------------------------
+

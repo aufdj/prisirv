@@ -25,9 +25,10 @@ use crate::{
 };
 
 
-/// An archiver creates non-solid archives. A non-solid archive is an archive containing
-/// independently compressed files. Non-solid archiving typically results in worse 
-/// compression ratios than solid archiving, but allows for extracting individual files.
+/// An archiver creates non-solid archives. A non-solid archive is an 
+/// archive containing independently compressed files. Non-solid archiving 
+/// typically results in worse compression ratios than solid archiving, but 
+/// allows for extracting individual files.
 pub struct Archiver {
     cfg:    Config,
     prg:    Progress,
@@ -41,6 +42,8 @@ impl Archiver {
             cfg, prg, files: Vec::with_capacity(32),
         }
     }
+
+    /// Compress all files.
     pub fn create_archive(&mut self) {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
@@ -57,8 +60,8 @@ impl Archiver {
             self.compress_dir(dir_in, &mut dir_out);      
         }
     }
-    /// Compresses a single file. The main thread parses the file into 
-    /// blocks and each block is compressed by a seperate encoder.
+
+    /// Compress a single file.
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
         self.prg.get_input_size_enc(file_in_path);
 
@@ -99,7 +102,7 @@ impl Archiver {
         self.prg.print_file_stats(file_len(&file_out_path));
     }
     
-    /// Compresses every file in a directory.
+    /// Compress all files in a directory.
     pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
         let mut dir_out = fmt_nested_dir_ns_archive(dir_out, dir_in);
         new_dir_checked(&dir_out, self.cfg.clbr);
@@ -120,7 +123,7 @@ impl Archiver {
         }
     } 
 
-    /// Rewind to beginning of file and write header.
+    /// Rewind to the beginning of the file and write a 56 byte header.
     fn write_header(&mut self, file_out: &mut BufWriter<File>, mta: &Metadata) {
         file_out.rewind().unwrap();
         file_out.write_u64(mta.mem);
@@ -132,8 +135,8 @@ impl Archiver {
         file_out.write_u64(mta.f_ptr);
     }
 
-    /// Write compressed block sizes to archive so that compressed 
-    /// blocks can be parsed ahead of time during decompression.
+    /// Write compressed block sizes to archive so that compressed blocks 
+    /// can be parsed ahead of time during decompression.
     fn write_footer(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
         // Get index to end of file metadata
         mta.f_ptr = file_out.stream_position().unwrap();
@@ -157,6 +160,8 @@ impl Extractor {
             cfg, prg,
         }
     }
+
+    /// Extract all files in an archive.
     pub fn extract_archive(&mut self) {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
             
@@ -174,6 +179,7 @@ impl Extractor {
         }
     }
 
+    /// Decompress a single file.
     pub fn decompress_file(&mut self, file_in_path: &Path, dir_out: &str) {
         let mut file_in = new_input_file(4096, file_in_path);
         let mut mta: Metadata = self.read_header(&mut file_in);
@@ -215,6 +221,7 @@ impl Extractor {
         self.prg.print_file_stats(file_len(&file_out_path));
     }
 
+    /// Decompress all files in a directory.
     pub fn decompress_dir(&mut self, dir_in: &Path, dir_out: &mut String, root: bool) {
         let mut dir_out = fmt_nested_dir_ns_extract(dir_out, dir_in, root);
         new_dir_checked(&dir_out, self.cfg.clbr);
@@ -235,6 +242,7 @@ impl Extractor {
         }
     }
 
+    /// Read 56 byte header.
     fn read_header(&mut self, file_in: &mut BufReader<File>) -> Metadata {
         let mut mta: Metadata = Metadata::new();
         mta.mem =     file_in.read_u64();
@@ -247,6 +255,7 @@ impl Extractor {
         mta
     }
 
+    /// Read compressed block sizes from the footer.
     fn read_footer(&mut self, file_in: &mut BufReader<File>, mta: &mut Metadata) {
         // Seek to end of file metadata
         file_in.seek(SeekFrom::Start(mta.f_ptr)).unwrap();

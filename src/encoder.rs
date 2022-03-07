@@ -1,5 +1,7 @@
 use crate::predictor::Predictor;
 
+/// A block based arithmetic encoder. Accepts an uncompressed block and
+/// returns a compressed block.
 pub struct Encoder {
     high:       u32,       // Right endpoint of range
     low:        u32,       // Left endpoint of range
@@ -7,6 +9,7 @@ pub struct Encoder {
     pub out:    Vec<u8>,   // Compressed block
 }
 impl Encoder {
+    /// Create a new Encoder.
     pub fn new(mem: usize, blk_sz: usize) -> Encoder {
         Encoder {
             high: 0xFFFFFFFF,
@@ -15,6 +18,8 @@ impl Encoder {
             out: Vec::with_capacity(blk_sz),
         }
     }
+
+    /// Compress one bit with the latest prediction.
     pub fn compress_bit(&mut self, bit: i32) {
         let mut p = self.predictor.p() as u32;
         if p < 2048 { p += 1; }
@@ -37,6 +42,8 @@ impl Encoder {
             self.low <<= 8;
         }
     }
+
+    /// Compress one block.
     pub fn compress_block(&mut self, block: &[u8]) -> Vec<u8> {
         for byte in block.iter() {
             for i in (0..=7).rev() {
@@ -46,6 +53,9 @@ impl Encoder {
         self.flush();
         self.out.clone()
     }
+
+    /// Flush any remaining equal Most Significant Bytes (MSBs), then flush
+    /// the first non-equal MSB, marking the end of compression.
     pub fn flush(&mut self) {
         while ( (self.high ^ self.low) & 0xFF000000) == 0 {
             self.out.push((self.high >> 24) as u8);

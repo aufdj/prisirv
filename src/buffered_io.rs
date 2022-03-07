@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-// Convenience functions for buffered I/O 
+// Indicates an empty or non-empty buffer. 
 #[derive(PartialEq, Eq)]
 pub enum BufferState {
     NotEmpty,
@@ -22,7 +22,6 @@ pub trait BufferedRead {
     fn fill_buffer(&mut self) -> BufferState;
 }
 impl BufferedRead for BufReader<File> {
-
     /// Read one byte from an input file.
     fn read_byte(&mut self) -> u8 {
         let mut byte = [0u8; 1];
@@ -46,7 +45,8 @@ impl BufferedRead for BufReader<File> {
         u8::from_le_bytes(byte)
     }
 
-    /// Read 8 bytes from an input file, taking care to handle reading across buffer boundaries.
+    /// Read 8 bytes from an input file, taking care to handle reading 
+    /// across buffer boundaries.
     fn read_u64(&mut self) -> u64 {
         let mut bytes = [0u8; 8];
         let len = match self.read(&mut bytes) {
@@ -73,7 +73,7 @@ impl BufferedRead for BufReader<File> {
         u64::from_le_bytes(bytes)
     }
 
-    /// Fills the input buffer, returning the buffer's state (empty or not empty).
+    /// Fills the input buffer, returning the buffer's state.
     fn fill_buffer(&mut self) -> BufferState {
         self.consume(self.capacity());
         match self.fill_buf() {
@@ -151,27 +151,54 @@ impl BufferedWrite for BufWriter<File> {
 
 
 /// Takes a file path and returns an input file wrapped in a BufReader.
-pub fn new_input_file(capacity: usize, file_name: &Path) -> BufReader<File> {
+pub fn new_input_file(capacity: usize, file_path: &Path) -> BufReader<File> {
     BufReader::with_capacity(
         capacity, 
-        match File::open(file_name) {
+        match File::open(file_path) {
             Ok(file) => file,
-            Err(_) => {
-                println!("Couldn't find file {}", file_name.display());
-                exit(0);
+            Err(e) => match e.kind() {
+                ErrorKind::NotFound => {
+                    println!("Couldn't open file {}: Not Found", file_path.display());
+                    exit(0); 
+                }
+                ErrorKind::PermissionDenied => {
+                    println!("Couldn't open file {}: Permission Denied", file_path.display());
+                    exit(0);
+                }
+                _ => {
+                    println!("Couldn't open file {}", file_path.display());
+                    exit(0);
+                }
             }
         }
     )
 }
 
 /// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file(capacity: usize, file_name: &Path) -> BufWriter<File> {
+pub fn new_output_file(capacity: usize, file_path: &Path) -> BufWriter<File> {
     BufWriter::with_capacity(
-        capacity, File::create(file_name).unwrap()
+        capacity, 
+        match File::create(file_path) {
+            Ok(file) => file,
+            Err(e) => match e.kind() {
+                ErrorKind::NotFound => {
+                    println!("Couldn't open file {}: Not Found", file_path.display());
+                    exit(0); 
+                }
+                ErrorKind::PermissionDenied => {
+                    println!("Couldn't open file {}: Permission Denied", file_path.display());
+                    exit(0);
+                }
+                _ => {
+                    println!("Couldn't open file {}", file_path.display());
+                    exit(0);
+                }  
+            }
+        }
     )
 }
 
-/// Creates a new directory.
+/// Create a new directory.
 pub fn new_dir(path: &str) {
     let path = Path::new(path);
     match create_dir(path) {
@@ -192,7 +219,8 @@ pub fn new_dir(path: &str) {
     }
 }
 
-/// Creates a new directory only after confirming the clobber flag is not set.
+/// Create a new directory only if the clobber flag is set or the existing 
+/// directory is empty.
 pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     let path = Path::new(dir_out);
     // Create output directory if it doesn't exist.
@@ -211,8 +239,8 @@ pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     else {}
 }
 
-
-/// Creates a new file only after confirming the clobber flag is not set.
+/// Create a new file only if the clobber flag is set or the existing file 
+/// is empty.
 pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     let path = Path::new(&dir_out);
     // If file doesn't exist or is empty, ignore clobber option.
@@ -228,7 +256,7 @@ pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     new_output_file(4096, path)
 }
 
-/// Returns the length of a file.
+/// Return the length of a file.
 pub fn file_len(path: &Path) -> u64 {
     path.metadata().unwrap().len()
 }

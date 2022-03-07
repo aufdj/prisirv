@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-// Recursively collect all files into a vector for sorting before compression.
+/// Recursively collect all files into a vector for sorting before compression.
 fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
         dir_in.read_dir().unwrap()
@@ -38,10 +38,10 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
     }
 }
 
-/// A solid archiver creates solid archives. A solid archive is an archive containing
-/// files compressed as one stream. Solid archives can take advantage of redundancy
-/// across files and therefore achieve better compression ratios than non-solid
-/// archives, but don't allow for extracting individual files.
+/// A solid archiver creates solid archives, or an archive containing files 
+/// compressed as one stream. Solid archives take advantage of redundancy 
+/// across files and therefore achieve better compression ratios than non-
+/// solid archives, but don't allow for extracting individual files.
 pub struct SolidArchiver {
     pub file_out:  BufWriter<File>,
     mta:           Metadata,
@@ -49,6 +49,7 @@ pub struct SolidArchiver {
     prg:           Progress,
 }
 impl SolidArchiver {
+    /// Create a new SolidArchiver.
     pub fn new(cfg: Config) -> SolidArchiver {
         let mut mta: Metadata = Metadata::new();
         mta.blk_sz = cfg.blk_sz;
@@ -63,6 +64,8 @@ impl SolidArchiver {
             file_out, mta, cfg, prg,
         }
     }
+
+    /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
         // Group files and directories 
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
@@ -126,6 +129,7 @@ impl SolidArchiver {
         self.write_header();
     }
 
+    /// Write footer containing file paths and lengths.
     fn write_footer(&mut self) {
         // Get index to footer
         self.mta.f_ptr = self.file_out.stream_position().unwrap();
@@ -157,6 +161,8 @@ impl SolidArchiver {
         // Return final archive size including footer
         self.prg.print_archive_stats(self.file_out.seek(SeekFrom::End(0)).unwrap());
     }
+
+    /// Write 48 byte header.
     fn write_header(&mut self) {
         self.file_out.rewind().unwrap();
         self.file_out.write_u64(self.mta.mem);     
@@ -177,6 +183,7 @@ pub struct SolidExtractor {
     prg:      Progress,
 }
 impl SolidExtractor {
+    /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
         if !cfg.inputs[0].is_file() {
             println!("Input {} is not a solid archive.", cfg.inputs[0].display());
@@ -193,6 +200,8 @@ impl SolidExtractor {
         }
     }
 
+    /// Decompress blocks and parse blocks into files. A block can span 
+    /// multiple files.
     pub fn extract_archive(&mut self) {
         self.read_metadata();
         self.prg.get_input_size_solid_dec(&self.cfg.inputs, self.mta.blk_c);
@@ -241,7 +250,6 @@ impl SolidExtractor {
         // Write blocks to output -----------------------------------
         while blks_wrtn != self.mta.blk_c {
             if let Some(block) = tp.bq.lock().unwrap().try_get_block() { 
-                // Output block
                 for byte in block.iter() {
                     // When current output file reaches the 
                     // correct size, move to next file.
@@ -270,6 +278,7 @@ impl SolidExtractor {
         self.prg.print_archive_stats(file_out_paths.iter().map(|f| file_len(f)).sum());
     }
 
+    /// Read footer containing file paths and lengths.
     fn read_footer(&mut self) {
         // Seek to end of file metadata
         self.file_in.seek(SeekFrom::Start(self.mta.f_ptr)).unwrap();
@@ -303,6 +312,7 @@ impl SolidExtractor {
         self.file_in.seek(SeekFrom::Start(48)).unwrap();
     }
 
+    /// Read 48 byte header.
     fn read_header(&mut self) -> Metadata {
         let mut mta: Metadata = Metadata::new();
         mta.mem     = self.file_in.read_u64();
@@ -314,7 +324,7 @@ impl SolidExtractor {
         mta
     }
 
-    // For more info on metadata structure, see metadata.rs
+    /// Read header and footer of archive.
     pub fn read_metadata(&mut self) {
         self.mta = self.read_header();
         self.verify_magic_number(self.mta.mgcs);
@@ -340,15 +350,15 @@ impl SolidExtractor {
     }
 }
 
-/// Get the next output file and the input file length,
-/// the input file being the original file that was compressed.
+/// Get the next output file and the input file length, the input file being
+/// the original file that was compressed.
 /// i.e. output file is foo_d\bar.txt, input file is foo\bar.txt
 ///
-/// The input file length is needed to know when the output file
-/// is the correct size.
+/// The input file length is needed to know when the output file is the 
+/// correct size.
 ///
-/// The output file paths are tracked so the final extracted archive
-/// size can be computed at the end of extraction.
+/// The output file paths are tracked so the final extracted archive size 
+/// can be computed at the end of extraction.
 fn next_file(file_in_path: &Path, dir_out: &str, file_out_paths: &mut Vec<PathBuf>) -> (u64, BufWriter<File>) {
     let file_in_len   = file_len(file_in_path);
     let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);

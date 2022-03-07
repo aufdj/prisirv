@@ -6,6 +6,7 @@ use std::{
 
 /// Sort files to improve compression of solid archives.
 
+/// An enum of all possible sorting methods.
 #[derive(Debug, Clone, Copy)]
 pub enum Sort {    // Sort By:
     None,          // No sorting
@@ -18,6 +19,7 @@ pub enum Sort {    // Sort By:
     Modified,      // Last Modification Time
 }
 
+/// Sort files by given sorting method.
 pub fn sort_files(f1: &str, f2: &str, sorting_method: &Sort) -> Ordering {
     match sorting_method {
         Sort::Ext => {

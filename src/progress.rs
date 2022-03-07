@@ -11,7 +11,7 @@ use crate::{
 };
 
 
-/// Tracks compression or decompression progress.
+/// Track compression or decompression progress.
 #[derive(Copy, Clone, Debug)]
 pub struct Progress {
     in_size:     u64,

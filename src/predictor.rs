@@ -12,31 +12,30 @@ use crate::{
 /// # Predictor
 ///
 /// Prisirv is a context mixing compressor with the same model as lpaq1
-/// by Matt Mahoney <http://mattmahoney.net/dc/#lpaq>. The model combines 7 
-/// contexts: orders 1, 2, 3, 4, 6, a lowercase unigram word context 
-/// (for ASCII text), and a "match" order, which predicts the next
-/// bit in the last matching context. The independent bit predictions of
-/// the 7 models are combined using one of 80 neural networks (selected by
-/// a small context), then adjusted using 2 SSE stages (order 0 and 1)
-/// and arithmetic coded.
+/// by Matt Mahoney <http://mattmahoney.net/dc/#lpaq>. The model combines 
+/// 7 contexts: orders 1, 2, 3, 4, 6, a lowercase unigram word context 
+/// (for ASCII text), and a "match" order, which predicts the next bit in 
+/// the last matching context. The independent bit predictions of the 7 
+/// models are combined using one of 80 neural networks (selected by a 
+/// small context), then adjusted using 2 SSE stages (order 0 and 1) and 
+/// arithmetic coded.
 /// 
-/// Prediction is bitwise. This means that an order-n context consists
-/// of the last n whole bytes plus any of the 0 to 7 previously coded
-/// bits of the current byte starting with the most significant bit.
-/// The unigram word context consists of a hash of the last (at most) 11
-/// consecutive letters (A-Z, a-z) folded to lower case. The context
-/// does not include any nonalphabetic characters nor any characters
-/// preceding the last nonalphabetic character.
+/// Prediction is bitwise. This means that an order-n context consists of 
+/// the last n whole bytes plus any of the 0 to 7 previously coded bits of 
+/// the current byte starting with the most significant bit. The unigram 
+/// word context consists of a hash of the last (at most) 11 consecutive 
+/// letters (A-Z, a-z) folded to lower case. The context does not include 
+/// any nonalphabetic characters nor any characters preceding the last 
+/// nonalphabetic character.
 /// 
-/// The first 6 contexts (orders 1..4, 6, word) are used to index a
-/// hash table to look up a bit-history represented by an 8-bit state.
-/// A state can either represent all histories up to 4 bits long, or a 
-/// pair of 0,1 counts plus a flag to indicate the most recent bit. The 
-/// counts are bounded by (41,0), (40,1), (12,2), (5,3), (4,4) and likewise
-/// for 1,0. When a count is exceeded, the opposite count is reduced to 
-/// approximately preserve the count ratio. The last bit flag is present
-/// only for states whose total count is less than 16. There are 253
-/// possible states.
+/// The first 6 contexts (orders 1..4, 6, word) are used to index a hash 
+/// table to look up a bit-history represented by an 8-bit state. A state 
+/// can either represent all histories up to 4 bits long, or a pair of 0,1 
+/// counts plus a flag to indicate the most recent bit. The counts are 
+/// bounded by (41,0), (40,1), (12,2), (5,3), (4,4) and likewise for 1,0. 
+/// If a count is exceeded, the opposite count is reduced to approximately 
+/// preserve the count ratio. The last bit flag is present only for states 
+/// whose total count is less than 16. There are 253 possible states.
 ///
 /// The 7 predictions are combined using a neural network (Mixer). The
 /// inputs p_i, i=0..6 are first stretched: t_i = log(p_i/(1 - p_i)), 
@@ -57,20 +56,19 @@ use crate::{
 /// The Mixer output is adjusted by 2 SSE stages (called APM for adaptive
 /// probability map). An APM is a StateMap that accepts both a discrte
 /// context and an input probability, pr. pr is stetched and quantized
-/// to 24 levels. The output is interpolated between the 2 nearest
-/// table entries, and then only the nearest entry is updated. The entries
-/// are initialized to p = pr and n = 6 (to slow down initial adaptation)
+/// to 24 levels. The output is interpolated between the 2 nearest table 
+/// entries, and then only the nearest entry is updated. The entries are 
+/// initialized to p = pr and n = 6 (to slow down initial adaptation)
 /// with a limit n <= 255. The two stages use a discrete order 0 context 
 /// (last 0..7 bits) and a hashed order-1 context (14 bits). Each output 
 /// is averaged with its input weighted by 1/4.
 /// 
 /// The output is arithmetic coded. The code for a string s with probability
-/// p(s) is a number between Q and Q+p(x) where Q is the total probability
-/// of all strings lexicographically preceding s. The number is coded as
-/// a big-endian base-256 fraction.
-///
-/// =====================================================================================
+/// p(s) is a number between Q and Q+p(x) where Q is the total probability of 
+/// all strings lexicographically preceding s. The number is coded as a big-
+/// -endian base-256 fraction.
 
+/// Transition to next state in state table.
 fn next_state(state: u8, bit: i32) -> u8 {
     STATE_TABLE[state as usize][bit as usize]
 }
@@ -91,6 +89,7 @@ pub struct Predictor {
     sm:    Vec<StateMap>, // 6 State Maps
 }
 impl Predictor {
+    /// Create a new Predictor.
     pub fn new(mem: usize) -> Predictor {
         let mut p = Predictor {
             cxt:   1,            mm:    MatchModel::new(mem),
@@ -107,12 +106,13 @@ impl Predictor {
         p
     }
 
+    /// Return current prediction.
     pub fn p(&mut self) -> i32 {
         assert!(self.pr >= 0 && self.pr < 4096);
         self.pr
     }
 
-    // Set state pointer to beginning of new state array
+    /// Set state pointers to beginning of new state arrays.
     pub fn new_state_arr(&mut self, cxt: [u32; 6], nibble: u32) {
         unsafe {
             for (i, cxt) in cxt.iter().enumerate().skip(1) {
@@ -121,7 +121,7 @@ impl Predictor {
         }
     }
 
-    // Update order 1, 2, 3, 4, 6, and unigram word contexts
+    /// Update order 1, 2, 3, 4, 6, and unigram word contexts.
     pub fn update_cxts(&mut self, cxt: u32, cxt4: u32) {
         self.h[0] =  cxt << 8;                         // Order 1
         self.h[1] = (cxt4 & 0xFFFF) << 5 | 0x57000000; // Order 2
@@ -142,6 +142,8 @@ impl Predictor {
         };
     }
 
+    /// Update contexts and states, map states to predictions, and mix
+    /// predictions in Mixer.
     pub fn update(&mut self, bit: i32) {
         assert!(bit == 0 || bit == 1);
 

@@ -4,40 +4,35 @@ use crate::{
     mixer::Mixer,
 };
 
+/// Maximum match length, up to 62
+const MAX_LEN: usize = 62; 
 
-/// Match Model =========================================================================
 /// A match model finds the last occurrence of a high order context and predicts 
-/// whatever symbol came next. The accuracy of the prediction depends on the length 
+/// which symbol came next. The accuracy of the prediction depends on the length 
 /// of the context match. The prediction for a match of L bytes (or 8L bits) is 
-/// that the next bit will be the same with probability 1 - 1/8L. Typically a match 
-/// model of order 6-8 is mixed with lower order context models. A match model is 
-/// faster and uses less memory than a corresponding context model but does not model 
-/// well for low orders.
+/// that the next bit will be the same with probability 1 - 1/8L. Typically a 
+/// match model of order 6-8 is mixed with lower order context models. A match 
+/// model is faster and uses less memory than a corresponding context model but 
+/// does not model well for low orders.
 ///
-/// The model looks up the current context in a
-/// hash table, first using a longer context, then a shorter one. If
-/// a match is found, then the following bits are predicted until there is
-/// a misprediction. The prediction is computed by mapping the predicted
-/// bit, the length of the match (1..15 or quantized by 4 in 16..62, max 62),
-/// and the last whole byte as context into a StateMap. If no match is found,
-/// then the order 0 context (last 0..7 bits of the current byte) is used
-/// as context to the StateMap.
+/// The model looks up the current context in a hash table, first using a longer 
+/// context, then a shorter one. If a match is found, then the following bits are 
+/// predicted until there is a misprediction. The prediction is computed by mapping 
+/// the predicted bit, the match length (1..15 or quantized by 4 in 16..62, max 62),
+/// and the last whole byte as context into a StateMap. If no match is found, then 
+/// the order 0 context (last 0..7 bits of the current byte) is used as context to 
+/// the StateMap.
 /// 
-/// One third of memory is used by MatchModel, divided equally between 
-/// a rotating input buffer of 2^(N+19) bytes and an index (hash table)
-/// with 2^(N+17) entries. Two context hashes are maintained, a long one,
-/// h1, of length ceil((N+17)/3) bytes and a shorter one, h2, of length 
-/// ceil((N+17)/5) bytes, where ceil() is the ceiling function. The index
-/// does not use collision detection. At each byte boundary, if there is 
-/// not currently a match, then the bytes before the current byte are
-/// compared with the location indexed by h1. If less than 2 bytes match, 
-/// then h2 is tried. If a match of length 1 or more is found, the match
-/// is maintained until the next bit mismatches the predicted bit.
-/// The table is updated at h1 and h2 after every byte.
-/// =====================================================================================
-
-const MAX_LEN: usize = 62; // Maximum match length, up to 62
-
+/// One third of memory is used by MatchModel, divided equally between a rotating 
+/// input buffer of 2^(N+19) bytes and an index (hash table) with 2^(N+17) entries. 
+/// Two context hashes are maintained, a long one, h1, of length ceil((N+17)/3) 
+/// bytes and a shorter one, h2, of length ceil((N+17)/5) bytes, where ceil() is 
+/// the ceiling function. The index does not use collision detection. At each byte 
+/// boundary, if there is not currently a match, then the bytes before the current 
+/// byte are compared with the location indexed by h1. If less than 2 bytes match, 
+/// then h2 is tried. If a match of length >1 is found, the match is maintained 
+/// until the next bit mismatches the predicted bit. The table is updated at h1 
+/// and h2 after every byte.
 pub struct MatchModel {
     mch_ptr:  usize,    // Pointer to current byte in matched context in buf
     mch_len:  usize,    // Length of match
@@ -53,6 +48,7 @@ pub struct MatchModel {
     ht_end:   usize,    // Last index of ht  (for hashing)
 }
 impl MatchModel {
+    /// Create a new MatchModel.
     pub fn new(n: usize) -> MatchModel {
         MatchModel {
             mch_ptr:  0,    hash_s:   0,
@@ -66,6 +62,8 @@ impl MatchModel {
             ht_end:   (n / 8) - 1,
         }
     }
+
+    /// Generate a prediction and add it to a Mixer.
     pub fn p(&mut self, bit: i32, mxr: &mut Mixer) {
         self.update(bit);
 
@@ -94,6 +92,8 @@ impl MatchModel {
 
         mxr.add(stretch(self.sm.p(bit, cxt as i32)));
     }
+
+    /// Update context, rotating buffer, and check for matches.
     pub fn update(&mut self, bit: i32) {
         // Update order-0 context
         self.cxt += self.cxt + bit as usize; 
@@ -129,6 +129,9 @@ impl MatchModel {
             self.ht[self.hash_l] = self.buf_pos as u32;
         }
     }
+
+    /// Check bytes preceding current buffer position and bytes preceding 
+    /// buffer position indexed by context hash for matches.
     pub fn check_prev_bytes(&mut self, hash: usize) {
         // Map context hash to index in buffer
         self.mch_ptr = self.ht[hash] as usize; 
@@ -150,12 +153,18 @@ impl MatchModel {
             }
         }
     }
+    
+    /// Update short hash of length ceil((N+17)/5) bytes.
     fn update_short_hash(&mut self) {
         self.hash_s = (self.hash_s * (5 << 5) + self.cxt) & self.ht_end;
     }
+
+    /// Update long hash of length ceil((N+17)/3) bytes.
     fn update_long_hash(&mut self) {
         self.hash_l = (self.hash_l * (3 << 3) + self.cxt) & self.ht_end;
     }
+
+    /// Return length of match.
     pub fn len(&self) -> usize {
         self.mch_len
     }

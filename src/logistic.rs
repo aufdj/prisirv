@@ -1,8 +1,9 @@
 use crate::tables::STRETCH_TABLE;
 
-// Logistic Functions -------------------------------------------------------------------------------------------------- Logistic Functions
-// Returns p = 1/(1 + exp(-d))
-// d = (-2047..2047), p = (0..4095)
+// Logistic Functions
+
+/// Returns p = 1/(1 + exp(-d)) (Inverse of stretch)
+/// d = (-2047..2047), p = (0..4095)
 pub fn squash(d: i32) -> i32 {
     const SQ_T: [i32; 33] = [
     1,2,3,6,10,16,27,45,73,120,194,310,488,747,1101,
@@ -15,8 +16,8 @@ pub fn squash(d: i32) -> i32 {
     (SQ_T[d] * (128 - i_w) + SQ_T[d+1] * i_w + 64) >> 7
 }
 
-// Returns p = ln(d/(1-d)) (Inverse of squash)
-// d = (0..4095), p = (-2047..2047)
+/// Returns p = ln(d/(1-d)) (Inverse of squash)
+/// d = (0..4095), p = (-2047..2047)
 pub fn stretch(d: i32) -> i32 {
     assert!(d < 4096);
     STRETCH_TABLE[d as usize] as i32
@@ -45,4 +46,3 @@ impl Stretch {
     }
 }
 */
-// ----------------------------------------------------------------------------------------------------------------------------------------

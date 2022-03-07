@@ -3,6 +3,7 @@ use prisirv::{
     config::Config,
 };
 
+/// Create a new Config and call Prisirv API.
 fn main() {
     let cfg = Config::new(&std::env::args().skip(1).collect::<Vec<String>>());
     match cfg.mode {

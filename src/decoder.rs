@@ -1,5 +1,7 @@
 use crate::predictor::Predictor;
 
+/// A block based arithmetic decoder. Accepts a compressed block and 
+/// returns a decompressed block.
 pub struct Decoder {
     high:       u32,
     low:        u32,
@@ -8,6 +10,7 @@ pub struct Decoder {
     block:      Box<dyn Iterator<Item = u8>>,
 }
 impl Decoder {
+    /// Create a new Decoder.
     pub fn new(block_in: Vec<u8>, mem: usize) -> Decoder {
         Decoder {
             high: 0xFFFFFFFF,
@@ -17,6 +20,8 @@ impl Decoder {
             block: Box::new(block_in.into_iter())
         }   
     }
+
+    /// Decompress one bit.
     fn decompress_bit(&mut self) -> i32 {
         let mut p = self.predictor.p() as u32;
         if p < 2048 { p += 1; }
@@ -42,6 +47,8 @@ impl Decoder {
         }
         bit
     }
+
+    /// Decompress one block.
     pub fn decompress_block(&mut self, block_size: usize) -> Vec<u8> {
         let mut block: Vec<u8> = Vec::with_capacity(block_size);
         while block.len() < block.capacity() {
@@ -54,12 +61,15 @@ impl Decoder {
         }
         block
     }
-    // Inititialize decoder with first 4 bytes of compressed data
+
+    /// Inititialize decoder with first 4 bytes of compressed data.
     pub fn init_x(&mut self) {
         for _ in 0..4 {
             self.x = (self.x << 8) + self.next_byte() as u32;
         }
     }
+
+    /// Return next byte in block.
     fn next_byte(&mut self) -> u8 {
         self.block.next().unwrap_or(0)
     }
