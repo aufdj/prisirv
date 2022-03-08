@@ -1,17 +1,33 @@
-mod encoder;       mod predictor;   mod logistic;
-mod decoder;       mod mixer;       mod metadata;
-mod archive;       mod statemap;    mod tables;
-mod solid_archive; mod apm;         mod sort;
-mod buffered_io;   mod hash_table;  pub mod config;
-mod formatting;    mod match_model; mod threads;
-mod progress;      pub mod crc32;
-
+mod encoder; 
+mod decoder;      
+mod predictor; 
+mod match_model;  
+mod statemap;
+mod apm;   
+mod mixer;  
+mod hash_table; 
+mod logistic;      
+mod metadata;
+mod archive;       
+mod solid_archive; 
+mod extract;
+mod solid_extract;
+mod tables;  
+mod sort;
+mod buffered_io;   
+mod formatting;    
+mod threads;
+mod progress; 
+pub mod config;     
+pub mod crc32;
 
 use std::path::PathBuf;
 
 use crate::{
-    archive::{Archiver, Extractor},
-    solid_archive::{SolidArchiver, SolidExtractor},
+    archive::Archiver,
+    extract::Extractor,
+    solid_archive::SolidArchiver,
+    solid_extract::SolidExtractor,
     config::Config,
     sort::Sort,
     formatting::fmt_root_output_dir,
@@ -31,7 +47,7 @@ pub enum Arch {
     NonSolid,
 }
 
-/// Main Prisirv API. Allows for creating or extracting a Prisirv archive
+/// Prisirv API. Allows for creating or extracting a Prisirv archive
 /// using method chaining syntax or by supplying an existing Config.
 #[derive(Clone)]
 pub struct Prisirv {
@@ -45,51 +61,51 @@ impl Prisirv {
     }
 
     /// Create a solid archive instead of non-solid.
-    pub fn solid(&mut self) -> Self {
+    pub fn solid(&mut self) -> &mut Self {
         self.cfg.arch = Arch::Solid;
-        self.clone()
+        &mut *self
     }
 
     /// Choose number of threads to use.
-    pub fn threads(&mut self, count: usize) -> Self {
+    pub fn threads(&mut self, count: usize) -> &mut Self {
         self.cfg.threads = count;
-        self.clone()
+        &mut *self
     }
 
     /// Supress output other than errors.
-    pub fn quiet(&mut self) -> Self {
+    pub fn quiet(&mut self) -> &mut Self {
         self.cfg.quiet = true;
-        self.clone()
+        &mut *self
     }
 
     /// Allow clobbering of files.
-    pub fn clobber(&mut self) -> Self {
+    pub fn clobber(&mut self) -> &mut Self {
         self.cfg.clbr = true;
-        self.clone()
+        &mut *self
     }
 
     /// Choose block size in MiB.
-    pub fn block_size(&mut self, size: usize) -> Self {
+    pub fn block_size(&mut self, size: usize) -> &mut Self {
         self.cfg.blk_sz = size;
-        self.clone()
+        &mut *self
     }
 
     /// Choose memory option (0..9)
-    pub fn memory(&mut self, mem: u64) -> Self {
+    pub fn memory(&mut self, mem: u64) -> &mut Self {
         self.cfg.mem = mem;
-        self.clone()
+        &mut *self
     }
 
     /// Sort files before solid archiving.
-    pub fn sort(&mut self, method: Sort) -> Self {
+    pub fn sort(&mut self, method: Sort) -> &mut Self {
         self.cfg.sort = method;
-        self.clone()
+        &mut *self
     }
 
     /// Choose an output path.
-    pub fn output(&mut self, path: &str) -> Self {
+    pub fn output(&mut self, path: &str) -> &mut Self {
         self.cfg.user_out = path.to_string();
-        self.clone()
+        &mut *self
     }
 
     /// Create archive of supplied paths.

@@ -12,13 +12,15 @@ pub struct Decoder {
 impl Decoder {
     /// Create a new Decoder.
     pub fn new(block_in: Vec<u8>, mem: usize) -> Decoder {
-        Decoder {
+        let mut dec = Decoder {
             high: 0xFFFFFFFF,
             low: 0,
             x: 0,
             predictor: Predictor::new(mem),
             block: Box::new(block_in.into_iter())
-        }   
+        };  
+        dec.init_x();
+        dec 
     }
 
     /// Decompress one bit.

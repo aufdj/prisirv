@@ -39,16 +39,16 @@ impl Progress {
     
     // Non-Solid Archives ==========================
 
-    /// Get input file size and calculate total block count by dividing input size by block size.
+    /// Get input file size and calculate total block count by dividing 
+    /// input size by block size.
     pub fn get_input_size_enc(&mut self, input: &Path) {
         self.in_size = file_len(input);
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
 
-    /// Get the input size and total block count of a file. 
-    /// Since compressed blocks are variable size, the count 
-    /// can't be calculated and is instead obtained directly 
-    /// from metadata.
+    /// Get the input size and block count of a file. Because compressed 
+    /// blocks are variable size, the count can't be calculated and is 
+    /// instead obtained directly from metadata.
     pub fn get_input_size_dec(&mut self, input: &Path, blk_c: usize) {
         self.in_size = file_len(input);
         self.total_blks = blk_c as u64;
@@ -66,7 +66,8 @@ impl Progress {
 
     // Solid Archives ==============================
 
-    /// Get input archive size and calculate total block count by dividing input size by block size.
+    /// Get input archive size and calculate total block count by dividing 
+    /// input size by block size.
     pub fn get_input_size_solid_enc(&mut self, files: &[(String, u64)]) {
         for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
             self.in_size += file_len(&file);
@@ -74,9 +75,9 @@ impl Progress {
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
 
-    /// Get the input size and total block count of an archive. Since compressed 
-    /// blocks are variable size, the count can't be calculated and is instead 
-    /// obtained directly from metadata.
+    /// Get the input size and block count of an archive. Since compressed 
+    /// blocks are variable size, the count can't be calculated and is 
+    /// instead obtained directly from metadata.
     pub fn get_input_size_solid_dec(&mut self, files: &[PathBuf], blk_c: u64) {
         for file in files.iter() {
             self.in_size += file_len(file);
@@ -100,7 +101,8 @@ impl Progress {
         self.print_block_stats();
     }
 
-    /// Print the current number of blocks compressed and the current time elapsed.
+    /// Print the current number of blocks compressed and the current 
+    /// time elapsed.
     fn print_block_stats(&self) {
         if !self.quiet {
             match self.mode {

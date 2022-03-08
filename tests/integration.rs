@@ -20,6 +20,5 @@ mod tests {
         println!("Output crc: {:x}", crc2);
         
         assert!(crc1 == crc2);
-    }
-    
+    }  
 }

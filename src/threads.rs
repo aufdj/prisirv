@@ -71,7 +71,6 @@ impl ThreadPool {
             Message::NewJob(
                 Box::new(move || {
                     let mut dec = Decoder::new(block, mem);
-                    dec.init_x(); // TODO: Move init_x into new
                     let block_out = dec.decompress_block(blk_sz);
                     (block_out, index)
                 })
