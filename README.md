@@ -12,8 +12,8 @@ REQUIRED:
 
 OPTIONS:
    -out,  -outputdir     Specify output path
-   -mem,  -memory        Specify memory usage   (Default - 27 MiB)
-   -blk,  -blocksize     Specify block size     (Default - 1 MiB)
+   -mem,  -memory        Specify memory usage   (Default - 15 MiB)
+   -blk,  -blocksize     Specify block size     (Default - 10 MiB)
    -threads              Specify thread count   (Default - 4)
    -sort                 Sort files             (Default - none)
 

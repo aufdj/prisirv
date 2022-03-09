@@ -33,7 +33,7 @@ pub struct Config {
     pub arch:      Arch,         // Solid or non-solid archive
     pub quiet:     bool,         // Suppresses output other than errors
     pub mode:      Mode,         // Compress or decompress
-    pub mem:       u64,          // Memory usage
+    pub mem:       u64,          // Memory usage 
     pub clbr:      bool,         // Allow clobbering files
     pub blk_sz:    usize,        // Block size
     pub threads:   usize,        // Maximum number of threads
@@ -44,8 +44,8 @@ impl Config {
         Config {
             sort:      Sort::None,
             user_out:  String::new(),
-            blk_sz:    1 << 20,
-            mem:       1 << 23,
+            blk_sz:    10 << 20,
+            mem:       1 << 22,
             arch:      Arch::NonSolid,
             mode:      Mode::Compress,
             quiet:     false,
@@ -62,8 +62,8 @@ impl Config {
         let mut parser   = Parse::Mode;
         let mut sort     = Sort::None;
         let mut user_out = String::new();
-        let mut blk_sz   = 1 << 20;
-        let mut mem      = 1 << 23;
+        let mut blk_sz   = 10 << 20;
+        let mut mem      = 1 << 22;
         let mut arch     = Arch::NonSolid;
         let mut mode     = Mode::Compress;
         let mut quiet    = false;
@@ -77,7 +77,7 @@ impl Config {
                     parser = Parse::Sort;
                     continue;
                 }, 
-                "-out" | "-outputdir" => {
+                "-out" | "-output-path" => {
                     parser = Parse::DirOut;
                     continue;
                 },     
@@ -89,7 +89,7 @@ impl Config {
                     parser = Parse::Mem;
                     continue;
                 }
-                "-blk" | "-blocksize" => {
+                "-blk" | "-block-size" => {
                     parser = Parse::BlkSz;
                     continue;
                 }
@@ -146,15 +146,15 @@ impl Config {
                             _ => {
                                 println!();
                                 println!("Invalid memory option.");
-                                println!("Using default of 27 MB.");
-                                1 << 23
+                                println!("Using default of 15 MiB.");
+                                1 << 22
                             }
                         }
                         Err(_) => {
                             println!();
                             println!("Invalid memory option.");
-                            println!("Using default of 27 MB.");
-                            1 << 23
+                            println!("Using default of 15 MiB.");
+                            1 << 22
                         },
                     };
                 } 
@@ -173,8 +173,8 @@ impl Config {
                         Ok(size) => size*1024*1024,
                         Err(_) => {
                             println!("Invalid block size.");
-                            println!("Using default of 1 MiB");
-                            1 << 20
+                            println!("Using default of 10 MiB");
+                            10 << 20
                         },
                     }
                 }
@@ -277,23 +277,23 @@ fn print_program_info() {
         \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
                                                                              ");
     println!("  
-    Prisirv, Context Mixing File Archiver
-    Copyright (C) 2022 aufdj
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.");
+      Prisirv, Context Mixing File Archiver
+      Copyright (C) 2022 aufdj
+      
+      This program is free software: you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation, either version 3 of the License, or
+      (at your option) any later version.
+      
+      This program is distributed in the hope that it will be useful,
+      but WITHOUT ANY WARRANTY; without even the implied warranty of
+      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+      GNU General Public License for more details.
+      
+      You should have received a copy of the GNU General Public License
+      along with this program.  If not, see <https://www.gnu.org/licenses/>.");
     println!("
-    Source code available at https://github.com/aufdj/prisirv");
+      Source code available at https://github.com/aufdj/prisirv");
     println!();
     println!();
     println!("  USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]");
@@ -304,10 +304,10 @@ fn print_program_info() {
     println!("    -i,     -inputs        Specify list of input files/dirs");
     println!();
     println!("  OPTIONS:");
-    println!("    -out,   -outputdir     Specify output path");
-    println!("    -mem,   -memory        Specify memory usage (Default 3)");
-    println!("    -blk,   -blocksize     Specify block size (Default - 1MiB");
-    println!("    -threads               Specify thread count (Default 4)");
+    println!("    -out,   -output-path   Specify output path");
+    println!("    -mem,   -memory        Specify memory usage             (Default - 2)");
+    println!("    -blk,   -block-size    Specify block size               (Default - 1 MiB");
+    println!("    -threads               Specify thread count             (Default - 4)");
     println!("    -sort                  Sort files (solid archives only) (Default - none)");
     println!();
     println!("  FLAGS:");

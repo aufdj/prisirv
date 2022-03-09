@@ -56,8 +56,7 @@ pub struct Prisirv {
 impl Prisirv {
     /// Create a new Prisirv archiver or extractor with an empty Config.
     pub fn new() -> Prisirv {
-        let cfg = Config::new_empty();
-        Prisirv { cfg }
+        Prisirv { cfg: Config::new_empty() }
     }
 
     /// Create a solid archive instead of non-solid.
