@@ -98,14 +98,17 @@ impl SolidArchiver {
                 blk.push(file_in.read_byte());
                 
                 // Compress full block
-                if blk.len() == self.cfg.blk_sz {
+                if blk.len() == blk.capacity() {
                     tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
                     self.mta.blk_c += 1;
                     blk.clear();
                 }
             }
         }
-        self.mta.fblk_sz = blk.len(); // FIXME: flbk_sz will be 0 if block size is equal to or multiple of archive size
+        self.mta.fblk_sz = 
+            if blk.is_empty() { blk.capacity() } 
+            else { blk.len() };
+
         // Compress final block
         tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
         self.mta.blk_c += 1;
