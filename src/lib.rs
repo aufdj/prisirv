@@ -85,13 +85,19 @@ impl Prisirv {
 
     /// Choose block size in MiB.
     pub fn block_size(&mut self, size: usize) -> &mut Self {
-        self.cfg.blk_sz = size;
+        self.cfg.blk_sz = size*1024*1024;
         &mut *self
     }
 
     /// Choose memory option (0..9)
     pub fn memory(&mut self, mem: u64) -> &mut Self {
-        self.cfg.mem = mem;
+        if mem <= 9 {
+            self.cfg.mem = 1 << (20 + mem);
+        }
+        else {
+            println!("Invalid memory option.");
+            std::process::exit(0);
+        }
         &mut *self
     }
 

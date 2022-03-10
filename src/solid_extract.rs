@@ -22,8 +22,8 @@ use crate::{
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
     file_in:  BufReader<File>,
-    mta:      Metadata,
-    cfg:      Config,
+    pub mta:  Metadata,
+    pub cfg:  Config,
     prg:      Progress,
 }
 impl SolidExtractor {

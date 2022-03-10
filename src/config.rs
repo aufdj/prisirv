@@ -5,6 +5,7 @@ use std::{
 use crate::{
     sort::Sort, Mode, Arch,
     formatting::fmt_root_output_dir,
+    solid_extract::SolidExtractor,
 };
 
 
@@ -21,6 +22,7 @@ enum Parse {
     Lvl,
     BlkSz,
     Threads,
+    List,
 }
 
 /// A list of all possible user defined configuration settings.
@@ -68,6 +70,7 @@ impl Config {
         let mut mode     = Mode::Compress;
         let mut quiet    = false;
         let mut clbr     = false;
+        let mut list     = false;
         let mut threads  = 4;
         let mut inputs: Vec<String> = Vec::new();
         
@@ -100,6 +103,7 @@ impl Config {
                 "-sld"  | "-solid"   => parser = Parse::Solid,
                 "-q"    | "-quiet"   => parser = Parse::Quiet,
                 "-clb"  | "-clobber" => parser = Parse::Clobber,
+                "-ls"   | "-list"    => parser = Parse::List,
                 "help" => print_program_info(),
                 _ => {},
             }
@@ -197,12 +201,8 @@ impl Config {
                         },
                     };
                 }
+                Parse::List => { list = true; }
             }
-        }
-
-        if inputs.is_empty() {
-            println!("No inputs found.");
-            exit(0);
         }
 
         // Filter invalid inputs
@@ -212,6 +212,11 @@ impl Config {
         .filter(|i| i.is_file() || i.is_dir())
         .collect();
 
+        if inputs.is_empty() {
+            println!("No inputs found.");
+            exit(0);
+        }
+
         let dir_out = fmt_root_output_dir(arch, mode, &user_out, &inputs[0]);
 
         let cfg = Config {
@@ -220,6 +225,7 @@ impl Config {
             mem,     clbr,     blk_sz,
             threads, dir_out,
         };
+        if list == true { cfg.clone().list_archive(); }
         cfg.print();
         cfg
     }
@@ -261,6 +267,16 @@ impl Config {
             println!("=======================================================================");
             println!();
         }
+    }
+
+    fn list_archive(mut self) {
+        self.mem = 0;
+        let mut sld_extr = SolidExtractor::new(self);
+        sld_extr.read_metadata();
+        for (file, len) in sld_extr.mta.files.iter() {
+            println!("{} ({} bytes)", file, len);
+        }
+        std::process::exit(0);
     }
 }
 
@@ -344,3 +360,4 @@ fn print_program_info() {
     println!("          prisirv d -i \\foo\\arch.prsv -sld ");
     exit(0);
 }
+
