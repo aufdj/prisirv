@@ -98,7 +98,6 @@ impl SolidExtractor {
                     // When current output file reaches the 
                     // correct size, move to next file.
                     if file_out_pos == file_in_len {
-                        
                         let file_in_path = match file_in_paths.next() {
                             Some(path) => {
                                 if !path.is_file() { break; }

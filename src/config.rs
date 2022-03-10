@@ -11,7 +11,9 @@ use crate::{
 
 /// An enum containing each possible parsing state.
 enum Parse {
-    Mode,
+    None,
+    Compress,
+    Decompress,
     DirOut,
     Solid,
     Sort,
@@ -25,7 +27,7 @@ enum Parse {
     List,
 }
 
-/// A list of all possible user defined configuration settings.
+/// A list of all user defined configuration settings.
 #[derive(Clone, Debug)]
 pub struct Config {
     pub sort:      Sort,         // Sorting method (solid archives only)
@@ -61,7 +63,7 @@ impl Config {
     pub fn new(args: &[String]) -> Config {
         if args.is_empty() { print_program_info(); }
 
-        let mut parser   = Parse::Mode;
+        let mut parser   = Parse::None;
         let mut sort     = Sort::None;
         let mut user_out = String::new();
         let mut blk_sz   = 10 << 20;
@@ -72,7 +74,7 @@ impl Config {
         let mut clbr     = false;
         let mut list     = false;
         let mut threads  = 4;
-        let mut inputs: Vec<String> = Vec::new();
+        let mut inputs   = Vec::new();
         
         for arg in args.iter() {
             match arg.as_str() {
@@ -100,23 +102,25 @@ impl Config {
                     parser = Parse::Threads;
                     continue;
                 }
-                "-sld"  | "-solid"   => parser = Parse::Solid,
-                "-q"    | "-quiet"   => parser = Parse::Quiet,
-                "-clb"  | "-clobber" => parser = Parse::Clobber,
-                "-ls"   | "-list"    => parser = Parse::List,
+                "c" | "compress"    => parser = Parse::Compress,
+                "d" | "decompress"  => parser = Parse::Decompress,
+                "-sld" | "-solid"   => parser = Parse::Solid,
+                "-q"   | "-quiet"   => parser = Parse::Quiet,
+                "-clb" | "-clobber" => parser = Parse::Clobber,
+                "-ls"  | "-list"    => parser = Parse::List,
                 "help" => print_program_info(),
                 _ => {},
             }
             match parser {
                 Parse::Sort => {
                     sort = match arg.as_str() {
-                        "ext"    => Sort::Ext,
-                        "name"   => Sort::Name,
-                        "len"    => Sort::Len,
-                        "crtd"   => Sort::Created,
-                        "accd"   => Sort::Accessed,
-                        "mod"    => Sort::Modified,
-                        "prt"    => {
+                        "ext"  => Sort::Ext,
+                        "name" => Sort::Name,
+                        "len"  => Sort::Len,
+                        "crtd" => Sort::Created,
+                        "accd" => Sort::Accessed,
+                        "mod"  => Sort::Modified,
+                        "prt"  => {
                             parser = Parse::Lvl;
                             Sort::PrtDir(1)
                         },
@@ -126,95 +130,77 @@ impl Config {
                         }
                     }
                 }
-                Parse::DirOut  => user_out = arg.to_string(),
-                Parse::Inputs  => inputs.push(arg.to_string()),
-                Parse::Solid   => arch = Arch::Solid,
-                Parse::Quiet   => quiet = true,
-                Parse::Clobber => clbr = true,
-                Parse::Mode => {
-                    mode = match arg.as_str() {
-                        "c" | "compress"   => Mode::Compress,
-                        "d" | "decompress" => Mode::Decompress,
-                        _ => {
-                            println!("Invalid mode.");
+                Parse::Lvl => {
+                    match arg.parse::<usize>() {
+                        Ok(lvl) => sort = Sort::PrtDir(lvl),
+                        Err(_)  => { 
+                            println!("Invalid sort criteria."); 
+                            exit(0);
+                        }
+                    }
+                }
+                Parse::Mem => {
+                    // Parse memory option (0..9)
+                    match arg.parse::<u64>() {
+                        Ok(opt) => match opt {
+                            0..=9 => mem = 1 << (20 + opt),
+                            _  => {
+                                println!("Invalid memory option.");
+                                exit(0);
+                            }
+                        }
+                        Err(_) => {
+                            println!("Invalid memory option."); 
                             exit(0);
                         }
                     };
-                }  
-                Parse::Mem => {
-                    // Parse memory option. If input is not a number
-                    // or not 0..9, ignore and use default option.
-                    mem = match arg.parse::<u64>() {
-                        Ok(opt) => match opt {
-                            0..=9 => 1 << (20 + opt),
-                            _ => {
-                                println!();
-                                println!("Invalid memory option.");
-                                println!("Using default of 15 MiB.");
-                                1 << 22
-                            }
-                        }
-                        Err(_) => {
-                            println!();
-                            println!("Invalid memory option.");
-                            println!("Using default of 15 MiB.");
-                            1 << 22
-                        },
-                    };
                 } 
-                Parse::Lvl => {
-                    sort = match arg.parse::<usize>() {
-                        Ok(lvl) => Sort::PrtDir(lvl),
-                        Err(_) => {
-                            println!("Invalid sort criteria.");
-                            println!("Sorting by 1st parent directory.");
-                            Sort::PrtDir(1)
-                        },
-                    }
-                }
                 Parse::BlkSz => {
-                    blk_sz = match arg.parse::<usize>() {
-                        Ok(size) => size*1024*1024,
-                        Err(_) => {
-                            println!("Invalid block size.");
-                            println!("Using default of 10 MiB");
-                            10 << 20
-                        },
+                    match arg.parse::<usize>() {
+                        Ok(size) => blk_sz = size * 1024 * 1024,
+                        Err(_)   => {
+                            println!("Invalid block size."); 
+                            exit(0);
+                        }
                     }
                 }
                 Parse::Threads => {
-                    threads = match arg.parse::<usize>() {
-                        Ok(opt) => match opt {
-                            0..=128 => opt,
+                    match arg.parse::<usize>() {
+                        Ok(count) => match count {
+                            0..=128 => threads = count,
                             _ => {
-                                println!();
                                 println!("Maximum number of threads is 128.");
-                                println!("Using default of 4 threads.");
-                                4
+                                exit(0);
                             }
                         }
                         Err(_) => {
-                            println!();
                             println!("Invalid threads option.");
-                            println!("Using default of 4 threads.");
-                            4
+                            exit(0);
                         },
                     };
                 }
-                Parse::List => { list = true; }
+                Parse::Compress   => mode = Mode::Compress,
+                Parse::Decompress => mode = Mode::Decompress,
+                Parse::List       => list = true,
+                Parse::DirOut     => user_out = arg.to_string(),
+                Parse::Inputs     => inputs.push(PathBuf::from(arg)),
+                Parse::Solid      => arch = Arch::Solid,
+                Parse::Quiet      => quiet = true,
+                Parse::Clobber    => clbr = true,
+                Parse::None => {},
             }
         }
-
-        // Filter invalid inputs
-        let inputs: Vec<PathBuf> = 
-        inputs.iter()
-        .map(PathBuf::from)
-        .filter(|i| i.is_file() || i.is_dir())
-        .collect();
 
         if inputs.is_empty() {
             println!("No inputs found.");
             exit(0);
+        }
+
+        for input in inputs.iter() {
+            if !(input.is_file() || input.is_dir()) {
+                println!("{} is not a valid input.", input.display());
+                exit(0);
+            }
         }
 
         let dir_out = fmt_root_output_dir(arch, mode, &user_out, &inputs[0]);
@@ -276,7 +262,7 @@ impl Config {
         for (file, len) in sld_extr.mta.files.iter() {
             println!("{} ({} bytes)", file, len);
         }
-        std::process::exit(0);
+        exit(0);
     }
 }
 

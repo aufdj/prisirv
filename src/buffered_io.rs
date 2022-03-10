@@ -52,7 +52,7 @@ impl BufferedRead for BufReader<File> {
         let len = match self.read(&mut bytes) {
             Ok(len)  => { len },
             Err(e) => {
-                println!("Function read_byte failed.");
+                println!("Function read_u64 failed.");
                 println!("Error: {}", e);
                 0
             },
@@ -62,7 +62,7 @@ impl BufferedRead for BufReader<File> {
             match self.fill_buf() {
                 Ok(_)  => {},
                 Err(e) => {
-                    println!("Function read_byte failed.");
+                    println!("Function read_u64 failed.");
                     println!("Error: {}", e);
                 },
             }
@@ -122,7 +122,7 @@ impl BufferedWrite for BufWriter<File> {
         match self.write(&output.to_le_bytes()[..]) {
             Ok(_)  => {},
             Err(e) => {
-                println!("Function write_usize failed.");
+                println!("Function write_u64 failed.");
                 println!("Error: {}", e);
             },
         }
@@ -130,7 +130,7 @@ impl BufferedWrite for BufWriter<File> {
             match self.flush() {
                 Ok(_)  => {},
                 Err(e) => {
-                    println!("Function write_usize failed.");
+                    println!("Function write_u64 failed.");
                     println!("Error: {}", e);
                 },
             } 
