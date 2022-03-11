@@ -3,7 +3,6 @@ use std::{
     io::{Seek, SeekFrom},
     fs::File,
     io::BufReader,
-    process::exit,
 };
 
 use crate::{
@@ -20,6 +19,7 @@ use crate::{
         fmt_file_out_ns_extract,
         fmt_nested_dir_ns_extract,
     },
+    error,
 };
 
 /// An Extractor extracts non-solid archives.
@@ -149,15 +149,8 @@ impl Extractor {
     fn verify_magic_number(&self, mgc: u64) {
         match mgc {
             0x7673_7270 => {},
-            0x5653_5250 => {
-                println!();
-                println!("Expected non-solid archive, found solid archive.");
-                exit(0);
-            }
-            _ => {
-                println!("Not a prisirv archive.");
-                exit(0);
-            }
+            0x5653_5250 => error::found_solid_archive(),
+            _ => error::no_prisirv_archive(),
         }
     }
 }

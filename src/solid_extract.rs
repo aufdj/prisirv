@@ -17,6 +17,7 @@ use crate::{
         new_input_file, new_output_file, 
         new_dir_checked, 
     },
+    error,
 };
 
 /// A SolidExtractor extracts solid archives.
@@ -30,18 +31,14 @@ impl SolidExtractor {
     /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
         if !cfg.inputs[0].is_file() {
-            println!("Input {} is not a solid archive.", cfg.inputs[0].display());
-            println!("To extract a non-solid archive, omit option '-sld'.");
-            std::process::exit(0);
+            error::not_solid_archive(&cfg.inputs[0]);
         }
 
         let mta: Metadata = Metadata::new();
         let prg = Progress::new(&cfg, Mode::Decompress);
         let file_in = new_input_file(4096, &cfg.inputs[0]);
 
-        SolidExtractor {
-            file_in, mta, cfg, prg, 
-        }
+        SolidExtractor { file_in, mta, cfg, prg }
     }
 
     /// Decompress blocks and parse blocks into files. A block can span 
@@ -55,6 +52,7 @@ impl SolidExtractor {
         let mut index: u64 = 0;
         
         // Decompress blocks ----------------------------------------
+        // Full blocks
         for _ in 0..self.mta.blk_c-1 {
             let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
             for _ in 0..self.mta.enc_blk_szs[index as usize] {
@@ -63,6 +61,7 @@ impl SolidExtractor {
             tp.decompress_block(blk_in, index, self.mta.blk_sz);
             index += 1;
         }
+        // Final block
         let mut blk_in = Vec::with_capacity(self.mta.blk_sz);
         for _ in 0..self.mta.enc_blk_szs[index as usize] {
             blk_in.push(self.file_in.read_byte());
@@ -74,15 +73,13 @@ impl SolidExtractor {
         let mut file_in_paths = 
             self.mta.files.iter()
             .map(|f| PathBuf::from(f.0.clone()))
-            .collect::<Vec<PathBuf>>().into_iter();
+            .collect::<Vec<PathBuf>>()
+            .into_iter();
 
         let mut file_out_paths = Vec::new();
 
         let file_in_path = match file_in_paths.next() {
-            Some(path) => {
-                if !path.is_file() { exit(0); }
-                path
-            }
+            Some(path) => { path }
             None => exit(0),
         };
 
@@ -91,6 +88,7 @@ impl SolidExtractor {
 
         let mut file_out_pos = 0;
         let mut blks_wrtn: u64 = 0;
+        
         // Write blocks to output -----------------------------------
         while blks_wrtn != self.mta.blk_c {
             if let Some(block) = tp.bq.lock().unwrap().try_get_block() { 
@@ -99,10 +97,7 @@ impl SolidExtractor {
                     // correct size, move to next file.
                     if file_out_pos == file_in_len {
                         let file_in_path = match file_in_paths.next() {
-                            Some(path) => {
-                                if !path.is_file() { break; }
-                                path
-                            }
+                            Some(path) => { path }
                             None => break,
                         };
                         (file_in_len, file_out) =  
@@ -184,15 +179,8 @@ impl SolidExtractor {
     fn verify_magic_number(&self, mgc: u64) {
         match mgc {
             0x5653_5250 => {},
-            0x7673_7270 => {
-                println!();
-                println!("Expected solid archive, found non-solid archive.");
-                exit(0);
-            },
-            _ => {
-                println!("Not a prisirv archive.");
-                exit(0);
-            }
+            0x7673_7270 => error::found_non_solid_archive(),
+            _ => error::no_prisirv_archive(),
         }
     }
 }

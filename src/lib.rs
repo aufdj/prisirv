@@ -20,6 +20,7 @@ mod threads;
 mod progress; 
 pub mod config;     
 pub mod crc32;
+mod error;
 
 use std::path::PathBuf;
 
@@ -94,10 +95,7 @@ impl Prisirv {
         if mem <= 9 {
             self.cfg.mem = 1 << (20 + mem);
         }
-        else {
-            println!("Invalid memory option.");
-            std::process::exit(0);
-        }
+        else { error::invalid_memory_option(); } 
         &mut *self
     }
 

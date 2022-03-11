@@ -83,16 +83,16 @@ fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_prsv", first_input.path_no_ext()),
-            Format::Extract =>      format!("{}_d",    first_input.path_no_ext()),
+            Format::Archive      => format!("{}_prsv", first_input.path_no_ext()),
+            Format::Extract      => format!("{}_d",    first_input.path_no_ext()),
             Format::ArchiveSolid => format!("{}.prsv", first_input.path_no_ext()),
             Format::ExtractSolid => format!("{}_d",    first_input.path_no_ext()),
         }    
     }
     else if user_out.contains('\\') {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_prsv", user_out),
-            Format::Extract =>      format!("{}_d",    user_out),
+            Format::Archive      => format!("{}_prsv", user_out),
+            Format::Extract      => format!("{}_d",    user_out),
             Format::ArchiveSolid => format!("{}.prsv", user_out),
             Format::ExtractSolid => format!("{}_d",    user_out),
         }    
@@ -108,8 +108,8 @@ fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
             dir_out.push_str(format!("\\{}", cmpnt).as_str());
         }
         dir_out = match fmt {
-            Format::Archive =>      format!("{}\\{}_prsv", dir_out, user_out),
-            Format::Extract =>      format!("{}\\{}_d",    dir_out, user_out),
+            Format::Archive      => format!("{}\\{}_prsv", dir_out, user_out),
+            Format::Extract      => format!("{}\\{}_d",    dir_out, user_out),
             Format::ArchiveSolid => format!("{}\\{}.prsv", dir_out, user_out),
             Format::ExtractSolid => format!("{}\\{}_d",    dir_out, user_out),
         }    

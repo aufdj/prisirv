@@ -1,11 +1,10 @@
-use std::{
-    path::PathBuf,
-    process::exit,
-};
+use std::path::PathBuf;
+
 use crate::{
     sort::Sort, Mode, Arch,
     formatting::fmt_root_output_dir,
     solid_extract::SolidExtractor,
+    error,
 };
 
 
@@ -113,30 +112,24 @@ impl Config {
             }
             match parser {
                 Parse::Sort => {
-                    sort = match arg.as_str() {
-                        "ext"  => Sort::Ext,
-                        "name" => Sort::Name,
-                        "len"  => Sort::Len,
-                        "crtd" => Sort::Created,
-                        "accd" => Sort::Accessed,
-                        "mod"  => Sort::Modified,
+                    match arg.as_str() {
+                        "ext"  => sort = Sort::Ext,
+                        "name" => sort = Sort::Name,
+                        "len"  => sort = Sort::Len,
+                        "crtd" => sort = Sort::Created,
+                        "accd" => sort = Sort::Accessed,
+                        "mod"  => sort = Sort::Modified,
                         "prt"  => {
                             parser = Parse::Lvl;
-                            Sort::PrtDir(1)
+                            sort = Sort::PrtDir(1)
                         },
-                        _ => {
-                            println!("No valid sort criteria found.");
-                            exit(0);
-                        }
+                        m @ _ => { error::invalid_sort_criteria(m); }
                     }
                 }
                 Parse::Lvl => {
                     match arg.parse::<usize>() {
                         Ok(lvl) => sort = Sort::PrtDir(lvl),
-                        Err(_)  => { 
-                            println!("Invalid sort criteria."); 
-                            exit(0);
-                        }
+                        Err(_)  => { error::invalid_lvl(); }
                     }
                 }
                 Parse::Mem => {
@@ -144,39 +137,24 @@ impl Config {
                     match arg.parse::<u64>() {
                         Ok(opt) => match opt {
                             0..=9 => mem = 1 << (20 + opt),
-                            _  => {
-                                println!("Invalid memory option.");
-                                exit(0);
-                            }
+                            _ => error::out_of_range_memory_option(opt),
                         }
-                        Err(_) => {
-                            println!("Invalid memory option."); 
-                            exit(0);
-                        }
+                        Err(_) => error::invalid_memory_option(),
                     };
                 } 
                 Parse::BlkSz => {
                     match arg.parse::<usize>() {
                         Ok(size) => blk_sz = size * 1024 * 1024,
-                        Err(_)   => {
-                            println!("Invalid block size."); 
-                            exit(0);
-                        }
+                        Err(_)   => error::invalid_block_size(),
                     }
                 }
                 Parse::Threads => {
                     match arg.parse::<usize>() {
                         Ok(count) => match count {
                             0..=128 => threads = count,
-                            _ => {
-                                println!("Maximum number of threads is 128.");
-                                exit(0);
-                            }
+                            _ => error::max_thread_count(count),
                         }
-                        Err(_) => {
-                            println!("Invalid threads option.");
-                            exit(0);
-                        },
+                        Err(_) => error::invalid_thread_count(),
                     };
                 }
                 Parse::Compress   => mode = Mode::Compress,
@@ -191,15 +169,11 @@ impl Config {
             }
         }
 
-        if inputs.is_empty() {
-            println!("No inputs found.");
-            exit(0);
-        }
+        if inputs.is_empty() { error::no_inputs(); }
 
         for input in inputs.iter() {
             if !(input.is_file() || input.is_dir()) {
-                println!("{} is not a valid input.", input.display());
-                exit(0);
+                error::invalid_input(input);
             }
         }
 
@@ -211,7 +185,7 @@ impl Config {
             mem,     clbr,     blk_sz,
             threads, dir_out,
         };
-        if list == true { cfg.clone().list_archive(); }
+        if list { cfg.clone().list_archive(); }
         cfg.print();
         cfg
     }
@@ -262,7 +236,7 @@ impl Config {
         for (file, len) in sld_extr.mta.files.iter() {
             println!("{} ({} bytes)", file, len);
         }
-        exit(0);
+        std::process::exit(0);
     }
 }
 
@@ -344,6 +318,6 @@ fn print_program_info() {
     println!("      Decompress the archive:");
     println!();
     println!("          prisirv d -i \\foo\\arch.prsv -sld ");
-    exit(0);
+    std::process::exit(0);
 }
 
