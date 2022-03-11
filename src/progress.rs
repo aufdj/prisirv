@@ -41,7 +41,7 @@ impl Progress {
 
     /// Get input file size and calculate total block count by dividing 
     /// input size by block size.
-    pub fn get_input_size_enc(&mut self, input: &Path) {
+    pub fn get_file_size_enc(&mut self, input: &Path) {
         self.in_size = file_len(input);
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
@@ -49,7 +49,7 @@ impl Progress {
     /// Get the input size and block count of a file. Because compressed 
     /// blocks are variable size, the count can't be calculated and is 
     /// instead obtained directly from metadata.
-    pub fn get_input_size_dec(&mut self, input: &Path, blk_c: usize) {
+    pub fn get_file_size_dec(&mut self, input: &Path, blk_c: usize) {
         self.in_size = file_len(input);
         self.total_blks = blk_c as u64;
     }
@@ -68,7 +68,7 @@ impl Progress {
 
     /// Get input archive size and calculate total block count by dividing 
     /// input size by block size.
-    pub fn get_input_size_solid_enc(&mut self, files: &[(String, u64)]) {
+    pub fn get_archive_size_enc(&mut self, files: &[(String, u64)]) {
         for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
             self.in_size += file_len(&file);
         }
@@ -78,7 +78,7 @@ impl Progress {
     /// Get the input size and block count of an archive. Since compressed 
     /// blocks are variable size, the count can't be calculated and is 
     /// instead obtained directly from metadata.
-    pub fn get_input_size_solid_dec(&mut self, files: &[PathBuf], blk_c: u64) {
+    pub fn get_archive_size_dec(&mut self, files: &[PathBuf], blk_c: u64) {
         for file in files.iter() {
             self.in_size += file_len(file);
         }

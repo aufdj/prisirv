@@ -48,7 +48,7 @@ impl SolidExtractor {
     /// multiple files.
     pub fn extract_archive(&mut self) {
         self.read_metadata();
-        self.prg.get_input_size_solid_dec(&self.cfg.inputs, self.mta.blk_c);
+        self.prg.get_archive_size_dec(&self.cfg.inputs, self.mta.blk_c);
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
@@ -139,7 +139,11 @@ impl SolidExtractor {
                 path.push(self.file_in.read_byte());
             }
 
-            let path_string = path.iter().cloned().map(|b| b as char).collect::<String>();
+            let path_string = 
+                path.iter().cloned()
+                .map(|b| b as char)
+                .collect::<String>();
+            
             let file_len = self.file_in.read_u64();
 
             self.mta.files.push((path_string, file_len));

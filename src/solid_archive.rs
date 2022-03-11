@@ -85,7 +85,7 @@ impl SolidArchiver {
             _ => self.mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &sort_method)),
         }
 
-        self.prg.get_input_size_solid_enc(&self.mta.files);
+        self.prg.get_archive_size_enc(&self.mta.files);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
 

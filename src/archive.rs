@@ -60,7 +60,7 @@ impl Archiver {
 
     /// Compress a single file.
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
-        self.prg.get_input_size_enc(file_in_path);
+        self.prg.get_file_size_enc(file_in_path);
 
         let mut mta: Metadata = Metadata::new();
         mta.blk_sz = self.cfg.blk_sz;

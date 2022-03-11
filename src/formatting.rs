@@ -4,25 +4,38 @@ use std::{
 };
 use crate::{Mode, Arch};
 
-/// Get file name without extension.
-fn file_name_no_ext(path: &Path) -> &str {
-    path.file_name().unwrap()
-    .to_str().unwrap()
-    .split('.').next().unwrap()
+
+trait PathFmt {
+    fn name_no_ext(&self) -> &str;
+    fn path_no_ext(&self) -> &str;
+    fn name_ext(&self) -> &str;
+    fn path_ext(&self) -> String;
 }
-/// Get file path without extension.
-fn file_path_no_ext(path: &Path) -> &str {
-    path.to_str().unwrap()
-    .split('.').next().unwrap()
-}
-/// Get file name with extension.
-fn file_name_ext(path: &Path) -> &str {
-    path.file_name().unwrap()
-    .to_str().unwrap()
-}
-/// Get file path with extension.
-fn file_path_ext(path: &Path) -> String {
-    path.to_str().unwrap().to_string()
+
+impl PathFmt for Path {
+    /// Get file name without extension.
+    fn name_no_ext(&self) -> &str {
+        self.file_name().unwrap()
+        .to_str().unwrap()
+        .split('.').next().unwrap()
+    }
+
+    /// Get file path without extension.
+    fn path_no_ext(&self) -> &str {
+        self.to_str().unwrap()
+        .split('.').next().unwrap()
+    }
+
+    /// Get file name with extension.
+    fn name_ext(&self) -> &str {
+        self.file_name().unwrap()
+        .to_str().unwrap()
+    }
+
+    /// Get file path with extension.
+    fn path_ext(&self) -> String {
+        self.to_str().unwrap().to_string()
+    }
 }
 
 
@@ -70,10 +83,10 @@ fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
     let mut dir_out = String::new();
     if user_out.is_empty() {
         dir_out = match fmt {
-            Format::Archive =>      format!("{}_prsv", file_path_no_ext(first_input)),
-            Format::Extract =>      format!("{}_d",    file_path_no_ext(first_input)),
-            Format::ArchiveSolid => format!("{}.prsv", file_path_no_ext(first_input)),
-            Format::ExtractSolid => format!("{}_d",    file_path_no_ext(first_input)),
+            Format::Archive =>      format!("{}_prsv", first_input.path_no_ext()),
+            Format::Extract =>      format!("{}_d",    first_input.path_no_ext()),
+            Format::ArchiveSolid => format!("{}.prsv", first_input.path_no_ext()),
+            Format::ExtractSolid => format!("{}_d",    first_input.path_no_ext()),
         }    
     }
     else if user_out.contains('\\') {
@@ -87,7 +100,7 @@ fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
     else {
         // Replace final path component with user option
         let s: Vec<String> = 
-            file_path_ext(first_input)
+            first_input.path_ext()
             .split('\\').skip(1)
             .map(|s| s.to_string())
             .collect();
@@ -121,7 +134,7 @@ pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, f
     let mut file_out_path = 
         PathBuf::from(
             &format!("{}\\{}.prsv",  
-            dir_out, file_name_no_ext(file_in_path))
+            dir_out, file_in_path.name_no_ext())
         ); 
     
     // If file_out_path already exists, find different path. If clobbering is 
@@ -133,18 +146,17 @@ pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, f
     // duplicate file found is in this list, ignore the clobbering option.
     while file_out_path.exists() && !clbr || files.contains(&file_out_path) {
         file_out_path = 
-        if dup == 1 {
+        if dup == 1 { // First duplicate i.e. foo(1).txt
             PathBuf::from(
                 &format!("{}({}).prsv", 
-                file_path_no_ext(&file_out_path), dup)
+                &file_out_path.path_no_ext(), dup)
             )
         }
-        else {
-            let file_path = file_path_no_ext(&file_out_path);
+        else { // Subsequent duplicates i.e. foo(2).txt, foo(3).txt
+            let path = &file_out_path.path_no_ext();
             PathBuf::from(
                 &format!("{}({}).prsv", 
-                // Replace number rather than append
-                &file_path[..file_path.len()-3], dup)
+                &path[..path.len()-3], dup)
             )
         };
         dup += 1;
@@ -156,7 +168,7 @@ pub fn fmt_file_out_ns_archive(dir_out: &str, file_in_path: &Path, clbr: bool, f
 /// directory name. 
 pub fn fmt_nested_dir_ns_archive(dir_out: &str, dir_in: &Path) -> String {
     format!("{}\\{}", 
-    dir_out, file_name_ext(dir_in))
+    dir_out,dir_in.name_ext())
 }
 
 /// Format output file in extracted non-solid archive
@@ -165,16 +177,16 @@ pub fn fmt_nested_dir_ns_archive(dir_out: &str, dir_in: &Path) -> String {
 /// without extension, and file's original extension, stored in the header.
 /// i.e. foo/bar.prsv -> foo/bar.txt
 pub fn fmt_file_out_ns_extract(ext: &str, dir_out: &str, file_in_path: &Path) -> PathBuf {
-    if ext.is_empty() { // Handle no extension
+    if ext.is_empty() { // No extension
         PathBuf::from(
             &format!("{}\\{}",
-            dir_out, file_name_no_ext(file_in_path))
+            dir_out, file_in_path.name_no_ext())
         )
     }
     else {
         PathBuf::from(
             &format!("{}\\{}.{}",
-            dir_out, file_name_no_ext(file_in_path), ext)
+            dir_out, file_in_path.name_no_ext(), ext)
         )
     }
 }
@@ -190,7 +202,7 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
     }
     else { 
         format!("{}\\{}", 
-        dir_out, file_name_ext(dir_in)) 
+        dir_out, dir_in.name_ext()) 
     }
 }
 
@@ -205,12 +217,12 @@ pub fn fmt_nested_dir_ns_extract(dir_out: &str, dir_in: &Path, root: bool) -> St
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
 pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
-    let dir_path = Path::new(dir_out);
+    let dir_out_path = Path::new(dir_out);
 
     let path = 
-    if dir_path.is_absolute() {
+    if dir_out_path.is_absolute() {
         PathBuf::from(
-            dir_path.iter()
+            dir_out_path.iter()
             .skip(1)
             .chain(
                 file_in_path.iter()
@@ -222,9 +234,9 @@ pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
             .collect::<String>()
         )
     }
-    else if dir_path.starts_with("\\") {
+    else if dir_out_path.starts_with("\\") {
         PathBuf::from(
-            dir_path.iter()
+            dir_out_path.iter()
             .chain(
                 file_in_path.iter()
                 .filter(|c| c.to_str().unwrap() != "C:")
@@ -237,7 +249,7 @@ pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
     }
     else {
         PathBuf::from(
-            dir_path.iter()
+            dir_out_path.iter()
             .chain(
                 file_in_path.iter()
                 .filter(|c| c.to_str().unwrap() != "C:")
@@ -255,3 +267,4 @@ pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
     
     path
 }
+

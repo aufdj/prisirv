@@ -6,6 +6,7 @@ mod tests {
     use std::{fs, path::Path};
 
     #[test]
+    #[ignore]
     fn solid_archive_calgary_tar() {
         let inputs: Vec<&str> = vec!["tests\\data\\calgary.tar"];
         Prisirv::new().solid().clobber().create_archive_of(&inputs);

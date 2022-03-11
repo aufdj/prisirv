@@ -60,7 +60,7 @@ impl Extractor {
         let mut mta: Metadata = self.read_header(&mut file_in);
 
         self.read_footer(&mut file_in, &mut mta);
-        self.prg.get_input_size_dec(file_in_path, mta.enc_blk_szs.len());
+        self.prg.get_file_size_dec(file_in_path, mta.enc_blk_szs.len());
 
         self.verify_magic_number(mta.mgc);
 
