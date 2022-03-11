@@ -4,6 +4,7 @@ use crate::{
     sort::Sort, Mode, Arch,
     formatting::fmt_root_output_dir,
     solid_extract::SolidExtractor,
+    metadata::Metadata,
     error,
 };
 
@@ -229,11 +230,9 @@ impl Config {
         }
     }
 
-    fn list_archive(mut self) {
-        self.mem = 0;
-        let mut sld_extr = SolidExtractor::new(self);
-        sld_extr.read_metadata();
-        for (file, len) in sld_extr.mta.files.iter() {
+    fn list_archive(self) {
+        let mta: Metadata = SolidExtractor::new(self).read_metadata();
+        for (file, len) in mta.files.iter() {
             println!("{} ({} bytes)", file, len);
         }
         std::process::exit(0);

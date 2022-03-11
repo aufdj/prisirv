@@ -4,6 +4,8 @@ use std::{
     ffi::OsStr,
 };
 
+use crate::config::Config;
+
 
 /// # Metadata Structure 
 ///
@@ -67,7 +69,21 @@ impl Metadata {
             mgcs:     0x5653_5250,
             ext:      0,
             fblk_sz:  0,
-            blk_sz:   1 << 20,
+            blk_sz:   10 << 20,
+            blk_c:    0,
+            f_ptr:    0,
+            files:    Vec::new(),
+            enc_blk_szs: Vec::new(),
+        }
+    }
+    pub fn new_with_cfg(cfg: &Config) -> Metadata {
+        Metadata {
+            mem:      cfg.mem,
+            mgc:      0x7673_7270,
+            mgcs:     0x5653_5250,
+            ext:      0,
+            fblk_sz:  0,
+            blk_sz:   cfg.blk_sz,
             blk_c:    0,
             f_ptr:    0,
             files:    Vec::new(),

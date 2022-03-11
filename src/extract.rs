@@ -57,9 +57,8 @@ impl Extractor {
     /// Decompress a single file.
     pub fn decompress_file(&mut self, file_in_path: &Path, dir_out: &str) {
         let mut file_in = new_input_file(4096, file_in_path);
-        let mut mta: Metadata = self.read_header(&mut file_in);
+        let mta: Metadata = self.read_metadata(&mut file_in);
 
-        self.read_footer(&mut file_in, &mut mta);
         self.prg.get_file_size_dec(file_in_path, mta.enc_blk_szs.len());
 
         self.verify_magic_number(mta.mgc);
@@ -118,20 +117,16 @@ impl Extractor {
     }
 
     /// Read 56 byte header.
-    fn read_header(&mut self, file_in: &mut BufReader<File>) -> Metadata {
+    fn read_metadata(&mut self, file_in: &mut BufReader<File>) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        mta.mem =     file_in.read_u64();
-        mta.mgc =     file_in.read_u64();
-        mta.ext =     file_in.read_u64();
+        mta.mem     = file_in.read_u64();
+        mta.mgc     = file_in.read_u64();
+        mta.ext     = file_in.read_u64();
         mta.fblk_sz = file_in.read_u64() as usize;
-        mta.blk_sz =  file_in.read_u64() as usize;
-        mta.blk_c =   file_in.read_u64();
-        mta.f_ptr =   file_in.read_u64();
-        mta
-    }
+        mta.blk_sz  = file_in.read_u64() as usize;
+        mta.blk_c   = file_in.read_u64();
+        mta.f_ptr   = file_in.read_u64();
 
-    /// Read compressed block sizes from the footer.
-    fn read_footer(&mut self, file_in: &mut BufReader<File>, mta: &mut Metadata) {
         // Seek to end of file metadata
         file_in.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
 
@@ -141,6 +136,7 @@ impl Extractor {
 
         // Seek back to beginning of compressed data
         file_in.seek(SeekFrom::Start(56)).unwrap();
+        mta
     }
 
     /// Check for a valid magic number.

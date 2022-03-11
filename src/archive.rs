@@ -62,9 +62,7 @@ impl Archiver {
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
         self.prg.get_file_size_enc(file_in_path);
 
-        let mut mta: Metadata = Metadata::new();
-        mta.blk_sz = self.cfg.blk_sz;
-        mta.mem = self.cfg.mem;
+        let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
 
         let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
         if self.cfg.clbr { self.files.push(file_out_path.clone()); }
@@ -93,8 +91,7 @@ impl Archiver {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut file_out);
         }   
 
-        self.write_footer(&mut file_out, &mut mta);
-        self.write_header(&mut file_out, &mta);
+        self.write_metadata(&mut file_out, &mut mta);
 
         self.prg.print_file_stats(file_len(&file_out_path));
     }
@@ -121,7 +118,14 @@ impl Archiver {
     } 
 
     /// Rewind to the beginning of the file and write a 56 byte header.
-    fn write_header(&mut self, file_out: &mut BufWriter<File>, mta: &Metadata) {
+    fn write_metadata(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
+        // Get index to end of file metadata
+        mta.f_ptr = file_out.stream_position().unwrap();
+
+        for blk_sz in mta.enc_blk_szs.iter() {
+            file_out.write_u64(*blk_sz);
+        }
+
         file_out.rewind().unwrap();
         file_out.write_u64(mta.mem);
         file_out.write_u64(mta.mgc);
@@ -131,15 +135,4 @@ impl Archiver {
         file_out.write_u64(mta.blk_c);
         file_out.write_u64(mta.f_ptr);
     }
-
-    /// Write compressed block sizes to archive so that compressed blocks 
-    /// can be parsed ahead of time during decompression.
-    fn write_footer(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
-        // Get index to end of file metadata
-        mta.f_ptr = file_out.stream_position().unwrap();
-
-        for blk_sz in mta.enc_blk_szs.iter() {
-            file_out.write_u64(*blk_sz);
-        }
-    } 
 }
