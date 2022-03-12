@@ -195,9 +195,8 @@ impl BlockQueue {
 
     /// Try getting the next block to be output. If this block hasn't been 
     /// added to the queue yet, nothing happens.
-    pub fn try_get_block(&mut self) -> Option<Vec<u8>> {
+    pub fn try_get_block(&mut self, blk_out: &mut Vec<u8>) {
         let mut index = None;
-        let mut blk_out = Vec::new();
 
         // Try to find next block to be output
         for (blk_i, blk) in self.blocks.iter_mut().enumerate() {
@@ -212,10 +211,5 @@ impl BlockQueue {
         if let Some(i) = index {
             self.blocks.swap_remove(i);
         }
-
-        // If no block found, return none, 
-        // otherwise return found block.
-        if blk_out.is_empty() { None }
-        else { Some(blk_out) }
     }
 }

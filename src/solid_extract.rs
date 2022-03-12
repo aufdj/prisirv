@@ -86,11 +86,13 @@ impl SolidExtractor {
 
         let mut file_out_pos = 0;
         let mut blks_wrtn: u64 = 0;
+        let mut blk_out = Vec::new();
         
         // Write blocks to output -----------------------------------
         while blks_wrtn != mta.blk_c {
-            if let Some(block) = tp.bq.lock().unwrap().try_get_block() { 
-                for byte in block.iter() {
+            tp.bq.lock().unwrap().try_get_block(&mut blk_out);
+            if !blk_out.is_empty() {
+                for byte in blk_out.iter() {
                     // When current output file reaches the 
                     // correct size, move to next file.
                     if file_out_pos == file_in_len {
@@ -105,13 +107,15 @@ impl SolidExtractor {
                     file_out.write_byte(*byte);
                     file_out_pos += 1;
                 }
-                blks_wrtn += 1;   
-            }
+                blks_wrtn += 1;  
+                blk_out.clear();
+            }  
         }
         // ----------------------------------------------------------
 
         file_out.flush_buffer();
-        self.prg.print_archive_stats(file_out_paths.iter().map(|f| file_len(f)).sum());
+        let archive_size = file_out_paths.iter().map(|f| file_len(f)).sum();
+        self.prg.print_archive_stats(archive_size);
     }
 
     pub fn read_metadata(&mut self) -> Metadata {
