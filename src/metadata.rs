@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     cmp::min,
     ffi::OsStr,
 };
@@ -58,7 +58,7 @@ pub struct Metadata {
     pub blk_c:    u64,   // Block count
     pub f_ptr:    u64,   // Pointer to footer
     pub enc_blk_szs: Vec<u64>, // Compressed block sizes
-    pub files: Vec<(String, u64)>, // Path, length    
+    pub files: Vec<(PathBuf, u64)>, // Path, length    
 }
 impl Metadata {
     /// Initialize new metadata.

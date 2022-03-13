@@ -67,11 +67,7 @@ impl SolidExtractor {
         // ----------------------------------------------------------
 
 
-        let mut file_in_paths = 
-            mta.files.iter()
-            .map(|f| PathBuf::from(&f.0))
-            .collect::<Vec<PathBuf>>()
-            .into_iter();
+        let mut file_in_paths = mta.files.into_iter().map(|f| f.0);
 
         let file_in_path = file_in_paths.next().unwrap();
 
@@ -89,11 +85,8 @@ impl SolidExtractor {
                     // When current output file reaches the 
                     // correct size, move to next file.
                     if file_out_pos == file_in_len {
-                        let file_in_path = match file_in_paths.next() {
-                            Some(path) => { path }
-                            None => break,
-                        };
-                        (file_in_len, file_out) = next_file(&file_in_path, &self.cfg.dir_out);
+                        (file_in_len, file_out) = 
+                            next_file(&file_in_paths.next().unwrap(), &self.cfg.dir_out);
                         file_out_pos = 0;
                     }
                     file_out.write_byte(*byte);
@@ -139,9 +132,9 @@ impl SolidExtractor {
                 path.push(self.archive.read_byte());
             }
 
-            let path_string = path.iter().map(|b| *b as char).collect();
+            let path_string: String = path.iter().map(|b| *b as char).collect();
             let file_len = self.archive.read_u64();
-            mta.files.push((path_string, file_len));
+            mta.files.push((PathBuf::from(&path_string), file_len));
             
             path.clear();
         }

@@ -26,9 +26,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
         .partition(|f| f.is_file());
 
     for file in files.iter() {
-        mta.files.push(
-            (file.display().to_string(), file_len(file))
-        );
+        mta.files.push((file.clone(), file_len(&file)));
     }
     for dir in dirs.iter() {
         collect_files(dir, mta);
@@ -58,15 +56,14 @@ impl SolidArchiver {
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
+        
         // Group files and directories 
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
             self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
 
         // Walk through directories and collect all files
         for file in files.iter() {
-            mta.files.push(
-                (file.display().to_string(), file_len(file))
-            );
+            mta.files.push((file.clone(), file_len(&file)));
         }
         for dir in dirs.iter() {
             collect_files(dir, &mut mta);
@@ -126,7 +123,8 @@ impl SolidArchiver {
 
         for file in mta.files.iter() {
             // Get path as byte slice, truncated if longer than 255 bytes
-            let path = &file.0.as_bytes()[..min(file.0.len(), 255)];
+            let path_str = file.0.to_str().unwrap();
+            let path = &path_str.as_bytes()[..min(path_str.len(), 255)];
 
             // Output length of file path (for parsing)
             self.archive.write_byte(path.len() as u8);

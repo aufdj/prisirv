@@ -233,7 +233,7 @@ impl Config {
     fn list_archive(self) {
         let mta: Metadata = SolidExtractor::new(self).read_metadata();
         for (file, len) in mta.files.iter() {
-            println!("{} ({} bytes)", file, len);
+            println!("{} ({} bytes)", file.display(), len);
         }
         std::process::exit(0);
     }
