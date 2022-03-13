@@ -153,7 +153,7 @@ impl BlockQueue {
     }
 
     /// Try writing the next compressed block to be output. If this block 
-    /// hasn't been added to the queue yet, nothing happens.
+    /// hasn't been added to the queue yet, do nothing.
     pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> u64 {
         let len = self.blocks.len();
         let next_out = self.next_out;
@@ -174,7 +174,7 @@ impl BlockQueue {
     }
 
     /// Try writing the next decompressed block to be output. If this block 
-    /// hasn't been added to the queue yet, nothing happens.
+    /// hasn't been added to the queue yet, do nothing.
     pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> u64 {
         let len = self.blocks.len();
         let next_out = self.next_out;
@@ -194,7 +194,7 @@ impl BlockQueue {
     }
 
     /// Try getting the next block to be output. If this block hasn't been 
-    /// added to the queue yet, nothing happens.
+    /// added to the queue yet, do nothing.
     pub fn try_get_block(&mut self, blk_out: &mut Vec<u8>) {
         let mut index = None;
 

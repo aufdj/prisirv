@@ -62,6 +62,19 @@ impl Progress {
         }
     }
 
+    pub fn print_file_name(&self, file: &Path) {
+        if !self.quiet { 
+            match self.mode {
+                Mode::Compress => {
+                    println!("Compressing {}", file.display());
+                }
+                Mode::Decompress => {
+                    println!("Decompressing {}", file.display());
+                }   
+            } 
+        } 
+    }
+
 
 
     // Solid Archives ==============================
@@ -69,7 +82,7 @@ impl Progress {
     /// Get input archive size and calculate total block count by dividing 
     /// input size by block size.
     pub fn get_archive_size_enc(&mut self, files: &[(String, u64)]) {
-        for file in files.iter().map(|f| f.0.clone()).map(PathBuf::from) {
+        for file in files.iter().map(|f| PathBuf::from(&f.0)) {
             self.in_size += file_len(&file);
         }
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
@@ -127,11 +140,6 @@ impl Progress {
             } 
         }
     }
-    //fn print_new_file(file: &str) {
-    //    if !self.quiet {
-    //        
-    //    }
-    //}
 }
                                                
 

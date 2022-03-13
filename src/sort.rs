@@ -20,7 +20,7 @@ pub enum Sort {    // Sort By:
 }
 
 /// Sort files by given sorting method.
-pub fn sort_files(f1: &str, f2: &str, sorting_method: &Sort) -> Ordering {
+pub fn sort_files(f1: &str, f2: &str, sorting_method: Sort) -> Ordering {
     match sorting_method {
         Sort::Ext => {
             let ext1 = match Path::new(f1).extension() {
@@ -62,11 +62,11 @@ pub fn sort_files(f1: &str, f2: &str, sorting_method: &Sort) -> Ordering {
             (len1).cmp(&len2)
         }
         Sort::PrtDir(lvl) => {
-            let parent1 = match Path::new(f1).ancestors().nth(*lvl) {
+            let parent1 = match Path::new(f1).ancestors().nth(lvl) {
                 Some(path) => path,
                 None => Path::new(""),
             };
-            let parent2 = match Path::new(f2).ancestors().nth(*lvl) {
+            let parent2 = match Path::new(f2).ancestors().nth(lvl) {
                 Some(path) => path,
                 None => Path::new(""),
             };

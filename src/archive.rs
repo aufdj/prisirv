@@ -50,7 +50,7 @@ impl Archiver {
         let mut dir_out = self.cfg.dir_out.clone();
 
         for file_in in files.iter() {
-            if !self.cfg.quiet { println!("Compressing {}", file_in.display()); }
+            self.prg.print_file_name(file_in);
             self.compress_file(file_in, &dir_out);
         }
         for dir_in in dirs.iter() {
@@ -109,7 +109,7 @@ impl Archiver {
 
         // Compress files first, then directories
         for file_in in files.iter() {
-            if !self.cfg.quiet { println!("Compressing {}", file_in.display()); } 
+            self.prg.print_file_name(file_in);
             self.compress_file(file_in, &dir_out);
         }
         for dir_in in dirs.iter() {

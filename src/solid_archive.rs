@@ -73,10 +73,9 @@ impl SolidArchiver {
         }
 
         // Sort files to potentially improve compression of solid archives
-        let sort_method = self.cfg.sort;
         match self.cfg.sort {
             Sort::None => {},
-            _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, &sort_method)),
+            _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, self.cfg.sort)),
         }
 
         self.prg.get_archive_size_enc(&mta.files);
