@@ -2,7 +2,6 @@ use std::{
     path::{Path, PathBuf},
     io::{Seek, SeekFrom, BufWriter, BufReader},
     fs::File,
-    process::exit,
 };
 
 use crate::{
@@ -22,7 +21,7 @@ use crate::{
 
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
-    file_in:  BufReader<File>,
+    archive:  BufReader<File>,
     pub cfg:  Config,
     prg:      Progress,
 }
@@ -32,10 +31,10 @@ impl SolidExtractor {
         if !cfg.inputs[0].is_file() {
             error::not_solid_archive(&cfg.inputs[0]);
         }
-        let file_in = new_input_file(4096, &cfg.inputs[0]);
+        let archive = new_input_file(4096, &cfg.inputs[0]);
         let prg = Progress::new(&cfg, Mode::Decompress);
         
-        SolidExtractor { file_in, cfg, prg }
+        SolidExtractor { archive, cfg, prg }
     }
 
     /// Decompress blocks and parse blocks into files. A block can span 
@@ -54,7 +53,7 @@ impl SolidExtractor {
         for _ in 0..mta.blk_c-1 {
             let mut blk_in = Vec::with_capacity(mta.blk_sz);
             for _ in 0..mta.enc_blk_szs[index as usize] {
-                blk_in.push(self.file_in.read_byte());
+                blk_in.push(self.archive.read_byte());
             }
             tp.decompress_block(blk_in, index, mta.blk_sz);
             index += 1;
@@ -62,7 +61,7 @@ impl SolidExtractor {
         // Final block
         let mut blk_in = Vec::with_capacity(mta.blk_sz);
         for _ in 0..mta.enc_blk_szs[index as usize] {
-            blk_in.push(self.file_in.read_byte());
+            blk_in.push(self.archive.read_byte());
         }
         tp.decompress_block(blk_in, index, mta.fblk_sz);
         // ----------------------------------------------------------
@@ -70,19 +69,13 @@ impl SolidExtractor {
 
         let mut file_in_paths = 
             mta.files.iter()
-            .map(|f| PathBuf::from(f.0.clone()))
+            .map(|f| PathBuf::from(&f.0))
             .collect::<Vec<PathBuf>>()
             .into_iter();
 
-        let mut file_out_paths = Vec::new();
+        let file_in_path = file_in_paths.next().unwrap();
 
-        let file_in_path = match file_in_paths.next() {
-            Some(path) => { path }
-            None => exit(0),
-        };
-
-        let (mut file_in_len, mut file_out) = 
-            next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
+        let (mut file_in_len, mut file_out) = next_file(&file_in_path, &self.cfg.dir_out);
 
         let mut file_out_pos = 0;
         let mut blks_wrtn: u64 = 0;
@@ -100,8 +93,7 @@ impl SolidExtractor {
                             Some(path) => { path }
                             None => break,
                         };
-                        (file_in_len, file_out) =  
-                            next_file(&file_in_path, &self.cfg.dir_out, &mut file_out_paths);
+                        (file_in_len, file_out) = next_file(&file_in_path, &self.cfg.dir_out);
                         file_out_pos = 0;
                     }
                     file_out.write_byte(*byte);
@@ -114,55 +106,53 @@ impl SolidExtractor {
         // ----------------------------------------------------------
 
         file_out.flush_buffer();
-        let archive_size = file_out_paths.iter().map(|f| file_len(f)).sum();
-        self.prg.print_archive_stats(archive_size);
+
+        let mut lens: Vec<u64> = Vec::new();
+        get_archive_size(Path::new(&self.cfg.dir_out), &mut lens);
+        self.prg.print_archive_stats(lens.iter().sum());
     }
 
     pub fn read_metadata(&mut self) -> Metadata {
         let mut mta: Metadata = Metadata::new();
-        mta.mem     = self.file_in.read_u64();
-        mta.mgcs    = self.file_in.read_u64();
-        mta.blk_sz  = self.file_in.read_u64() as usize;
-        mta.fblk_sz = self.file_in.read_u64() as usize;
-        mta.blk_c   = self.file_in.read_u64();
-        mta.f_ptr   = self.file_in.read_u64();
+        mta.mem     = self.archive.read_u64();
+        mta.mgcs    = self.archive.read_u64();
+        mta.blk_sz  = self.archive.read_u64() as usize;
+        mta.fblk_sz = self.archive.read_u64() as usize;
+        mta.blk_c   = self.archive.read_u64();
+        mta.f_ptr   = self.archive.read_u64();
 
         self.verify_magic_number(mta.mgcs);
 
         // Seek to end of file metadata
-        self.file_in.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
+        self.archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
         let mut path: Vec<u8> = Vec::with_capacity(64);
 
         // Get number of files
-        let num_files = self.file_in.read_u64();
+        let num_files = self.archive.read_u64();
 
         for _ in 0..num_files {
             // Get length of next path
-            let len = self.file_in.read_byte();
+            let len = self.archive.read_byte();
 
             // Get file path and length
             for _ in 0..len {
-                path.push(self.file_in.read_byte());
+                path.push(self.archive.read_byte());
             }
 
-            let path_string = 
-                path.iter().cloned()
-                .map(|b| b as char)
-                .collect::<String>();
-            
-            let file_len = self.file_in.read_u64();
-
+            let path_string = path.iter().map(|b| *b as char).collect();
+            let file_len = self.archive.read_u64();
             mta.files.push((path_string, file_len));
+            
             path.clear();
         }
 
         // Get compressed block sizes
         for _ in 0..mta.blk_c {
-            mta.enc_blk_szs.push(self.file_in.read_u64());
+            mta.enc_blk_szs.push(self.archive.read_u64());
         }
 
         // Seek back to beginning of compressed data
-        self.file_in.seek(SeekFrom::Start(48)).unwrap();
+        self.archive.seek(SeekFrom::Start(48)).unwrap();
         mta
     }
 
@@ -187,10 +177,24 @@ impl SolidExtractor {
 ///
 /// The output file paths are tracked so the final extracted archive size 
 /// can be computed at the end of extraction.
-fn next_file(file_in_path: &Path, dir_out: &str, file_out_paths: &mut Vec<PathBuf>) -> (u64, BufWriter<File>) {
+fn next_file(file_in_path: &Path, dir_out: &str) -> (u64, BufWriter<File>) {
     let file_in_len   = file_len(file_in_path);
     let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
     let file_out      = new_output_file(4096, &file_out_path);
-    file_out_paths.push(file_out_path);
     (file_in_len, file_out)
 }
+
+fn get_archive_size(dir_in: &Path, lens: &mut Vec<u64>) {
+    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+        dir_in.read_dir().unwrap()
+        .map(|d| d.unwrap().path())
+        .partition(|f| f.is_file());
+
+    for file in files.iter() {
+        lens.push(file_len(file));
+    }
+    for dir in dirs.iter() {
+        get_archive_size(dir, lens);
+    }
+}
+

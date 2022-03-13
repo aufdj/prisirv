@@ -127,6 +127,11 @@ impl Progress {
             } 
         }
     }
+    //fn print_new_file(file: &str) {
+    //    if !self.quiet {
+    //        
+    //    }
+    //}
 }
                                                
 

@@ -124,7 +124,7 @@ impl Config {
                             parser = Parse::Lvl;
                             sort = Sort::PrtDir(1)
                         },
-                        m @ _ => { error::invalid_sort_criteria(m); }
+                        m => { error::invalid_sort_criteria(m); }
                     }
                 }
                 Parse::Lvl => {

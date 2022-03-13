@@ -31,9 +31,8 @@ impl Extractor {
     /// Create a new extractor.
     pub fn new(cfg: Config) -> Extractor {
         let prg = Progress::new(&cfg, Mode::Decompress);
-        Extractor {
-            cfg, prg,
-        }
+        
+        Extractor { cfg, prg }
     }
 
     /// Extract all files in an archive.

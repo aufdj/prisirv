@@ -256,7 +256,7 @@ pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
                 .filter(|c| c.to_str().unwrap() != "\\")
             )
             .map(|s| format!("\\{}", s.to_str().unwrap()))
-            .collect::<String>().strip_prefix("\\").unwrap()
+            .collect::<String>().strip_prefix('\\').unwrap()
         )
     };
 
