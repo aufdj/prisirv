@@ -4,6 +4,8 @@ use std::{
     ffi::OsStr,
 };
 
+use crate::error;
+
 /// Sort files to improve compression of solid archives.
 
 /// An enum of all possible sorting methods.
@@ -77,31 +79,19 @@ pub fn sort_files(f1: &Path, f2: &Path, sorting_method: Sort) -> Ordering {
                 Ok(data) => {
                     match data.created() {
                         Ok(creation_time) => creation_time,
-                        Err(_) => {
-                            println!("Creation time metadata not supported on this platform.");
-                            std::process::exit(0);
-                        }
+                        Err(_) => error::creation_time_not_supported(),
                     }
                 }  
-                Err(_) => {
-                    println!("Couldn't get metadata.");
-                    std::process::exit(0);
-                }     
+                Err(_) => error::metadata_not_supported(),
             };
             let creation_time2 = match f2.metadata() {
                 Ok(data) => {
                     match data.created() {
                         Ok(creation_time) => creation_time,
-                        Err(_) => {
-                            println!("Creation time metadata not supported on this platform.");
-                            std::process::exit(0);
-                        }
+                        Err(_) => error::creation_time_not_supported(),
                     }
                 }  
-                Err(_) => {
-                    println!("Couldn't get metadata.");
-                    std::process::exit(0);
-                }     
+                Err(_) => error::metadata_not_supported(),
             };
             (creation_time1).cmp(&creation_time2)
         }
@@ -110,31 +100,19 @@ pub fn sort_files(f1: &Path, f2: &Path, sorting_method: Sort) -> Ordering {
                 Ok(data) => {
                     match data.accessed() {
                         Ok(access_time) => access_time,
-                        Err(_) => {
-                            println!("Last accessed time metadata not supported on this platform.");
-                            std::process::exit(0);
-                        }
+                        Err(_) => error::access_time_not_supported(),
                     }
                 }  
-                Err(_) => {
-                    println!("Couldn't get metadata.");
-                    std::process::exit(0);
-                }     
+                Err(_) => error::metadata_not_supported(), 
             };
             let access_time2 = match f2.metadata() {
                 Ok(data) => {
                     match data.accessed() {
                         Ok(access_time) => access_time,
-                        Err(_) => {
-                            println!("Last accessed time metadata not supported on this platform.");
-                            std::process::exit(0);
-                        }
+                        Err(_) => error::access_time_not_supported(),
                     }
                 }  
-                Err(_) => {
-                    println!("Couldn't get metadata.");
-                    std::process::exit(0);
-                }     
+                Err(_) => error::metadata_not_supported(),
             };
             (access_time1).cmp(&access_time2)
         }
@@ -143,31 +121,19 @@ pub fn sort_files(f1: &Path, f2: &Path, sorting_method: Sort) -> Ordering {
                 Ok(data) => {
                     match data.modified() {
                         Ok(modified_time) => modified_time,
-                        Err(_) => {
-                            println!("Last modified time metadata not supported on this platform.");
-                            std::process::exit(0);
-                        }
+                        Err(_) => error::modified_time_not_supported(),
                     }
                 }  
-                Err(_) => {
-                    println!("Couldn't get metadata.");
-                    std::process::exit(0);
-                }     
+                Err(_) => error::metadata_not_supported(), 
             };
             let modified_time2 = match f2.metadata() {
                 Ok(data) => {
                     match data.modified() {
                         Ok(modified_time) => modified_time,
-                        Err(_) => {
-                            println!("Last modified time metadata not supported on this platform.");
-                            std::process::exit(0);
-                        }
+                        Err(_) => error::modified_time_not_supported(),
                     }
                 }  
-                Err(_) => {
-                    println!("Couldn't get metadata.");
-                    std::process::exit(0);
-                }     
+                Err(_) => error::metadata_not_supported(),  
             };
             (modified_time1).cmp(&modified_time2)
         }

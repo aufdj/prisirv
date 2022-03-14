@@ -18,21 +18,6 @@ use crate::{
     },
 };
 
-/// Recursively collect all files into a vector for sorting before compression.
-fn collect_files(dir_in: &Path, mta: &mut Metadata) {
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| d.unwrap().path())
-        .partition(|f| f.is_file());
-
-    for file in files.iter() {
-        mta.files.push((file.clone(), file_len(&file)));
-    }
-    for dir in dirs.iter() {
-        collect_files(dir, mta);
-    }
-}
-
 /// A solid archiver creates solid archives, or an archive containing files 
 /// compressed as one stream. Solid archives take advantage of redundancy 
 /// across files and therefore achieve better compression ratios than non-
@@ -153,5 +138,20 @@ impl SolidArchiver {
         self.archive.write_u64(mta.fblk_sz as u64);
         self.archive.write_u64(mta.blk_c);
         self.archive.write_u64(mta.f_ptr);
+    }
+}
+
+/// Recursively collect all files into a vector for sorting before compression.
+fn collect_files(dir_in: &Path, mta: &mut Metadata) {
+    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+        dir_in.read_dir().unwrap()
+        .map(|d| d.unwrap().path())
+        .partition(|f| f.is_file());
+
+    for file in files.iter() {
+        mta.files.push((file.clone(), file_len(&file)));
+    }
+    for dir in dirs.iter() {
+        collect_files(dir, mta);
     }
 }

@@ -3,7 +3,7 @@ use std::{
     process::exit,
 };
 
-pub fn invalid_sort_criteria(method: &str) {
+pub fn invalid_sort_criteria(method: &str) -> ! {
     println!("{} is not a valid sort criteria.", method);
     println!();
     println!("Sorting Methods:");
@@ -18,7 +18,7 @@ pub fn invalid_sort_criteria(method: &str) {
     exit(0);
 }
 
-pub fn invalid_lvl() {
+pub fn invalid_lvl() -> ! {
     println!("Couldn't parse parent directory level.");
     println!();
     println!("Sorting Methods:");
@@ -33,7 +33,7 @@ pub fn invalid_lvl() {
     exit(0);
 }
 
-pub fn out_of_range_memory_option(option: u64) {
+pub fn out_of_range_memory_option(option: u64) -> ! {
     println!("{} is outside the valid range of memory options (0..9).", option);
     println!();
     println!("Memory Options:");
@@ -46,7 +46,7 @@ pub fn out_of_range_memory_option(option: u64) {
     exit(0);
 }
 
-pub fn invalid_memory_option() {
+pub fn invalid_memory_option() -> ! {
     println!("Invalid memory option."); 
     println!();
     println!("Memory Options:");
@@ -59,48 +59,68 @@ pub fn invalid_memory_option() {
     exit(0);
 }
 
-pub fn invalid_block_size() {
+pub fn invalid_block_size() -> ! {
     println!("Invalid block size."); 
     exit(0);
 }
 
-pub fn max_thread_count(option: usize) {
+pub fn max_thread_count(option: usize) -> ! {
     println!("{} exceeds the maximum number of threads (128).", option);
     exit(0);
 }
 
-pub fn invalid_thread_count() {
+pub fn invalid_thread_count() -> ! {
     println!("Invalid threads option.");
     exit(0);
 }
 
-pub fn no_inputs() {
+pub fn no_inputs() -> ! {
     println!("No inputs found.");
     exit(0);
 }
 
-pub fn invalid_input(input: &Path) {
+pub fn invalid_input(input: &Path) -> ! {
     println!("{} is not a valid input.", input.display());
     exit(0);
 }
 
-pub fn found_solid_archive() {
+pub fn found_solid_archive() -> ! {
     println!("Expected non-solid archive, found solid archive.");
     exit(0);
 }
 
-pub fn found_non_solid_archive() {
+pub fn found_non_solid_archive() -> ! {
     println!("Expected solid archive, found non-solid archive.");
     exit(0);
 }
 
-pub fn no_prisirv_archive() {
+pub fn no_prisirv_archive() -> ! {
     println!("Not a prisirv archive.");
     exit(0);
 }
 
-pub fn not_solid_archive(input: &Path) {
+pub fn not_solid_archive(input: &Path) -> ! {
     println!("Input {} is not a solid archive.", input.display());
     println!("To extract a non-solid archive, omit option '-sld'.");
+    exit(0);
+}
+
+pub fn metadata_not_supported() -> ! {
+    println!("Couldn't get metadata.");
+    exit(0);
+}
+
+pub fn creation_time_not_supported() -> ! {
+    println!("Creation time metadata not supported on this platform.");
+    exit(0);
+}
+
+pub fn access_time_not_supported() -> ! {
+    println!("Last accessed time metadata not supported on this platform.");
+    exit(0);
+}
+
+pub fn modified_time_not_supported() -> ! {
+    println!("Last modified time metadata not supported on this platform.");
     exit(0);
 }

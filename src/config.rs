@@ -113,16 +113,16 @@ impl Config {
             }
             match parser {
                 Parse::Sort => {
-                    match arg.as_str() {
-                        "ext"  => sort = Sort::Ext,
-                        "name" => sort = Sort::Name,
-                        "len"  => sort = Sort::Len,
-                        "crtd" => sort = Sort::Created,
-                        "accd" => sort = Sort::Accessed,
-                        "mod"  => sort = Sort::Modified,
+                    sort = match arg.as_str() {
+                        "ext"  => Sort::Ext,
+                        "name" => Sort::Name,
+                        "len"  => Sort::Len,
+                        "crtd" => Sort::Created,
+                        "accd" => Sort::Accessed,
+                        "mod"  => Sort::Modified,
                         "prt"  => {
                             parser = Parse::Lvl;
-                            sort = Sort::PrtDir(1)
+                            Sort::PrtDir(1)
                         },
                         m => { error::invalid_sort_criteria(m); }
                     }
@@ -135,24 +135,24 @@ impl Config {
                 }
                 Parse::Mem => {
                     // Parse memory option (0..9)
-                    match arg.parse::<u64>() {
+                    mem = match arg.parse::<u64>() {
                         Ok(opt) => match opt {
-                            0..=9 => mem = 1 << (20 + opt),
+                            0..=9 => 1 << (20 + opt),
                             _ => error::out_of_range_memory_option(opt),
                         }
                         Err(_) => error::invalid_memory_option(),
                     };
                 } 
                 Parse::BlkSz => {
-                    match arg.parse::<usize>() {
-                        Ok(size) => blk_sz = size * 1024 * 1024,
+                    blk_sz = match arg.parse::<usize>() {
+                        Ok(size) => size * 1024 * 1024,
                         Err(_)   => error::invalid_block_size(),
                     }
                 }
                 Parse::Threads => {
-                    match arg.parse::<usize>() {
+                    threads = match arg.parse::<usize>() {
                         Ok(count) => match count {
-                            0..=128 => threads = count,
+                            0..=128 => count,
                             _ => error::max_thread_count(count),
                         }
                         Err(_) => error::invalid_thread_count(),
