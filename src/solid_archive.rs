@@ -2,12 +2,11 @@ use std::{
     path::{Path, PathBuf},
     io::{Seek, BufWriter},
     fs::File,
-    cmp::min,
 };
 
 use crate::{
     Mode,
-    sort::{Sort, sort_files},
+    sort::sort_files,
     metadata::Metadata,
     threads::ThreadPool,
     progress::Progress,
@@ -55,10 +54,7 @@ impl SolidArchiver {
         }
 
         // Sort files to potentially improve compression of solid archives
-        match self.cfg.sort {
-            Sort::None => {},
-            _ => mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, self.cfg.sort)),
-        }
+        mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, self.cfg.sort));
 
         self.prg.get_archive_size_enc(&mta.files);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
@@ -103,21 +99,16 @@ impl SolidArchiver {
         // Get index to footer
         mta.f_ptr = self.archive.stream_position().unwrap();
 
-        // Output number of files
         self.archive.write_u64(mta.files.len() as u64);
 
         for file in mta.files.iter() {
-            // Get path as byte slice, truncated if longer than 255 bytes
-            let path_str = file.0.to_str().unwrap();
-            let path = &path_str.as_bytes()[..min(path_str.len(), 255)];
-
-            // Output length of file path (for parsing)
-            self.archive.write_byte(path.len() as u8);
+            let path = file.0.to_str().unwrap().as_bytes();
 
             // Output path
             for byte in path.iter() {
                 self.archive.write_byte(*byte);
             }
+            self.archive.write_byte(0);
 
             // Output file length
             self.archive.write_u64(file.1);

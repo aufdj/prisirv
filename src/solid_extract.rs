@@ -119,23 +119,22 @@ impl SolidExtractor {
         self.archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
         let mut path: Vec<u8> = Vec::with_capacity(64);
 
-        // Get number of files
         let num_files = self.archive.read_u64();
 
+        // Read null terminated file path strings and lengths.
         for _ in 0..num_files {
-            // Get length of next path
-            let len = self.archive.read_byte();
-
-            // Get file path and length
-            for _ in 0..len {
-                path.push(self.archive.read_byte());
+            loop {
+                match self.archive.read_byte() {
+                    0 => {
+                        let path_string: String = path.iter().map(|b| *b as char).collect();
+                        let file_len = self.archive.read_u64();
+                        mta.files.push((PathBuf::from(&path_string), file_len));
+                        path.clear();
+                        break;
+                    }
+                    byte => path.push(byte),
+                }
             }
-
-            let path_string: String = path.iter().map(|b| *b as char).collect();
-            let file_len = self.archive.read_u64();
-            mta.files.push((PathBuf::from(&path_string), file_len));
-            
-            path.clear();
         }
 
         // Get compressed block sizes

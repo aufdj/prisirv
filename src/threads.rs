@@ -156,7 +156,7 @@ impl BlockQueue {
     /// hasn't been added to the queue yet, do nothing.
     pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> u64 {
         let len = self.blocks.len();
-        let next_out = self.next_out;
+        let mut next_out = self.next_out;
 
         self.blocks.retain(|block|
             if block.1 == next_out {
@@ -164,6 +164,7 @@ impl BlockQueue {
                 for byte in block.0.iter() {
                     file_out.write_byte(*byte);
                 }
+                next_out += 1;
                 false
             }
             else { true }
@@ -177,13 +178,14 @@ impl BlockQueue {
     /// hasn't been added to the queue yet, do nothing.
     pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> u64 {
         let len = self.blocks.len();
-        let next_out = self.next_out;
+        let mut next_out = self.next_out;
 
         self.blocks.retain(|block|
             if block.1 == next_out {
                 for byte in block.0.iter() {
                     file_out.write_byte(*byte);
                 }
+                next_out += 1;
                 false
             }
             else { true } 
