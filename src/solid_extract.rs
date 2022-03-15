@@ -49,17 +49,17 @@ impl SolidExtractor {
         let mut index: u64 = 0;
         
         // Decompress blocks ----------------------------------------
+        let mut blk_in = Vec::with_capacity(mta.blk_sz);
         // Full blocks
         for _ in 0..mta.blk_c-1 {
-            let mut blk_in = Vec::with_capacity(mta.blk_sz);
             for _ in 0..mta.enc_blk_szs[index as usize] {
                 blk_in.push(self.archive.read_byte());
             }
-            tp.decompress_block(blk_in, index, mta.blk_sz);
+            tp.decompress_block(blk_in.clone(), index, mta.blk_sz);
+            blk_in.clear();
             index += 1;
         }
         // Final block
-        let mut blk_in = Vec::with_capacity(mta.blk_sz);
         for _ in 0..mta.enc_blk_szs[index as usize] {
             blk_in.push(self.archive.read_byte());
         }
@@ -67,11 +67,12 @@ impl SolidExtractor {
         // ----------------------------------------------------------
 
 
-        let mut file_in_paths = mta.files.into_iter().map(|f| f.0);
+        let (paths, lens): (Vec<PathBuf>, Vec<u64>) = mta.files.into_iter().unzip();
+        let mut file_in_paths = paths.iter();
+        let mut file_in_lens = lens.into_iter();
 
-        let file_in_path = file_in_paths.next().unwrap();
-
-        let (mut file_in_len, mut file_out) = next_file(&file_in_path, &self.cfg.dir_out);
+        let mut file_out = next_file(&file_in_paths.next().unwrap(), &self.cfg.dir_out);
+        let mut file_in_len = file_in_lens.next().unwrap();
 
         let mut file_out_pos = 0;
         let mut blks_wrtn: u64 = 0;
@@ -82,11 +83,9 @@ impl SolidExtractor {
             tp.bq.lock().unwrap().try_get_block(&mut blk_out);
             if !blk_out.is_empty() {
                 for byte in blk_out.iter() {
-                    // When current output file reaches the 
-                    // correct size, move to next file.
                     if file_out_pos == file_in_len {
-                        (file_in_len, file_out) = 
-                            next_file(&file_in_paths.next().unwrap(), &self.cfg.dir_out);
+                        file_out = next_file(&file_in_paths.next().unwrap(), &self.cfg.dir_out);
+                        file_in_len = file_in_lens.next().unwrap();
                         file_out_pos = 0;
                     }
                     file_out.write_byte(*byte);
@@ -101,7 +100,7 @@ impl SolidExtractor {
         file_out.flush_buffer();
 
         let mut lens: Vec<u64> = Vec::new();
-        get_archive_size(Path::new(&self.cfg.dir_out), &mut lens);
+        get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);
         self.prg.print_archive_stats(lens.iter().sum());
     }
 
@@ -163,21 +162,17 @@ impl SolidExtractor {
 
 /// Get the next output file and the input file length, the input file being
 /// the original file that was compressed.
-/// i.e. output file is foo_d\bar.txt, input file is foo\bar.txt
 ///
 /// The input file length is needed to know when the output file is the 
 /// correct size.
-///
-/// The output file paths are tracked so the final extracted archive size 
-/// can be computed at the end of extraction.
-fn next_file(file_in_path: &Path, dir_out: &str) -> (u64, BufWriter<File>) {
-    let file_in_len   = file_len(file_in_path);
+fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
     let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
     let file_out      = new_output_file(4096, &file_out_path);
-    (file_in_len, file_out)
+    file_out
 }
 
-fn get_archive_size(dir_in: &Path, lens: &mut Vec<u64>) {
+/// Get total size of decompressed archive.
+fn get_file_out_lens(dir_in: &Path, lens: &mut Vec<u64>) {
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
         dir_in.read_dir().unwrap()
         .map(|d| d.unwrap().path())
@@ -187,7 +182,7 @@ fn get_archive_size(dir_in: &Path, lens: &mut Vec<u64>) {
         lens.push(file_len(file));
     }
     for dir in dirs.iter() {
-        get_archive_size(dir, lens);
+        get_file_out_lens(dir, lens);
     }
 }
 
