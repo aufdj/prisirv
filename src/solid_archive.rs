@@ -32,9 +32,13 @@ impl SolidArchiver {
         let prg = Progress::new(&cfg, Mode::Compress);
 
         let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
-        for _ in 0..6 { archive.write_u64(0); }
+        for _ in 0..6 { 
+            archive.write_u64(0); 
+        }
 
-        SolidArchiver { archive, cfg, prg }
+        SolidArchiver { 
+            archive, cfg, prg 
+        }
     }
 
     /// Parse files into blocks and compress blocks.
@@ -43,7 +47,8 @@ impl SolidArchiver {
         
         // Group files and directories 
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-            self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+            self.cfg.inputs.clone().into_iter()
+            .partition(|f| f.is_file());
 
         // Walk through directories and collect all files
         for file in files.iter() {
@@ -57,7 +62,9 @@ impl SolidArchiver {
         mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, self.cfg.sort));
 
         self.prg.get_archive_size_enc(&mta.files);
+
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
+
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
 
         for file in mta.files.iter() {
@@ -104,7 +111,7 @@ impl SolidArchiver {
         for file in mta.files.iter() {
             let path = file.0.to_str().unwrap().as_bytes();
 
-            // Output path
+            // Output null terminated path string.
             for byte in path.iter() {
                 self.archive.write_byte(*byte);
             }

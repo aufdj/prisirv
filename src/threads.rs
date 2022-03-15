@@ -167,7 +167,9 @@ impl BlockQueue {
                 next_out += 1;
                 false
             }
-            else { true }
+            else { 
+                true 
+            }
         );
         let blocks_written = (len - self.blocks.len()) as u64;
         self.next_out += blocks_written;
@@ -188,7 +190,9 @@ impl BlockQueue {
                 next_out += 1;
                 false
             }
-            else { true } 
+            else { 
+                true 
+            } 
         );
         let blocks_written = (len - self.blocks.len()) as u64;
         self.next_out += blocks_written;

@@ -35,6 +35,7 @@ impl Archiver {
     /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
         let prg = Progress::new(&cfg, Mode::Compress);
+        
         Archiver {
             cfg, prg, files: Vec::with_capacity(32),
         }
@@ -45,16 +46,17 @@ impl Archiver {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-            self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+            self.cfg.inputs.clone().into_iter()
+            .partition(|f| f.is_file());
 
         let mut dir_out = self.cfg.dir_out.clone();
 
-        for file_in in files.iter() {
-            self.prg.print_file_name(file_in);
-            self.compress_file(file_in, &dir_out);
+        for file in files.iter() {
+            self.prg.print_file_name(file);
+            self.compress_file(file, &dir_out);
         }
-        for dir_in in dirs.iter() {
-            self.compress_dir(dir_in, &mut dir_out);      
+        for dir in dirs.iter() {
+            self.compress_dir(dir, &mut dir_out);      
         }
     }
 
@@ -65,14 +67,18 @@ impl Archiver {
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
 
         let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
-        if self.cfg.clbr { self.files.push(file_out_path.clone()); }
+        if self.cfg.clbr { 
+            self.files.push(file_out_path.clone()); 
+        }
         
         // Create input file with buffer = block size
-        let mut file_in  = new_input_file(mta.blk_sz, file_in_path);
+        let mut file_in = new_input_file(mta.blk_sz, file_in_path);
 
         // Create output file and write metadata placeholder
         let mut file_out = new_output_file(4096, &file_out_path);
-        for _ in 0..7 { file_out.write_u64(0); }
+        for _ in 0..7 { 
+            file_out.write_u64(0); 
+        }
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
@@ -87,6 +93,7 @@ impl Archiver {
             index += 1;
             mta.blk_c += 1;
         }
+
         while blks_wrtn != mta.blk_c {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut file_out);
         }   
@@ -108,12 +115,12 @@ impl Archiver {
             .partition(|f| f.is_file());
 
         // Compress files first, then directories
-        for file_in in files.iter() {
-            self.prg.print_file_name(file_in);
-            self.compress_file(file_in, &dir_out);
+        for file in files.iter() {
+            self.prg.print_file_name(file);
+            self.compress_file(file, &dir_out);
         }
-        for dir_in in dirs.iter() {
-            self.compress_dir(dir_in, &mut dir_out);
+        for dir in dirs.iter() {
+            self.compress_dir(dir, &mut dir_out);
         }
     } 
 

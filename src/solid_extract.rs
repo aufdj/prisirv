@@ -19,6 +19,48 @@ use crate::{
     error,
 };
 
+/// A decompressed block can span multiple files, so a FileWriter is used 
+/// to handle swapping files when needed while writing a block.
+struct FileWriter {
+    file_in_paths:  Box<dyn Iterator<Item = PathBuf>>,
+    file_in_lens:   Box<dyn Iterator<Item = u64>>,
+    file_out:       BufWriter<File>,
+    file_out_pos:   u64,
+    file_in_len:    u64,
+    dir_out:        String,
+}
+impl FileWriter {
+    fn new(files: Vec<(PathBuf, u64)>, dir_out: &str) -> FileWriter {
+        let (paths, lens): (Vec<PathBuf>, Vec<u64>) = files.into_iter().unzip();
+        let mut paths = paths.into_iter();
+        let mut lens  = lens.into_iter();
+
+        let file_out = next_file(&paths.next().unwrap(), dir_out);
+        let file_in_len = lens.next().unwrap();
+
+        FileWriter {
+            file_in_paths: Box::new(paths), 
+            file_in_lens:  Box::new(lens), 
+            file_out, 
+            file_in_len,
+            file_out_pos: 0,
+            dir_out: dir_out.to_string(),
+        }
+    }
+    fn update(&mut self) {
+        self.file_out = next_file(&self.file_in_paths.next().unwrap(), &self.dir_out);
+        self.file_in_len = self.file_in_lens.next().unwrap();
+        self.file_out_pos = 0;
+    }
+    fn write_byte(&mut self, byte: &u8) {
+        if self.file_out_pos == self.file_in_len {
+            self.update();
+        }
+        self.file_out.write_byte(*byte);
+        self.file_out_pos += 1;
+    }
+}
+
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
     archive:  BufReader<File>,
@@ -31,10 +73,13 @@ impl SolidExtractor {
         if !cfg.inputs[0].is_file() {
             error::not_solid_archive(&cfg.inputs[0]);
         }
+
         let archive = new_input_file(4096, &cfg.inputs[0]);
         let prg = Progress::new(&cfg, Mode::Decompress);
         
-        SolidExtractor { archive, cfg, prg }
+        SolidExtractor { 
+            archive, cfg, prg 
+        }
     }
 
     /// Decompress blocks and parse blocks into files. A block can span 
@@ -48,8 +93,8 @@ impl SolidExtractor {
         let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
         let mut index: u64 = 0;
         
-        // Decompress blocks ----------------------------------------
         let mut blk_in = Vec::with_capacity(mta.blk_sz);
+        
         // Full blocks
         for _ in 0..mta.blk_c-1 {
             for _ in 0..mta.enc_blk_szs[index as usize] {
@@ -59,45 +104,31 @@ impl SolidExtractor {
             blk_in.clear();
             index += 1;
         }
+
         // Final block
         for _ in 0..mta.enc_blk_szs[index as usize] {
             blk_in.push(self.archive.read_byte());
         }
         tp.decompress_block(blk_in, index, mta.fblk_sz);
-        // ----------------------------------------------------------
 
+        let mut fw = FileWriter::new(mta.files, &self.cfg.dir_out);
 
-        let (paths, lens): (Vec<PathBuf>, Vec<u64>) = mta.files.into_iter().unzip();
-        let mut file_in_paths = paths.iter();
-        let mut file_in_lens = lens.into_iter();
-
-        let mut file_out = next_file(&file_in_paths.next().unwrap(), &self.cfg.dir_out);
-        let mut file_in_len = file_in_lens.next().unwrap();
-
-        let mut file_out_pos = 0;
         let mut blks_wrtn: u64 = 0;
         let mut blk_out = Vec::new();
         
-        // Write blocks to output -----------------------------------
+        // Write blocks to output 
         while blks_wrtn != mta.blk_c {
             tp.bq.lock().unwrap().try_get_block(&mut blk_out);
             if !blk_out.is_empty() {
                 for byte in blk_out.iter() {
-                    if file_out_pos == file_in_len {
-                        file_out = next_file(&file_in_paths.next().unwrap(), &self.cfg.dir_out);
-                        file_in_len = file_in_lens.next().unwrap();
-                        file_out_pos = 0;
-                    }
-                    file_out.write_byte(*byte);
-                    file_out_pos += 1;
+                    fw.write_byte(byte);
                 }
-                blks_wrtn += 1;  
+                blks_wrtn += 1;
                 blk_out.clear();
             }  
         }
-        // ----------------------------------------------------------
 
-        file_out.flush_buffer();
+        fw.file_out.flush_buffer();
 
         let mut lens: Vec<u64> = Vec::new();
         get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);

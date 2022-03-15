@@ -32,7 +32,9 @@ impl Extractor {
     pub fn new(cfg: Config) -> Extractor {
         let prg = Progress::new(&cfg, Mode::Decompress);
         
-        Extractor { cfg, prg }
+        Extractor { 
+            cfg, prg 
+        }
     }
 
     /// Extract all files in an archive.
@@ -40,16 +42,17 @@ impl Extractor {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
             
         let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-            self.cfg.inputs.clone().into_iter().partition(|f| f.is_file());
+            self.cfg.inputs.clone().into_iter()
+            .partition(|f| f.is_file());
 
         let mut dir_out = self.cfg.dir_out.clone();
 
-        for file_in in files.iter() {
-            self.prg.print_file_name(file_in);
-            self.decompress_file(file_in, &dir_out);
+        for file in files.iter() {
+            self.prg.print_file_name(file);
+            self.decompress_file(file, &dir_out);
         }
-        for dir_in in dirs.iter() {
-            self.decompress_dir(dir_in, &mut dir_out, true);      
+        for dir in dirs.iter() {
+            self.decompress_dir(dir, &mut dir_out, true);      
         }
     }
 
@@ -59,8 +62,6 @@ impl Extractor {
         let mta: Metadata = self.read_metadata(&mut file_in);
 
         self.prg.get_file_size_dec(file_in_path, mta.enc_blk_szs.len());
-
-        self.verify_magic_number(mta.mgc);
 
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
@@ -106,12 +107,12 @@ impl Extractor {
             .partition(|f| f.is_file());
 
         // Decompress files first, then directories
-        for file_in in files.iter() {
-            self.prg.print_file_name(file_in);
-            self.decompress_file(file_in, &dir_out);
+        for file in files.iter() {
+            self.prg.print_file_name(file);
+            self.decompress_file(file, &dir_out);
         }
-        for dir_in in dirs.iter() {
-            self.decompress_dir(dir_in, &mut dir_out, false); 
+        for dir in dirs.iter() {
+            self.decompress_dir(dir, &mut dir_out, false); 
         }
     }
 
@@ -125,6 +126,8 @@ impl Extractor {
         mta.blk_sz  = file_in.read_u64() as usize;
         mta.blk_c   = file_in.read_u64();
         mta.f_ptr   = file_in.read_u64();
+
+        self.verify_magic_number(mta.mgc);
 
         // Seek to end of file metadata
         file_in.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
