@@ -52,7 +52,7 @@ impl SolidArchiver {
 
         // Walk through directories and collect all files
         for file in files.iter() {
-            mta.files.push((file.clone(), file_len(&file)));
+            mta.files.push((file.clone(), file_len(file)));
         }
         for dir in dirs.iter() {
             collect_files(dir, &mut mta);
@@ -147,7 +147,7 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
         .partition(|f| f.is_file());
 
     for file in files.iter() {
-        mta.files.push((file.clone(), file_len(&file)));
+        mta.files.push((file.clone(), file_len(file)));
     }
     for dir in dirs.iter() {
         collect_files(dir, mta);

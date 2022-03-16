@@ -22,12 +22,12 @@ use crate::{
 /// A decompressed block can span multiple files, so a FileWriter is used 
 /// to handle swapping files when needed while writing a block.
 struct FileWriter {
-    file_in_paths:  Box<dyn Iterator<Item = PathBuf>>,
-    file_in_lens:   Box<dyn Iterator<Item = u64>>,
-    file_out:       BufWriter<File>,
-    file_out_pos:   u64,
-    file_in_len:    u64,
-    dir_out:        String,
+    file_in_paths:  Box<dyn Iterator<Item = PathBuf>>, // All input file paths
+    file_in_lens:   Box<dyn Iterator<Item = u64>>,     // All input file lengths
+    file_out:       BufWriter<File>,                   // Current output file
+    file_out_pos:   u64,                               // Current output file position
+    file_in_len:    u64,                               // Uncompressed file length
+    dir_out:        String,                            // Output directory
 }
 impl FileWriter {
     fn new(files: Vec<(PathBuf, u64)>, dir_out: &str) -> FileWriter {
@@ -39,12 +39,12 @@ impl FileWriter {
         let file_in_len = lens.next().unwrap();
 
         FileWriter {
-            file_in_paths: Box::new(paths), 
-            file_in_lens:  Box::new(lens), 
+            file_out_pos:   0,
+            dir_out:        dir_out.to_string(),
+            file_in_paths:  Box::new(paths), 
+            file_in_lens:   Box::new(lens), 
             file_out, 
             file_in_len,
-            file_out_pos: 0,
-            dir_out: dir_out.to_string(),
         }
     }
     fn update(&mut self) {
@@ -52,13 +52,23 @@ impl FileWriter {
         self.file_in_len = self.file_in_lens.next().unwrap();
         self.file_out_pos = 0;
     }
-    fn write_byte(&mut self, byte: &u8) {
+    fn write_byte(&mut self, byte: u8) {
         if self.file_out_pos == self.file_in_len {
             self.update();
         }
-        self.file_out.write_byte(*byte);
+        self.file_out.write_byte(byte);
         self.file_out_pos += 1;
     }
+}
+
+/// Get the next output file and the input file length, the input file being
+/// the original file that was compressed.
+///
+/// The input file length is needed to know when the output file is the 
+/// correct size.
+fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
+    let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
+    new_output_file(4096, &file_out_path)
 }
 
 /// A SolidExtractor extracts solid archives.
@@ -70,10 +80,6 @@ pub struct SolidExtractor {
 impl SolidExtractor {
     /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
-        if !cfg.inputs[0].is_file() {
-            error::not_solid_archive(&cfg.inputs[0]);
-        }
-
         let archive = new_input_file(4096, &cfg.inputs[0]);
         let prg = Progress::new(&cfg, Mode::Decompress);
         
@@ -85,46 +91,48 @@ impl SolidExtractor {
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
+        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
+        
         let mta: Metadata = self.read_metadata();
 
         self.prg.get_archive_size_dec(&self.cfg.inputs, mta.blk_c);
-        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
+        
 
         let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
+        let mut blk = Vec::with_capacity(mta.blk_sz);
+        
         let mut index: u64 = 0;
-        
-        let mut blk_in = Vec::with_capacity(mta.blk_sz);
-        
+
         // Full blocks
         for _ in 0..mta.blk_c-1 {
             for _ in 0..mta.enc_blk_szs[index as usize] {
-                blk_in.push(self.archive.read_byte());
+                blk.push(self.archive.read_byte());
             }
-            tp.decompress_block(blk_in.clone(), index, mta.blk_sz);
-            blk_in.clear();
+            tp.decompress_block(blk.clone(), index, mta.blk_sz);
+            blk.clear();
             index += 1;
         }
 
         // Final block
         for _ in 0..mta.enc_blk_szs[index as usize] {
-            blk_in.push(self.archive.read_byte());
+            blk.push(self.archive.read_byte());
         }
-        tp.decompress_block(blk_in, index, mta.fblk_sz);
+        tp.decompress_block(blk.clone(), index, mta.fblk_sz);
+        blk.clear();
 
         let mut fw = FileWriter::new(mta.files, &self.cfg.dir_out);
 
         let mut blks_wrtn: u64 = 0;
-        let mut blk_out = Vec::new();
         
         // Write blocks to output 
         while blks_wrtn != mta.blk_c {
-            tp.bq.lock().unwrap().try_get_block(&mut blk_out);
-            if !blk_out.is_empty() {
-                for byte in blk_out.iter() {
-                    fw.write_byte(byte);
+            tp.bq.lock().unwrap().try_get_block(&mut blk);
+            if !blk.is_empty() {
+                for byte in blk.iter() {
+                    fw.write_byte(*byte);
                 }
                 blks_wrtn += 1;
-                blk_out.clear();
+                blk.clear();
             }  
         }
 
@@ -188,17 +196,6 @@ impl SolidExtractor {
             _ => error::no_prisirv_archive(),
         }
     }
-}
-
-/// Get the next output file and the input file length, the input file being
-/// the original file that was compressed.
-///
-/// The input file length is needed to know when the output file is the 
-/// correct size.
-fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
-    let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
-    let file_out      = new_output_file(4096, &file_out_path);
-    file_out
 }
 
 /// Get total size of decompressed archive.

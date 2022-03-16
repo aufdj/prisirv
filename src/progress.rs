@@ -76,14 +76,13 @@ impl Progress {
     }
 
 
-
     // Solid Archives ==============================
 
     /// Get input archive size and calculate total block count by dividing 
     /// input size by block size.
     pub fn get_archive_size_enc(&mut self, files: &[(PathBuf, u64)]) {
         for file in files.iter().map(|f| &f.0) {
-            self.in_size += file_len(&file);
+            self.in_size += file_len(file);
         }
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
