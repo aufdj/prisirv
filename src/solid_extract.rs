@@ -30,8 +30,10 @@ struct FileWriter {
     dir_out:        String,                            // Output directory
 }
 impl FileWriter {
-    fn new(files: Vec<(PathBuf, u64)>, dir_out: &str) -> FileWriter {
-        let (paths, lens): (Vec<PathBuf>, Vec<u64>) = files.into_iter().unzip();
+    fn new(files: &[(PathBuf, u64)], dir_out: &str) -> FileWriter {
+        let (paths, lens): (Vec<PathBuf>, Vec<u64>) = 
+            files.to_owned().into_iter().unzip();
+
         let mut paths = paths.into_iter();
         let mut lens  = lens.into_iter();
 
@@ -76,52 +78,55 @@ pub struct SolidExtractor {
     archive:  BufReader<File>,
     pub cfg:  Config,
     prg:      Progress,
+    mta:      Metadata,
 }
 impl SolidExtractor {
     /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
-        let archive = new_input_file(4096, &cfg.inputs[0]);
+        new_dir_checked(&cfg.dir_out, cfg.clbr);
+        let first_input = &cfg.inputs[0];
         let prg = Progress::new(&cfg, Mode::Decompress);
         
-        SolidExtractor { 
-            archive, cfg, prg 
-        }
+        let mut extr = SolidExtractor { 
+            archive:  new_input_file(4096, first_input), 
+            mta:      Metadata::new(),
+            cfg, 
+            prg, 
+        };
+        extr.mta = extr.read_metadata();
+        extr.prg.get_archive_size_dec(&extr.cfg.inputs, extr.mta.blk_c);
+        extr
     }
 
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
-        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
-        let mta = self.read_metadata();
-        self.prg.get_archive_size_dec(&self.cfg.inputs, mta.blk_c);
-        let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
-        let mut blk = Vec::with_capacity(mta.blk_sz);
-        
+        let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
+        let mut blk = Vec::with_capacity(self.mta.blk_sz);
         let mut index: u64 = 0;
 
         // Full blocks
-        for _ in 0..mta.blk_c-1 {
-            for _ in 0..mta.enc_blk_szs[index as usize] {
+        for _ in 0..self.mta.blk_c-1 {
+            for _ in 0..self.mta.enc_blk_szs[index as usize] {
                 blk.push(self.archive.read_byte());
             }
-            tp.decompress_block(blk.clone(), index, mta.blk_sz);
+            tp.decompress_block(blk.clone(), index, self.mta.blk_sz);
             blk.clear();
             index += 1;
         }
 
         // Final block
-        for _ in 0..mta.enc_blk_szs[index as usize] {
+        for _ in 0..self.mta.enc_blk_szs[index as usize] {
             blk.push(self.archive.read_byte());
         }
-        tp.decompress_block(blk.clone(), index, mta.fblk_sz);
+        tp.decompress_block(blk.clone(), index, self.mta.fblk_sz);
         blk.clear();
 
-        let mut fw = FileWriter::new(mta.files, &self.cfg.dir_out);
-
+        let mut fw = FileWriter::new(&self.mta.files, &self.cfg.dir_out);
         let mut blks_wrtn: u64 = 0;
         
         // Write blocks to output 
-        while blks_wrtn != mta.blk_c {
+        while blks_wrtn != self.mta.blk_c {
             tp.bq.lock().unwrap().try_get_block(&mut blk);
             if !blk.is_empty() {
                 for byte in blk.iter() {
@@ -152,6 +157,7 @@ impl SolidExtractor {
 
         // Seek to end of file metadata
         self.archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
+
         let mut path: Vec<u8> = Vec::with_capacity(64);
 
         let num_files = self.archive.read_u64();
@@ -161,7 +167,9 @@ impl SolidExtractor {
             loop {
                 match self.archive.read_byte() {
                     0 => {
-                        let path_string: String = path.iter().map(|b| *b as char).collect();
+                        let path_string = path.iter()
+                            .map(|b| *b as char)
+                            .collect::<String>();
                         let file_len = self.archive.read_u64();
                         mta.files.push((PathBuf::from(&path_string), file_len));
                         path.clear();

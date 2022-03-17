@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    io::{Seek, BufWriter},
+    io::{Write, Seek, BufWriter},
     fs::File,
 };
 
@@ -17,6 +17,7 @@ use crate::{
     },
 };
 
+
 /// A solid archiver creates solid archives, or an archive containing files 
 /// compressed as one stream. Solid archives take advantage of redundancy 
 /// across files and therefore achieve better compression ratios than non-
@@ -25,36 +26,35 @@ pub struct SolidArchiver {
     pub archive:  BufWriter<File>,
     cfg:          Config,
     prg:          Progress,
+    mta:          Metadata,
 }
 impl SolidArchiver {
     /// Create a new SolidArchiver.
     pub fn new(cfg: Config) -> SolidArchiver {
-        let prg = Progress::new(&cfg, Mode::Compress);
+        let mut mta = Metadata::new_with_cfg(&cfg);
+        
+        // Collect and sort files.
+        collect_files(&cfg.inputs, &mut mta);
+        mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, cfg.sort));
+
+        let mut prg = Progress::new(&cfg, Mode::Compress);
+        prg.get_archive_size_enc(&mta.files);
 
         let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
-        for _ in 0..6 { 
-            archive.write_u64(0); 
-        }
+        for _ in 0..6 { archive.write_u64(0); }
 
         SolidArchiver { 
-            archive, cfg, prg 
+            archive, cfg, prg, mta
         }
     }
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        let mut mta = Metadata::new_with_cfg(&self.cfg);
-        
-        // Collect and sort files.
-        collect_files(&self.cfg.inputs, &mut mta);
-        mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, self.cfg.sort));
-
-        self.prg.get_archive_size_enc(&mta.files);
-
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
 
-        for file in mta.files.iter() {
+        // Read files into blocka and compress
+        for file in self.mta.files.iter() {
             let file_path = Path::new(&file.0);
             let file_len = file_len(file_path);
             let mut file_in = new_input_file(blk.capacity(), file_path);
@@ -64,44 +64,41 @@ impl SolidArchiver {
                 
                 // Compress full block
                 if blk.len() == blk.capacity() {
-                    tp.compress_block(blk.clone(), mta.blk_c, blk.len());
-                    mta.blk_c += 1;
+                    tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
+                    self.mta.blk_c += 1;
                     blk.clear();
                 }
             }
         }
-        mta.fblk_sz = 
+        self.mta.fblk_sz = 
             if blk.is_empty() { blk.capacity() } 
             else { blk.len() };
 
         // Compress final block
-        tp.compress_block(blk.clone(), mta.blk_c, blk.len());
-        mta.blk_c += 1;
+        tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
+        self.mta.blk_c += 1;
 
         // Output blocks
         let mut blks_wrtn: u64 = 0;
-        while blks_wrtn != mta.blk_c {
-            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut self.archive);
+        while blks_wrtn != self.mta.blk_c {
+            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.archive);
         }
         self.archive.flush_buffer();
 
-        self.write_metadata(&mut mta);
+        self.write_metadata();
     }
 
     /// Write footer containing file paths and lengths.
-    fn write_metadata(&mut self, mta: &mut Metadata) {
+    fn write_metadata(&mut self) {
         // Get index to footer
-        mta.f_ptr = self.archive.stream_position().unwrap();
+        self.mta.f_ptr = self.archive.stream_position().unwrap();
 
-        self.archive.write_u64(mta.files.len() as u64);
+        self.archive.write_u64(self.mta.files.len() as u64);
 
-        for file in mta.files.iter() {
-            let path = file.0.to_str().unwrap().as_bytes();
-
+        for file in self.mta.files.iter() {
             // Output null terminated path string.
-            for byte in path.iter() {
-                self.archive.write_byte(*byte);
-            }
+            let path = file.0.to_str().unwrap().as_bytes();
+            self.archive.write(path).unwrap();
             self.archive.write_byte(0);
 
             // Output file length
@@ -109,7 +106,7 @@ impl SolidArchiver {
         }
 
         // Write compressed block sizes
-        for blk_sz in mta.enc_blk_szs.iter() {
+        for blk_sz in self.mta.enc_blk_szs.iter() {
             self.archive.write_u64(*blk_sz);
         }
 
@@ -117,12 +114,12 @@ impl SolidArchiver {
         self.prg.print_archive_stats(self.archive.stream_position().unwrap());
 
         self.archive.rewind().unwrap();
-        self.archive.write_u64(mta.mem);     
-        self.archive.write_u64(mta.mgcs);
-        self.archive.write_u64(mta.blk_sz as u64);
-        self.archive.write_u64(mta.fblk_sz as u64);
-        self.archive.write_u64(mta.blk_c);
-        self.archive.write_u64(mta.f_ptr);
+        self.archive.write_u64(self.mta.mem);     
+        self.archive.write_u64(self.mta.mgcs);
+        self.archive.write_u64(self.mta.blk_sz as u64);
+        self.archive.write_u64(self.mta.fblk_sz as u64);
+        self.archive.write_u64(self.mta.blk_c);
+        self.archive.write_u64(self.mta.f_ptr);
     }
 }
 
