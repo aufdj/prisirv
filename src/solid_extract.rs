@@ -92,12 +92,8 @@ impl SolidExtractor {
     /// multiple files.
     pub fn extract_archive(&mut self) {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
-        
-        let mta: Metadata = self.read_metadata();
-
+        let mta = self.read_metadata();
         self.prg.get_archive_size_dec(&self.cfg.inputs, mta.blk_c);
-        
-
         let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
         let mut blk = Vec::with_capacity(mta.blk_sz);
         

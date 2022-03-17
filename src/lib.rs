@@ -164,3 +164,8 @@ impl Prisirv {
         }  
     }
 }
+impl Default for Prisirv {
+    fn default() -> Self {
+        Self::new()
+    }
+}

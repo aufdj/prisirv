@@ -117,16 +117,12 @@ impl Thread {
                     let (block, index) = job();
                     {
                         let prg_guard = prg.lock().unwrap();
-                        match prg_guard {
-                            mut prg => prg.update(),
-                        }
+                        let mut prg = prg_guard;
+                        prg.update();
                     }
                     let queue_guard = bq.lock().unwrap();
-                    match queue_guard {
-                        mut queue => {
-                            queue.blocks.push((block, index));
-                        }
-                    }; 
+                    let mut queue = queue_guard;
+                    queue.blocks.push((block, index));
                 }
                 Message::Terminate => { break; }
             }

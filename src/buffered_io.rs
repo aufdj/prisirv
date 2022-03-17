@@ -67,7 +67,7 @@ impl BufferedRead for BufReader<File> {
                 },
             }
             if len < 8 {
-                self.read(&mut bytes[len..]).unwrap();
+                self.read_exact(&mut bytes[len..]).unwrap();
             }
         }
         u64::from_le_bytes(bytes)

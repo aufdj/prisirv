@@ -43,28 +43,15 @@ impl SolidArchiver {
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
+        let mut mta = Metadata::new_with_cfg(&self.cfg);
         
-        // Group files and directories 
-        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-            self.cfg.inputs.clone().into_iter()
-            .partition(|f| f.is_file());
-
-        // Walk through directories and collect all files
-        for file in files.iter() {
-            mta.files.push((file.clone(), file_len(file)));
-        }
-        for dir in dirs.iter() {
-            collect_files(dir, &mut mta);
-        }
-
-        // Sort files to potentially improve compression of solid archives
+        // Collect and sort files.
+        collect_files(&self.cfg.inputs, &mut mta);
         mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, self.cfg.sort));
 
         self.prg.get_archive_size_enc(&mta.files);
 
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
-
         let mut blk = Vec::with_capacity(self.cfg.blk_sz);
 
         for file in mta.files.iter() {
@@ -140,7 +127,21 @@ impl SolidArchiver {
 }
 
 /// Recursively collect all files into a vector for sorting before compression.
-fn collect_files(dir_in: &Path, mta: &mut Metadata) {
+fn collect_files(inputs: &[PathBuf], mta: &mut Metadata) {
+    // Group files and directories 
+    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+        inputs.to_owned().into_iter()
+        .partition(|f| f.is_file());
+
+    // Walk through directories and collect all files
+    for file in files.iter() {
+        mta.files.push((file.clone(), file_len(file)));
+    }
+    for dir in dirs.iter() {
+        collect(dir, mta);
+    }
+}
+fn collect(dir_in: &Path, mta: &mut Metadata) {
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
         dir_in.read_dir().unwrap()
         .map(|d| d.unwrap().path())
@@ -150,6 +151,6 @@ fn collect_files(dir_in: &Path, mta: &mut Metadata) {
         mta.files.push((file.clone(), file_len(file)));
     }
     for dir in dirs.iter() {
-        collect_files(dir, mta);
+        collect(dir, mta);
     }
 }
