@@ -4,7 +4,6 @@ use crate::{
     sort::Sort, Mode, Arch,
     formatting::fmt_root_output_dir,
     solid_extract::SolidExtractor,
-    metadata::Metadata,
     error,
 };
 
@@ -107,7 +106,7 @@ impl Config {
                 "-sld" | "-solid"   => parser = Parse::Solid,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
                 "-clb" | "-clobber" => parser = Parse::Clobber,
-                "-ls"  | "-list"    => parser = Parse::List,
+                "ls"  | "list"    => parser = Parse::List,
                 "help" => print_program_info(),
                 _ => {},
             }
@@ -160,12 +159,15 @@ impl Config {
                 }
                 Parse::Compress   => mode = Mode::Compress,
                 Parse::Decompress => mode = Mode::Decompress,
-                Parse::List       => list = true,
                 Parse::DirOut     => user_out = arg.to_string(),
                 Parse::Inputs     => inputs.push(PathBuf::from(arg)),
                 Parse::Solid      => arch = Arch::Solid,
                 Parse::Quiet      => quiet = true,
                 Parse::Clobber    => clbr = true,
+                Parse::List => {
+                    list = true; 
+                    parser = Parse::Inputs;
+                }
                 Parse::None => {},
             }
         }
@@ -186,7 +188,7 @@ impl Config {
             mem,     clbr,     blk_sz,
             threads, dir_out,
         };
-        if list { cfg.clone().list_archive(); }
+        if list { cfg.list_archive(); }
         cfg.print();
         cfg
     }
@@ -230,11 +232,16 @@ impl Config {
         }
     }
 
-    fn list_archive(self) {
-        let mta: Metadata = SolidExtractor::new(self).read_metadata();
-        for (file, len) in mta.files.iter() {
+    fn list_archive(self) -> ! {
+        let extr = SolidExtractor::new(self);
+        println!("=======================================================================");
+        println!("Archive {}", extr.cfg.inputs[0].display());
+        println!();
+        println!("Contents:");
+        for (file, len) in extr.mta.files.iter() {
             println!("{} ({} bytes)", file.display(), len);
         }
+        println!("=======================================================================");
         std::process::exit(0);
     }
 }

@@ -78,22 +78,19 @@ pub struct SolidExtractor {
     archive:  BufReader<File>,
     pub cfg:  Config,
     prg:      Progress,
-    mta:      Metadata,
+    pub mta:  Metadata,
 }
 impl SolidExtractor {
     /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
         new_dir_checked(&cfg.dir_out, cfg.clbr);
-        let first_input = &cfg.inputs[0];
+        let mut archive = new_input_file(4096, &cfg.inputs[0]);
+        let mta = read_metadata(&mut archive);
         let prg = Progress::new(&cfg, Mode::Decompress);
         
         let mut extr = SolidExtractor { 
-            archive:  new_input_file(4096, first_input), 
-            mta:      Metadata::new(),
-            cfg, 
-            prg, 
+            archive, mta, cfg, prg, 
         };
-        extr.mta = extr.read_metadata();
         extr.prg.get_archive_size_dec(&extr.cfg.inputs, extr.mta.blk_c);
         extr
     }
@@ -142,63 +139,63 @@ impl SolidExtractor {
         let mut lens: Vec<u64> = Vec::new();
         get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);
         self.prg.print_archive_stats(lens.iter().sum());
-    }
+    } 
+}
 
-    pub fn read_metadata(&mut self) -> Metadata {
-        let mut mta: Metadata = Metadata::new();
-        mta.mem     = self.archive.read_u64();
-        mta.mgcs    = self.archive.read_u64();
-        mta.blk_sz  = self.archive.read_u64() as usize;
-        mta.fblk_sz = self.archive.read_u64() as usize;
-        mta.blk_c   = self.archive.read_u64();
-        mta.f_ptr   = self.archive.read_u64();
+pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
+    let mut mta: Metadata = Metadata::new();
+    mta.mem     = archive.read_u64();
+    mta.mgcs    = archive.read_u64();
+    mta.blk_sz  = archive.read_u64() as usize;
+    mta.fblk_sz = archive.read_u64() as usize;
+    mta.blk_c   = archive.read_u64();
+    mta.f_ptr   = archive.read_u64();
 
-        self.verify_magic_number(mta.mgcs);
+    verify_magic_number(mta.mgcs);
 
-        // Seek to end of file metadata
-        self.archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
+    // Seek to end of file metadata
+    archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
 
-        let mut path: Vec<u8> = Vec::with_capacity(64);
+    let mut path: Vec<u8> = Vec::with_capacity(64);
 
-        let num_files = self.archive.read_u64();
+    let num_files = archive.read_u64();
 
-        // Read null terminated file path strings and lengths.
-        for _ in 0..num_files {
-            loop {
-                match self.archive.read_byte() {
-                    0 => {
-                        let path_string = path.iter()
-                            .map(|b| *b as char)
-                            .collect::<String>();
-                        let file_len = self.archive.read_u64();
-                        mta.files.push((PathBuf::from(&path_string), file_len));
-                        path.clear();
-                        break;
-                    }
-                    byte => path.push(byte),
+    // Read null terminated file path strings and lengths.
+    for _ in 0..num_files {
+        loop {
+            match archive.read_byte() {
+                0 => {
+                    let path_string = path.iter()
+                        .map(|b| *b as char)
+                        .collect::<String>();
+                    let file_len = archive.read_u64();
+                    mta.files.push((PathBuf::from(&path_string), file_len));
+                    path.clear();
+                    break;
                 }
+                byte => path.push(byte),
             }
         }
-
-        // Get compressed block sizes
-        for _ in 0..mta.blk_c {
-            mta.enc_blk_szs.push(self.archive.read_u64());
-        }
-
-        // Seek back to beginning of compressed data
-        self.archive.seek(SeekFrom::Start(48)).unwrap();
-        mta
     }
 
-    /// Check for a valid magic number.
-    /// * Non-solid archives - 'prsv'
-    /// * Solid archives     - 'PRSV'
-    fn verify_magic_number(&self, mgc: u64) {
-        match mgc {
-            0x5653_5250 => {},
-            0x7673_7270 => error::found_non_solid_archive(),
-            _ => error::no_prisirv_archive(),
-        }
+    // Get compressed block sizes
+    for _ in 0..mta.blk_c {
+        mta.enc_blk_szs.push(archive.read_u64());
+    }
+
+    // Seek back to beginning of compressed data
+    archive.seek(SeekFrom::Start(48)).unwrap();
+    mta
+}
+
+/// Check for a valid magic number.
+/// * Non-solid archives - 'prsv'
+/// * Solid archives     - 'PRSV'
+fn verify_magic_number(mgc: u64) {
+    match mgc {
+        0x5653_5250 => {},
+        0x7673_7270 => error::found_non_solid_archive(),
+        _ => error::no_prisirv_archive(),
     }
 }
 
