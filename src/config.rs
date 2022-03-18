@@ -287,8 +287,8 @@ fn print_program_info() {
     println!();
     println!("  OPTIONS:");
     println!("    -out,   -output-path   Specify output path");
-    println!("    -mem,   -memory        Specify memory usage             (Default - 2)");
-    println!("    -blk,   -block-size    Specify block size               (Default - 1 MiB");
+    println!("    -mem,   -memory        Specify memory usage             (Default - 15 MiB)");
+    println!("    -blk,   -block-size    Specify block size               (Default - 10 MiB)");
     println!("    -threads               Specify thread count             (Default - 4)");
     println!("    -sort                  Sort files (solid archives only) (Default - none)");
     println!();
