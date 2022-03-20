@@ -21,6 +21,7 @@ mod progress;
 pub mod config;     
 pub mod crc32;
 mod error;
+mod fv;
 
 use std::path::PathBuf;
 

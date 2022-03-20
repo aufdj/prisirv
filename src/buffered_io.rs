@@ -93,6 +93,8 @@ impl BufferedRead for BufReader<File> {
 /// A trait for handling buffered writing.
 pub trait BufferedWrite {
     fn write_byte(&mut self, output: u8);
+    fn write_u16(&mut self, output: u16);
+    fn write_u32(&mut self, output: u32);
     fn write_u64(&mut self, output: u64);
     fn flush_buffer(&mut self);
 }
@@ -116,7 +118,42 @@ impl BufferedWrite for BufWriter<File> {
             }
         }
     }
-
+    fn write_u16(&mut self, output: u16) {
+        match self.write(&output.to_le_bytes()[..]) {
+            Ok(_)  => {},
+            Err(e) => {
+                println!("Function write_u16 failed.");
+                println!("Error: {}", e);
+            },
+        }
+        if self.buffer().len() >= self.capacity() {
+            match self.flush() {
+                Ok(_)  => {},
+                Err(e) => {
+                    println!("Function write_u16 failed.");
+                    println!("Error: {}", e);
+                },
+            }
+        }
+    }
+    fn write_u32(&mut self, output: u32) {
+        match self.write(&output.to_le_bytes()[..]) {
+            Ok(_)  => {},
+            Err(e) => {
+                println!("Function write_u32 failed.");
+                println!("Error: {}", e);
+            },
+        }
+        if self.buffer().len() >= self.capacity() {
+            match self.flush() {
+                Ok(_)  => {},
+                Err(e) => {
+                    println!("Function write_u32 failed.");
+                    println!("Error: {}", e);
+                },
+            }
+        }
+    }
     /// Write 8 bytes to an output file.
     fn write_u64(&mut self, output: u64) {
         match self.write(&output.to_le_bytes()[..]) {

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    sort::Sort, Mode, Arch,
+    sort::Sort, Mode, Arch, fv,
     formatting::fmt_root_output_dir,
     solid_extract::SolidExtractor,
     error,
@@ -24,6 +24,7 @@ enum Parse {
     BlkSz,
     Threads,
     List,
+    Fv,
 }
 
 /// A list of all user defined configuration settings.
@@ -72,6 +73,7 @@ impl Config {
         let mut quiet    = false;
         let mut clbr     = false;
         let mut list     = false;
+        let mut fv       = false;
         let mut threads  = 4;
         let mut inputs   = Vec::new();
         
@@ -106,8 +108,9 @@ impl Config {
                 "-sld" | "-solid"   => parser = Parse::Solid,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
                 "-clb" | "-clobber" => parser = Parse::Clobber,
-                "ls"  | "list"    => parser = Parse::List,
-                "help" => print_program_info(),
+                "ls" | "list"       => parser = Parse::List,
+                "fv"                => parser = Parse::Fv,
+                "help"              => print_program_info(),
                 _ => {},
             }
             match parser {
@@ -168,6 +171,10 @@ impl Config {
                     list = true; 
                     parser = Parse::Inputs;
                 }
+                Parse::Fv => {
+                    fv = true;
+                    parser = Parse::Inputs;
+                }
                 Parse::None => {},
             }
         }
@@ -179,6 +186,8 @@ impl Config {
                 error::invalid_input(input);
             }
         }
+
+        if fv { fv::fv(&inputs[0]); }
 
         let dir_out = fmt_root_output_dir(arch, mode, &user_out, &inputs[0]);
 
