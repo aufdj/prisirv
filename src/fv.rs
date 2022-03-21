@@ -35,6 +35,7 @@ The y axis is scaled log base 10.  The maximum range of a match is 1 GB.
 const HSIZE: usize = 0x8000000;  
 
 
+// ilog(x) = (x.ln()*c) in range 0 to 255, faster than direct computation
 struct Ilog {
     t: [f64; 256]
 }
@@ -133,9 +134,8 @@ impl Image {
     }
 }
 
-pub fn fv(input: &Path) -> ! {
+pub fn fv(file_path: &Path) -> ! {
     let time        = Instant::now();
-    let file_path   = input;
     let size        = file_len(file_path);
     let mut file_in = new_input_file(4096, file_path);
 
@@ -164,7 +164,7 @@ pub fn fv(input: &Path) -> ! {
             for j in 1i32..10 {
                 if (i * j as u64) < size {
                     let a = ((i * j as u64) as f64).ln();
-                    let b = (fsize).ln();
+                    let b = fsize.ln();
                     let r = (fheight * a / b) as i32;
                     for k in 0..y_label_width {
                         img.put(k, r, -255/j, -255/j, -255/j);
@@ -177,25 +177,26 @@ pub fn fv(input: &Path) -> ! {
     }
     
     // Darken x,y where there are matching strings at x and y (scaled) in s
-    let csd    = 10.0 * fwidth * fheight / (fsize + 0.5);
-    let cs     = csd as i32 + 1;
-    let l2     = fheight / (2.0 + fsize).ln();
-    let ilog   = Ilog::new(l2);
-    let xscale = fwidth * 0.98 / fsize;
-    let mut index = vec![0u32; HSIZE];
+    let csd     = 10.0 * fwidth * fheight / (fsize + 0.5); // Color scale
+    let cs      = csd as i32 + 1; // Rounded color scale
+    let l2      = fheight / (2.0 + fsize).ln();
+    let ilog    = Ilog::new(l2);
+    let xscale  = fwidth * 0.98 / fsize; // Scale x axis so file fits within image width
+    let mut ht  = vec![0u32; HSIZE]; // Hash -> checksum (high 2 bits), location (low 30 bits)
     let csd_max = csd * 32767.0;
     let rec_max = 1.0 / 32767.0;
+    fastrand::seed(1);
 
-    // Do 4 passes through file, first finding 1 byte matches (black), 
+    // Do 4 passes through file, first finding 1 byte matches (black),
     // then 2 (red), then 4 (green), then 8 (blue).
     for i in 0i32..4 {
         let start_pass = Instant::now();
         file_in.seek(SeekFrom::Start(0)).unwrap();
+        if i >= 2 {
+            for i in ht.iter_mut() { *i = 0; }
+        }
         let mut h: u32 = 0;
         let mut xd: f64 = y_label_width as f64 - xscale;
-        if i >= 2 {
-            for i in index.iter_mut() { *i = 0; }
-        }
         
         for j in 0..size {
             let c = file_in.read_byte() as u32;
@@ -206,15 +207,15 @@ pub fn fv(input: &Path) -> ! {
                 _ => h * (16 * 123456789) + c + 1,  // Hash of last 8 bytes, 4th pass
             };
 
-            let mut p = index[((h ^ (h >> 16)) as usize) & (HSIZE-1)];
             xd += xscale;
 
+            let p = &mut ht[((h ^ (h >> 16)) as usize) & (HSIZE-1)];
             let chksum = (h & 0xC0000000) as u32;
 
-            if p > chksum && p < (chksum as u64 + j) as u32 {
+            if *p > chksum && *p < (chksum as u64 + j) as u32 {
                 let x = xd as i32;
-                let r = (fastrand::u16(0..32767) as f64) * rec_max;
-                let y = ilog.ilog(r + (j as i64 + ((chksum as i64) - (p as i64))) as f64);
+                let r = (fastrand::u16(0..32767) as f64) * rec_max; // 0..1
+                let y = ilog.ilog(r + (j as i64 + chksum as i64 - *p as i64) as f64);
 
                 if cs > 1 || (fastrand::u16(0..32767) as f64) < csd_max {
                     match i {
@@ -225,8 +226,7 @@ pub fn fv(input: &Path) -> ! {
                     }
                 }  
             }
-            p = (j + chksum as u64) as u32;
-            index[((h ^ (h >> 16)) as usize) & (HSIZE-1)] = p;
+            *p = (j + chksum as u64) as u32;
         }
         println!("Drew part {} of 4 in {:.2?}",
             i + 1, start_pass.elapsed());
