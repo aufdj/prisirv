@@ -76,6 +76,7 @@ impl Config {
         let mut fv       = false;
         let mut threads  = 4;
         let mut inputs   = Vec::new();
+        let mut col_opt  = 10.0;
         
         for arg in args.iter() {
             match arg.as_str() {
@@ -103,13 +104,16 @@ impl Config {
                     parser = Parse::Threads;
                     continue;
                 }
+                "fv" => {
+                    parser = Parse::Fv;
+                    continue;
+                }
                 "c" | "compress"    => parser = Parse::Compress,
                 "d" | "decompress"  => parser = Parse::Decompress,
                 "-sld" | "-solid"   => parser = Parse::Solid,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
                 "-clb" | "-clobber" => parser = Parse::Clobber,
                 "ls" | "list"       => parser = Parse::List,
-                "fv"                => parser = Parse::Fv,
                 "help"              => print_program_info(),
                 _ => {},
             }
@@ -173,7 +177,13 @@ impl Config {
                 }
                 Parse::Fv => {
                     fv = true;
-                    parser = Parse::Inputs;
+                    match arg.parse::<f64>() {
+                        Ok(c) =>  {
+                            col_opt = c;
+                            parser = Parse::Inputs;
+                        }
+                        Err(_) => inputs.push(PathBuf::from(arg)),
+                    }
                 }
                 Parse::None => {},
             }
@@ -187,7 +197,7 @@ impl Config {
             }
         }
 
-        if fv { fv::fv(&inputs[0]); }
+        if fv { fv::fv(&inputs[0], col_opt); }
 
         let dir_out = fmt_root_output_dir(arch, mode, &user_out, &inputs[0]);
 

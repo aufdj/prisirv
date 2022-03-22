@@ -88,7 +88,8 @@ impl Image {
         assert!(x < self.width);
         assert!(y < self.height);
 
-        let i = ((y * self.width + x) * 3) as usize;
+        let row = y * self.width;
+        let i = ((row + x) * 3) as usize;
 
         let mut c = self.pixels[i] as i32 + blue;
         self.pixels[i] = 
@@ -134,7 +135,7 @@ impl Image {
     }
 }
 
-pub fn fv(file_path: &Path) -> ! {
+pub fn fv(file_path: &Path, col_opt: f64) -> ! {
     let time        = Instant::now();
     let size        = file_len(file_path);
     let mut file_in = new_input_file(4096, file_path);
@@ -157,17 +158,21 @@ pub fn fv(file_path: &Path) -> ! {
     }
 
     // Draw tick marks on the Y axis (log base 10 scale)
-    let y_label_width: i32 = width / 50;
+    let y_label_width: i32 = width / 50; // Tick mark width
     let mut i = 1;
     if height >= 2 && width >= 2 {
         loop {
             for j in 1i32..10 {
-                if (i * j as u64) < size {
-                    let a = ((i * j as u64) as f64).ln();
+                let log_pos = i * j as u64; // 1, 2, 3.., 10, 20, 30.., 100, 200, 300..
+                if log_pos < size {
+                    let a = (log_pos as f64).ln();
                     let b = fsize.ln();
-                    let r = (fheight * a / b) as i32;
-                    for k in 0..y_label_width {
-                        img.put(k, r, -255/j, -255/j, -255/j);
+                    let y = (fheight * a / b) as i32;
+                    // Darken a horizontal line of pixels to create a tick mark.
+                    // Marks start as black and progressively turn lighter gray,
+                    // returning to black at each new order of magnitude.
+                    for x in 0..y_label_width {
+                        img.put(x, y, -255/j, -255/j, -255/j);
                     }    
                 }
             }
@@ -177,7 +182,7 @@ pub fn fv(file_path: &Path) -> ! {
     }
     
     // Darken x,y where there are matching strings at x and y (scaled) in s
-    let csd     = 10.0 * fwidth * fheight / (fsize + 0.5); // Color scale
+    let csd     = col_opt * fwidth * fheight / (fsize + 0.5); // Color scale
     let cs      = csd as i32 + 1; // Rounded color scale
     let l2      = fheight / (2.0 + fsize).ln();
     let ilog    = Ilog::new(l2);
@@ -195,8 +200,8 @@ pub fn fv(file_path: &Path) -> ! {
         if i >= 2 {
             for i in ht.iter_mut() { *i = 0; }
         }
-        let mut h: u32 = 0;
-        let mut xd: f64 = y_label_width as f64 - xscale;
+        let mut h: u32 = 0; // Hash
+        let mut xd: f64 = y_label_width as f64 - xscale; // Starting x position
         
         for j in 0..size {
             let c = file_in.read_byte() as u32;
@@ -207,7 +212,7 @@ pub fn fv(file_path: &Path) -> ! {
                 _ => h * (16 * 123456789) + c + 1,  // Hash of last 8 bytes, 4th pass
             };
 
-            xd += xscale;
+            xd += xscale; // Move to next x position
 
             let p = &mut ht[((h ^ (h >> 16)) as usize) & (HSIZE-1)];
             let chksum = (h & 0xC0000000) as u32;
