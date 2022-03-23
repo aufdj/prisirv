@@ -32,7 +32,25 @@ The y axis is scaled log base 10.  The maximum range of a match is 1 GB.
 // To reduce memory usage, use smaller power of 2. This may cause the 
 // program to miss long range matches in very large files, but won't 
 // affect smaller files.
-const HSIZE: usize = 0x8000000;  
+const HSIZE: usize = 0x8000000;
+
+
+/// Linear Congruential Generator
+// https://www.rosettacode.org/wiki/Linear_congruential_generator#Rust
+struct Rand {
+    state: u32,
+}
+impl Rand {
+    fn seed(x: u32) -> Rand {
+        Rand { state: x }
+    }
+    // Generate random number in 0..32767
+    fn next(&mut self) -> u16 {
+        self.state = self.state.wrapping_mul(214013).wrapping_add(2531011);
+        self.state %= 1 << 31;
+        (self.state >> 16) as u16
+    }
+}
 
 
 // ilog(x) = (x.ln()*c) in range 0 to 255, faster than direct computation
@@ -190,7 +208,7 @@ pub fn fv(file_path: &Path, col_opt: f64) -> ! {
     let mut ht  = vec![0u32; HSIZE]; // Hash -> checksum (high 2 bits), location (low 30 bits)
     let csd_max = csd * 32767.0;
     let rec_max = 1.0 / 32767.0;
-    fastrand::seed(1);
+    let mut rand = Rand::seed(1);
 
     // Do 4 passes through file, first finding 1 byte matches (black),
     // then 2 (red), then 4 (green), then 8 (blue).
@@ -219,10 +237,10 @@ pub fn fv(file_path: &Path, col_opt: f64) -> ! {
 
             if *p > chksum && *p < (chksum as u64 + j) as u32 {
                 let x = xd as i32;
-                let r = (fastrand::u16(0..32767) as f64) * rec_max; // 0..1
+                let r = (rand.next() as f64) * rec_max; // 0..1
                 let y = ilog.ilog(r + (j as i64 + chksum as i64 - *p as i64) as f64);
 
-                if cs > 1 || (fastrand::u16(0..32767) as f64) < csd_max {
+                if cs > 1 || (rand.next() as f64) < csd_max {
                     match i {
                         0 => { img.put(x, y, -cs, -cs, -cs); } // Black, 1st pass 
                         1 => { img.put(x, y, 0,   -cs, -cs); } // Red,   2nd pass
