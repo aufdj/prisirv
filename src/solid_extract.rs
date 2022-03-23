@@ -32,7 +32,7 @@ struct FileWriter {
 impl FileWriter {
     fn new(files: &[(PathBuf, u64)], dir_out: &str) -> FileWriter {
         let (paths, lens): (Vec<PathBuf>, Vec<u64>) = 
-            files.to_owned().into_iter().unzip();
+            files.iter().cloned().unzip();
 
         let mut paths = paths.into_iter();
         let mut lens  = lens.into_iter();

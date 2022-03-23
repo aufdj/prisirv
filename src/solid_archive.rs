@@ -98,7 +98,7 @@ impl SolidArchiver {
         for file in self.mta.files.iter() {
             // Output null terminated path string.
             let path = file.0.to_str().unwrap().as_bytes();
-            self.archive.write(path).unwrap();
+            self.archive.write_all(path).unwrap();
             self.archive.write_byte(0);
 
             // Output file length
@@ -127,7 +127,7 @@ impl SolidArchiver {
 fn collect_files(inputs: &[PathBuf], mta: &mut Metadata) {
     // Group files and directories 
     let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-        inputs.to_owned().into_iter()
+        inputs.iter().cloned()
         .partition(|f| f.is_file());
 
     // Walk through directories and collect all files
