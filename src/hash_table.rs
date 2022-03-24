@@ -29,6 +29,7 @@
 /// State array length.
 const B: usize = 16;
 
+#[repr(align(64))]
 pub struct HashTable {
     t:     Vec<u8>, // Hash table mapping index to state array
     size:  usize,   // Size of hash table in bytes

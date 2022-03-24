@@ -257,8 +257,8 @@ impl Config {
         println!("Archive {}", extr.cfg.inputs[0].display());
         println!();
         println!("Contents:");
-        for (file, len) in extr.mta.files.iter() {
-            println!("{} ({} bytes)", file.display(), len);
+        for file in extr.mta.files.iter() {
+            println!("{} ({} bytes)", file.path.display(), file.len);
         }
         println!("=======================================================================");
         std::process::exit(0);

@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     Mode,
-    metadata::Metadata,
+    metadata::{Metadata, FileData},
     threads::ThreadPool,
     progress::Progress,
     formatting::fmt_file_out_s_extract,
@@ -22,36 +22,32 @@ use crate::{
 /// A decompressed block can span multiple files, so a FileWriter is used 
 /// to handle swapping files when needed while writing a block.
 struct FileWriter {
-    file_in_paths:  Box<dyn Iterator<Item = PathBuf>>, // All input file paths
-    file_in_lens:   Box<dyn Iterator<Item = u64>>,     // All input file lengths
-    file_out:       BufWriter<File>,                   // Current output file
-    file_out_pos:   u64,                               // Current output file position
-    file_in_len:    u64,                               // Uncompressed file length
-    dir_out:        String,                            // Output directory
+    files:          Box<dyn Iterator<Item = FileData>>, // Input file data
+    file_out:       BufWriter<File>,                    // Current output file
+    file_out_pos:   u64,                                // Current output file position
+    file_in_len:    u64,                                // Uncompressed file length
+    dir_out:        String,                             // Output directory
 }
 impl FileWriter {
-    fn new(files: &[(PathBuf, u64)], dir_out: &str) -> FileWriter {
-        let (paths, lens): (Vec<PathBuf>, Vec<u64>) = 
-            files.iter().cloned().unzip();
+    fn new(files: Vec<FileData>, dir_out: &str) -> FileWriter {
+        let mut files = files.into_iter();
 
-        let mut paths = paths.into_iter();
-        let mut lens  = lens.into_iter();
-
-        let file_out = next_file(&paths.next().unwrap(), dir_out);
-        let file_in_len = lens.next().unwrap();
+        let file = files.next().unwrap();
+        let file_out = next_file(&file.path, dir_out);
+        let file_in_len = file.len;
 
         FileWriter {
-            file_out_pos:   0,
-            dir_out:        dir_out.to_string(),
-            file_in_paths:  Box::new(paths), 
-            file_in_lens:   Box::new(lens), 
+            dir_out:      dir_out.to_string(),
+            files:        Box::new(files), 
+            file_out_pos: 0,
             file_out, 
             file_in_len,
         }
     }
     fn update(&mut self) {
-        self.file_out = next_file(&self.file_in_paths.next().unwrap(), &self.dir_out);
-        self.file_in_len = self.file_in_lens.next().unwrap();
+        let file = self.files.next().unwrap();
+        self.file_out = next_file(&file.path, &self.dir_out);
+        self.file_in_len = file.len;
         self.file_out_pos = 0;
     }
     fn write_byte(&mut self, byte: u8) {
@@ -119,7 +115,7 @@ impl SolidExtractor {
         tp.decompress_block(blk.clone(), index, self.mta.fblk_sz);
         blk.clear();
 
-        let mut fw = FileWriter::new(&self.mta.files, &self.cfg.dir_out);
+        let mut fw = FileWriter::new(self.mta.files.clone(), &self.cfg.dir_out);
         let mut blks_wrtn: u64 = 0;
         
         // Write blocks to output 
@@ -169,7 +165,13 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
                         .map(|b| *b as char)
                         .collect::<String>();
                     let file_len = archive.read_u64();
-                    mta.files.push((PathBuf::from(&path_string), file_len));
+
+                    mta.files.push(
+                        FileData {
+                            path: PathBuf::from(&path_string),
+                            len:  file_len,
+                        }
+                    );
                     path.clear();
                     break;
                 }

@@ -7,7 +7,7 @@ use std::{
 use crate::{
     Mode,
     sort::sort_files,
-    metadata::Metadata,
+    metadata::{Metadata, FileData},
     threads::ThreadPool,
     progress::Progress,
     config::Config,
@@ -35,13 +35,17 @@ impl SolidArchiver {
         
         // Collect and sort files.
         collect_files(&cfg.inputs, &mut mta);
-        mta.files.sort_by(|f1, f2| sort_files(&f1.0, &f2.0, cfg.sort));
+        mta.files.sort_by(|f1, f2| 
+            sort_files(&f1.path, &f2.path, cfg.sort)
+        );
 
         let mut prg = Progress::new(&cfg, Mode::Compress);
         prg.get_archive_size_enc(&mta.files);
 
         let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
-        for _ in 0..6 { archive.write_u64(0); }
+        for _ in 0..6 { 
+            archive.write_u64(0); 
+        }
 
         SolidArchiver { 
             archive, cfg, prg, mta
@@ -55,9 +59,8 @@ impl SolidArchiver {
 
         // Read files into blocka and compress
         for file in self.mta.files.iter() {
-            let file_path = Path::new(&file.0);
-            let file_len = file_len(file_path);
-            let mut file_in = new_input_file(blk.capacity(), file_path);
+            let file_len = file_len(&file.path);
+            let mut file_in = new_input_file(blk.capacity(), &file.path);
 
             for _ in 0..file_len {
                 blk.push(file_in.read_byte());
@@ -97,12 +100,12 @@ impl SolidArchiver {
 
         for file in self.mta.files.iter() {
             // Output null terminated path string.
-            let path = file.0.to_str().unwrap().as_bytes();
+            let path = file.path.to_str().unwrap().as_bytes();
             self.archive.write_all(path).unwrap();
             self.archive.write_byte(0);
 
             // Output file length
-            self.archive.write_u64(file.1);
+            self.archive.write_u64(file.len);
         }
 
         // Write compressed block sizes
@@ -132,7 +135,12 @@ fn collect_files(inputs: &[PathBuf], mta: &mut Metadata) {
 
     // Walk through directories and collect all files
     for file in files.iter() {
-        mta.files.push((file.clone(), file_len(file)));
+        mta.files.push(
+            FileData {
+                path: file.clone(),
+                len:  file_len(file),
+            }
+        );
     }
     for dir in dirs.iter() {
         collect(dir, mta);
@@ -145,7 +153,12 @@ fn collect(dir_in: &Path, mta: &mut Metadata) {
         .partition(|f| f.is_file());
 
     for file in files.iter() {
-        mta.files.push((file.clone(), file_len(file)));
+        mta.files.push(
+            FileData {
+                path: file.clone(),
+                len:  file_len(file),
+            }
+        );
     }
     for dir in dirs.iter() {
         collect(dir, mta);

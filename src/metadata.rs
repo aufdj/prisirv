@@ -6,6 +6,13 @@ use std::{
 
 use crate::config::Config;
 
+/// Input file data
+#[derive(Debug, Clone)]
+pub struct FileData {
+    pub path:  PathBuf,
+    pub len:   u64,
+}
+
 
 /// # Metadata Structure 
 ///
@@ -58,7 +65,7 @@ pub struct Metadata {
     pub blk_c:    u64,   // Block count
     pub f_ptr:    u64,   // Pointer to footer
     pub enc_blk_szs: Vec<u64>, // Compressed block sizes
-    pub files: Vec<(PathBuf, u64)>, // Path, length    
+    pub files: Vec<FileData>,    
 }
 impl Metadata {
     /// Initialize new metadata.

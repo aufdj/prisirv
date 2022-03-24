@@ -8,6 +8,7 @@ use crate::{
     Mode,
     config::Config,
     buffered_io::file_len,
+    metadata::FileData,
 };
 
 
@@ -80,9 +81,9 @@ impl Progress {
 
     /// Get input archive size and calculate total block count by dividing 
     /// input size by block size.
-    pub fn get_archive_size_enc(&mut self, files: &[(PathBuf, u64)]) {
-        for file in files.iter().map(|f| &f.0) {
-            self.in_size += file_len(file);
+    pub fn get_archive_size_enc(&mut self, files: &[FileData]) {
+        for file in files.iter() {
+            self.in_size += file.len;
         }
         self.total_blks = (self.in_size as f64/self.blk_sz as f64).ceil() as u64;
     }
