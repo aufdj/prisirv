@@ -45,10 +45,10 @@ impl Rand {
         Rand { state: x }
     }
     // Generate random number in 0..32767
-    fn next(&mut self) -> u16 {
+    fn next(&mut self) -> f64 {
         self.state = self.state.wrapping_mul(214013).wrapping_add(2531011);
         self.state %= 1 << 31;
-        (self.state >> 16) as u16
+        (self.state >> 16) as f64
     }
 }
 
@@ -224,23 +224,24 @@ pub fn fv(file_path: &Path, col_opt: f64) -> ! {
         for j in 0..size {
             let c = file_in.read_byte() as u32;
             h = match i {
-                0 => c + 0x10000,                   // Hash of last byte,    1st pass
-                1 => (h * 256 + c) & 0xFFFF,        // Hash of last 2 bytes, 2nd pass
-                2 => h * 29 * 256 + c + 1,          // Hash of last 4 bytes, 3rd pass
-                _ => h * (16 * 123456789) + c + 1,  // Hash of last 8 bytes, 4th pass
+                0 => c + 0x10000,                  // Hash of last byte,    1st pass
+                1 => (h * 256 + c) & 0xFFFF,       // Hash of last 2 bytes, 2nd pass
+                2 => h * 29 * 256 + c + 1,         // Hash of last 4 bytes, 3rd pass
+                _ => h * (16 * 123456789) + c + 1, // Hash of last 8 bytes, 4th pass
             };
 
             xd += xscale; // Move to next x position
 
-            let p = &mut ht[((h ^ (h >> 16)) as usize) & (HSIZE-1)];
-            let chksum = (h & 0xC0000000) as u32;
-
-            if *p > chksum && *p < (chksum as u64 + j) as u32 {
+            let prev_loc = &mut ht[((h ^ (h >> 16)) as usize) & (HSIZE-1)]; 
+            let chksum   = (h & 0xC0000000) as u32;
+            let new_loc  = chksum as u64 + j;
+            
+            if *prev_loc > chksum && *prev_loc < new_loc as u32 {
                 let x = xd as i32;
-                let r = (rand.next() as f64) * rec_max; // 0..1
-                let y = ilog.ilog(r + (j as i64 + chksum as i64 - *p as i64) as f64);
+                let r = rand.next() * rec_max; // 0..1
+                let y = ilog.ilog(r + (new_loc as i64 - *prev_loc as i64) as f64);
 
-                if cs > 1 || (rand.next() as f64) < csd_max {
+                if cs > 1 || rand.next() < csd_max {
                     match i {
                         0 => { img.put(x, y, -cs, -cs, -cs); } // Black, 1st pass 
                         1 => { img.put(x, y, 0,   -cs, -cs); } // Red,   2nd pass
@@ -249,7 +250,7 @@ pub fn fv(file_path: &Path, col_opt: f64) -> ! {
                     }
                 }  
             }
-            *p = (j + chksum as u64) as u32;
+            *prev_loc = new_loc as u32;
         }
         println!("Drew part {} of 4 in {:.2?}",
             i + 1, start_pass.elapsed());
