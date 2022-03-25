@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    io::Seek,
+    io::{Write, Seek},
     fs::File,
     io::BufWriter,
 };
@@ -21,6 +21,8 @@ use crate::{
     },
 };
 
+/// Size of header in bytes
+const PLACEHOLDER: [u8; 56] = [0; 56];
 
 /// An archiver creates non-solid archives. A non-solid archive is an 
 /// archive containing independently compressed files. Non-solid archiving 
@@ -76,9 +78,7 @@ impl Archiver {
 
         // Create output file and write metadata placeholder
         let mut file_out = new_output_file(4096, &file_out_path);
-        for _ in 0..7 { 
-            file_out.write_u64(0); 
-        }
+        file_out.write_all(&PLACEHOLDER).unwrap();
 
         // Set metadata extension field
         mta.set_ext(file_in_path);

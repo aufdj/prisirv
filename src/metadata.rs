@@ -50,9 +50,9 @@ pub struct FileData {
 /// paths and lengths.
 /// 
 ///
-/// Memory Option: 1 << 20..1 << 29,
+/// Memory Option: 1<<20..1<<29,
 /// Magic Number:  'prsv' for non-solid archives, 'PRSV' for solid archives,
-/// Block Size:    1 << 20,
+/// Block Size:    10<<20,
 
 #[derive(Debug)]
 pub struct Metadata {

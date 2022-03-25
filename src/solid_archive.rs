@@ -17,6 +17,8 @@ use crate::{
     },
 };
 
+/// Size of header in bytes
+const PLACEHOLDER: [u8; 48] = [0; 48];
 
 /// A solid archiver creates solid archives, or an archive containing files 
 /// compressed as one stream. Solid archives take advantage of redundancy 
@@ -43,9 +45,7 @@ impl SolidArchiver {
         prg.get_archive_size_enc(&mta.files);
 
         let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
-        for _ in 0..6 { 
-            archive.write_u64(0); 
-        }
+        archive.write_all(&PLACEHOLDER).unwrap();
 
         SolidArchiver { 
             archive, cfg, prg, mta
