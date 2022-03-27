@@ -24,7 +24,7 @@ pub enum Message {
 type Job = Box<dyn FnOnce() -> (Vec<u8>, u64) + Send + 'static>;
 
 /// A threadpool spawns a set number of threads and handles sending new 
-/// jobs to idle threads, where a new job is a function that returns a
+/// jobs to idle threads, where a job is a function that returns a
 /// compressed or decompressed block.
 pub struct ThreadPool {
     threads:  Vec<Thread>,
@@ -203,7 +203,6 @@ impl BlockQueue {
         // Try to find next block to be output
         for (blk_i, blk) in self.blocks.iter_mut().enumerate() {
             if blk.1 == self.next_out {
-                self.next_out += 1;
                 blk_out.append(&mut blk.0);
                 index = Some(blk_i);
             }
@@ -212,6 +211,7 @@ impl BlockQueue {
         // If next block was found, remove from list
         if let Some(i) = index {
             self.blocks.swap_remove(i);
+            self.next_out += 1;
         }
     }
 }
