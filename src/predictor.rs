@@ -1,11 +1,18 @@
 use crate::{
-    match_model::MatchModel, 
-    hash_table::HashTable, 
-    apm::Apm, 
-    mixer::Mixer, 
     logistic::stretch, 
-    statemap::StateMap, 
     tables::STATE_TABLE,
+    word_model::WordModel,
+    match_model::MatchModel, 
+    context_model::{
+        ContextModelO1,
+        ContextModelO2,
+        ContextModelO3,
+        ContextModelO4,
+        ContextModelO6,
+    },
+    hash_table::HashTable, 
+    mixer::Mixer, 
+    apm::Apm, 
 };
 
 
@@ -69,40 +76,52 @@ use crate::{
 /// -endian base-256 fraction.
 
 /// Transition to next state in state table.
-fn next_state(state: u8, bit: i32) -> u8 {
+pub fn next_state(state: u8, bit: i32) -> u8 {
     STATE_TABLE[state as usize][bit as usize]
 }
 
 pub struct Predictor {
-    cxt:   u32,           // Order 0 context
-    cxt4:  u32,           // Order 3 context
-    bits:  usize,         // Number of bits currently in 'cxt'
-    pr:    i32,           // Prediction
-    h:     [u32; 6],      // Order 1, 2, 3, 4, 6, and Unigram Word contexts 
-    sp:    [*mut u8; 6],  // Pointers to state within a state array
-    t0:    [u8; 65_536],  // Order 1 context direct lookup table
-    mm:    MatchModel,    // Model for longest context match
-    ht:    HashTable,     // Hash table for mapping contexts to state arrays
-    apm1:  Apm,           // Adaptive Probability Map for refining Mixer output
-    apm2:  Apm,           //
-    mxr:   Mixer,         // For weighted averaging of independent predictions
-    sm:    Vec<StateMap>, // 6 State Maps
+    cxt:   u32,            // Order 0 context
+    bits:  usize,          // Number of bits currently in 'cxt'
+    pr:    i32,            // Prediction
+    wm:    WordModel,      // Lowercase unigram word model
+    mm:    MatchModel,     // Match model
+    cm1:   ContextModelO1, // Order 1 context model
+    cm2:   ContextModelO2, // Order 2 context model 
+    cm3:   ContextModelO3, // Order 3 context model
+    cm4:   ContextModelO4, // Order 4 context model
+    cm6:   ContextModelO6, // Order 6 context model
+    ht:    HashTable,      // Hash table for mapping contexts to state arrays
+    mxr:   Mixer,          // For weighted averaging of independent predictions
+    apm1:  Apm,            // Adaptive Probability Map for refining Mixer output
+    apm2:  Apm,            //
 }
 impl Predictor {
     /// Create a new Predictor.
     pub fn new(mem: usize) -> Predictor {
         let mut p = Predictor {
-            cxt:   1,            mm:    MatchModel::new(mem),
-            cxt4:  0,            ht:    HashTable::new(mem*2),
-            bits:  0,            apm1:  Apm::new(256),
-            pr:    2048,         apm2:  Apm::new(16384),
-            h:     [0; 6],       mxr:   Mixer::new(7, 80),
-            sp:    [&mut 0; 6],  sm:    vec![StateMap::new(256); 6],
-            t0:    [0; 65_536],  
+            cxt:   1,                               
+            bits:  0,            
+            pr:    2048,         
+            wm:    WordModel::new(),
+            mm:    MatchModel::new(mem),
+            cm1:   ContextModelO1::new(),
+            cm2:   ContextModelO2::new(),
+            cm3:   ContextModelO3::new(),
+            cm4:   ContextModelO4::new(),
+            cm6:   ContextModelO6::new(),
+            ht:    HashTable::new(mem*2),
+            mxr:   Mixer::new(7, 80),
+            apm1:  Apm::new(256),
+            apm2:  Apm::new(16384),
         };
-        for i in 0..6 {
-            p.sp[i] = &mut p.t0[0];
-        }
+        
+        p.wm.state  = &mut p.cm1.t0[0];
+        p.cm1.state = &mut p.cm1.t0[0];
+        p.cm2.state = &mut p.cm1.t0[0];
+        p.cm3.state = &mut p.cm1.t0[0];
+        p.cm4.state = &mut p.cm1.t0[0];
+        p.cm6.state = &mut p.cm1.t0[0];
         p
     }
 
@@ -112,99 +131,77 @@ impl Predictor {
         self.pr
     }
 
-    /// Set state pointers to beginning of new state arrays.
-    pub fn new_state_arr(&mut self, cxt: [u32; 6], nibble: u32) {
-        unsafe {
-            for (i, cxt) in cxt.iter().enumerate().skip(1) {
-                self.sp[i] = self.ht.hash(cxt + nibble).add(1);
-            }
-        }
-    }
-
-    /// Update order 1, 2, 3, 4, 6, and unigram word contexts.
-    pub fn update_cxts(&mut self, cxt: u32, cxt4: u32) {
-        self.h[0] =  cxt << 8;                         // Order 1
-        self.h[1] = (cxt4 & 0xFFFF) << 5 | 0x57000000; // Order 2
-        self.h[2] = (cxt4 << 8).wrapping_mul(3);       // Order 3
-        self.h[3] =  cxt4.wrapping_mul(5);             // Order 4
-        self.h[4] = (self.h[4].wrapping_mul(11 << 5)   // Order 6
-                     + cxt * 13) & 0x3FFFFFFF;
-        
-        self.h[5] = match self.cxt { // Unigram Word Order
-            65..=90 => {
-                self.cxt += 32; // Fold to lowercase
-                (self.h[5] + self.cxt).wrapping_mul(7 << 3)
-            },
-            97..=122 => {
-                (self.h[5] + self.cxt).wrapping_mul(7 << 3)
-            },
-            _ => 0,
-        };
-    }
-
     /// Update contexts and states, map states to predictions, and mix
     /// predictions in Mixer.
     pub fn update(&mut self, bit: i32) {
         assert!(bit == 0 || bit == 1);
-
-        // Transition to new states
-        unsafe {
-            for i in 0..6 {
-                *self.sp[i] = next_state(*self.sp[i], bit);
-            }
-        }
+        
         self.mxr.update(bit);
-
+        self.wm.update(bit);
+        self.cm1.update(bit);
+        self.cm2.update(bit);
+        self.cm3.update(bit);
+        self.cm4.update(bit);
+        self.cm6.update(bit);
+        
         // Update order-0 context
         self.cxt += self.cxt + bit as u32;
         self.bits += 1;
 
         if self.cxt >= 256 { // Byte boundary
-            // Update order-3 context
-            self.cxt -= 256;
-            self.cxt4 = (self.cxt4 << 8) | self.cxt;
-
-            self.update_cxts(self.cxt, self.cxt4);
-
-            self.new_state_arr(self.h, 0);
-
+            self.new_state_arr(0);
             self.cxt = 1;
             self.bits = 0;
         }
         if self.bits == 4 { // Nibble boundary
-            self.new_state_arr(self.h, self.cxt);
+            self.new_state_arr(self.cxt);
         }
-        else if self.bits > 0 {
-            // Calculate new state array index
-            let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
-            unsafe {
-                for i in 1..6 {
-                    self.sp[i] = self.sp[i].add(j);
-                }
-            }
-        }
-    
-        // Update order-1 context
-        unsafe { 
-        self.sp[0] = ((&mut self.t0[0] as *mut u8)
-                     .add(self.h[0] as usize))
-                     .add(self.cxt as usize);
-        }
-        
 
+        
         // Get prediction and length from match model
         self.mm.p(bit, &mut self.mxr);
         let len = self.mm.len();
+        let order = self.order(len);
+
+        // Add independent predictions to mixer 
+        self.mxr.add(stretch(self.wm.p(bit)));
+        self.mxr.add(stretch(self.cm1.p(bit)));
+        self.mxr.add(stretch(self.cm2.p(bit)));
+        self.mxr.add(stretch(self.cm3.p(bit)));
+        self.mxr.add(stretch(self.cm4.p(bit)));
+        self.mxr.add(stretch(self.cm6.p(bit)));
+        
+        // Set weights to be used during mixing
+        self.mxr.set(order + 10 * (self.cm1.o1cxt >> 13));
+
+        // Mix
+        self.pr = self.mxr.p();
+
+        // 2 SSE stages
+        self.pr = (self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cxt)) >> 2;
+        self.pr = (self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.cm1.o1cxt >> 2)) >> 2;
+    }
+    /// Map context hashes to state arrays
+    pub fn new_state_arr(&mut self, nibble: u32) {
+        unsafe {
+            self.wm.state  = self.ht.hash(self.wm.word_cxt + nibble).add(1);
+            self.cm2.state = self.ht.hash(self.cm2.o2cxt + nibble).add(1);
+            self.cm3.state = self.ht.hash(self.cm3.o3cxt + nibble).add(1);
+            self.cm4.state = self.ht.hash(self.cm4.o4cxt + nibble).add(1);
+            self.cm6.state = self.ht.hash(self.cm6.o6cxt + nibble).add(1);
+        }
+    }
+    fn order(&mut self, len: usize) -> u32 {
         let mut order: u32 = 0;
 
         // If len is 0, order is determined from 
         // number of non-zero bit histories
         if len == 0 {
             unsafe {
-            if *self.sp[4] != 0 { order += 1; }
-            if *self.sp[3] != 0 { order += 1; }
-            if *self.sp[2] != 0 { order += 1; }
-            if *self.sp[1] != 0 { order += 1; }
+                if *self.cm2.state != 0 { order += 1; }
+                if *self.cm3.state != 0 { order += 1; }
+                if *self.cm4.state != 0 { order += 1; }
+                if *self.cm6.state != 0 { order += 1; }
             }
         }
         else {
@@ -214,24 +211,6 @@ impl Predictor {
             if len >= 16 { 1 } else { 0 } +
             if len >= 32 { 1 } else { 0 };
         }
-
-        // Add independent predictions to mixer 
-        unsafe {
-            for i in 0..6 {
-                self.mxr.add(
-                    stretch(self.sm[i].p(bit, *self.sp[i] as i32))
-                );
-            }
-        }
-
-        // Set weights to be used during mixing
-        self.mxr.set(order + 10 * (self.h[0] >> 13));
-
-        // Mix
-        self.pr = self.mxr.p();
-
-        // 2 SSE stages
-        self.pr = (self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cxt)) >> 2;
-        self.pr = (self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.h[0] >> 2)) >> 2;
+        order
     }
 }

@@ -22,6 +22,8 @@ pub mod config;
 pub mod crc32;
 mod error;
 mod fv;
+mod word_model;
+mod context_model;
 
 use std::path::PathBuf;
 
