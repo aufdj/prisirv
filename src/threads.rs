@@ -43,19 +43,23 @@ impl ThreadPool {
         let prg  = Arc::new(Mutex::new(prg));
 
         for _ in 0..size {
-            threads.push(Thread::new(Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)));
+            threads.push(
+                Thread::new(
+                    Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)
+                )
+            );
         }
         ThreadPool { threads, sndr, mem, bq }
     }
     
     /// Create a new message containing a job consisting of compressing an
     /// input block and returning the compressed block and its index.
-    pub fn compress_block(&mut self, block: Vec<u8>, index: u64, blk_sz: usize) {
+    pub fn compress_block(&mut self, block: Vec<u8>, index: u64) {
         let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut enc = Encoder::new(mem, blk_sz);
+                    let mut enc = Encoder::new(mem, block.len());
                     enc.compress_block(&block);
                     (enc.out, index)
                 })
@@ -65,6 +69,9 @@ impl ThreadPool {
 
     /// Create a new message containing a job consisting of decompressing
     /// an input block and returning the compressed block and its index.
+    //  The decompressed block will be larger than the compressed block, 
+    //  so pass in blk_sz instead of using block.len() to avoid growing 
+    //  output vector.
     pub fn decompress_block(&mut self, block: Vec<u8>, index: u64, blk_sz: usize) {
         let mem = self.mem as usize;
         self.sndr.send(

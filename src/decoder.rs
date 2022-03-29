@@ -56,7 +56,7 @@ impl Decoder {
         while block.len() < block.capacity() {
             let mut byte: i32 = 1;
             while byte < 256 {
-                byte += byte + self.decompress_bit();
+                byte = (byte << 1) + self.decompress_bit();
             }
             byte -= 256;
             block.push(byte as u8);

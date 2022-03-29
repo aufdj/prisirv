@@ -27,7 +27,7 @@ impl ContextModelO1 {
     pub fn update(&mut self, bit: i32) {
         unsafe { *self.state = next_state(*self.state, bit); }
 
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.bits == 8 {
@@ -70,7 +70,7 @@ impl ContextModelO2 {
     pub fn update(&mut self, bit: i32) {
         unsafe { *self.state = next_state(*self.state, bit); }
 
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.bits == 8 {
@@ -111,7 +111,7 @@ impl ContextModelO3 {
     pub fn update(&mut self, bit: i32) {
         unsafe { *self.state = next_state(*self.state, bit); }
 
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.bits == 8 {
@@ -152,7 +152,7 @@ impl ContextModelO4 {
     pub fn update(&mut self, bit: i32) {
         unsafe { *self.state = next_state(*self.state, bit); }
 
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.bits == 8 {
@@ -193,7 +193,7 @@ impl ContextModelO6 {
     pub fn update(&mut self, bit: i32) {
         unsafe { *self.state = next_state(*self.state, bit); }
 
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.bits == 8 {

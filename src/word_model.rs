@@ -18,17 +18,19 @@ impl WordModel {
             sm:        StateMap::new(256),
         }
     }
+
     pub fn p(&mut self, bit: i32) -> i32 {
         unsafe { self.sm.p(bit, *self.state as i32) }
     }
+
     pub fn update(&mut self, bit: i32) {
         unsafe { *self.state = next_state(*self.state, bit); }
 
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.bits == 8 {
-            self.word_cxt = match self.cxt { // Unigram Word Order
+            self.word_cxt = match self.cxt {
                 65..=90 => {
                     self.cxt += 32; // Fold to lowercase
                     (self.word_cxt + self.cxt).wrapping_mul(7 << 3)

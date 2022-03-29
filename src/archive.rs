@@ -39,7 +39,7 @@ impl Archiver {
         let prg = Progress::new(&cfg, Mode::Compress);
         
         Archiver {
-            cfg, prg, files: Vec::with_capacity(32),
+            cfg, prg, files: Vec::new(),
         }
     }
 
@@ -68,29 +68,24 @@ impl Archiver {
 
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
 
-        let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
-        if self.cfg.clbr { 
-            self.files.push(file_out_path.clone()); 
-        }
-        
         // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.blk_sz, file_in_path);
 
         // Create output file and write metadata placeholder
+        let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
+        if self.cfg.clbr { self.files.push(file_out_path.clone()); }
         let mut file_out = new_output_file(4096, &file_out_path);
         file_out.write_all(&PLACEHOLDER).unwrap();
 
         // Set metadata extension field
         mta.set_ext(file_in_path);
         
-        let mut index: u64 = 0;
         let mut blks_wrtn: u64 = 0;
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
 
         while file_in.fill_buffer() == BufferState::NotEmpty {
             mta.fblk_sz = file_in.buffer().len();
-            tp.compress_block(file_in.buffer().to_vec(), index, self.cfg.blk_sz);
-            index += 1;
+            tp.compress_block(file_in.buffer().to_vec(), mta.blk_c);
             mta.blk_c += 1;
         }
 

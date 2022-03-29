@@ -145,7 +145,7 @@ impl Predictor {
         self.cm6.update(bit);
         
         // Update order-0 context
-        self.cxt += self.cxt + bit as u32;
+        self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
         if self.cxt >= 256 { // Byte boundary
@@ -156,14 +156,9 @@ impl Predictor {
         if self.bits == 4 { // Nibble boundary
             self.new_state_arr(self.cxt);
         }
-
         
-        // Get prediction and length from match model
-        self.mm.p(bit, &mut self.mxr);
-        let len = self.mm.len();
-        let order = self.order(len);
-
         // Add independent predictions to mixer 
+        self.mxr.add(stretch(self.mm.p(bit)));
         self.mxr.add(stretch(self.wm.p(bit)));
         self.mxr.add(stretch(self.cm1.p(bit)));
         self.mxr.add(stretch(self.cm2.p(bit)));
@@ -172,6 +167,7 @@ impl Predictor {
         self.mxr.add(stretch(self.cm6.p(bit)));
         
         // Set weights to be used during mixing
+        let order = self.order(self.mm.len());
         self.mxr.set(order + 10 * (self.cm1.o1cxt >> 13));
 
         // Mix
@@ -181,6 +177,7 @@ impl Predictor {
         self.pr = (self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cxt)) >> 2;
         self.pr = (self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.cm1.o1cxt >> 2)) >> 2;
     }
+    
     /// Map context hashes to state arrays
     pub fn new_state_arr(&mut self, nibble: u32) {
         unsafe {
@@ -191,6 +188,9 @@ impl Predictor {
             self.cm6.state = self.ht.hash(self.cm6.o6cxt + nibble).add(1);
         }
     }
+
+    /// Determine order from match model length or number
+    /// of non-zero bit histories.
     fn order(&mut self, len: usize) -> u32 {
         let mut order: u32 = 0;
 

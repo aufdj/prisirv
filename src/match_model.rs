@@ -1,8 +1,4 @@
-use crate::{
-    logistic::stretch,
-    statemap::StateMap,
-    mixer::Mixer,
-};
+use crate::statemap::StateMap;
 
 /// Maximum match length, up to 62
 const MAX_LEN: usize = 62; 
@@ -64,7 +60,7 @@ impl MatchModel {
     }
 
     /// Generate a prediction and add it to a Mixer.
-    pub fn p(&mut self, bit: i32, mxr: &mut Mixer) {
+    pub fn p(&mut self, bit: i32) -> i32 {
         self.update(bit);
 
         let mut cxt = self.cxt;
@@ -89,14 +85,13 @@ impl MatchModel {
         else {
             self.mch_len = 0;
         }
-
-        mxr.add(stretch(self.sm.p(bit, cxt as i32)));
+        self.sm.p(bit, cxt as i32)
     }
 
     /// Update context, rotating buffer, and check for matches.
     pub fn update(&mut self, bit: i32) {
         // Update order-0 context
-        self.cxt += self.cxt + bit as usize; 
+        self.cxt = (self.cxt << 1) + bit as usize;
         self.bits += 1;                      
 
         if self.bits == 8 { // Byte boundary

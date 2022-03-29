@@ -59,15 +59,14 @@ impl SolidArchiver {
 
         // Read files into blocka and compress
         for file in self.mta.files.iter() {
-            let file_len = file_len(&file.path);
             let mut file_in = new_input_file(blk.capacity(), &file.path);
 
-            for _ in 0..file_len {
+            for _ in 0..file.len {
                 blk.push(file_in.read_byte());
                 
                 // Compress full block
                 if blk.len() == blk.capacity() {
-                    tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
+                    tp.compress_block(blk.clone(), self.mta.blk_c);
                     self.mta.blk_c += 1;
                     blk.clear();
                 }
@@ -78,7 +77,7 @@ impl SolidArchiver {
             else { blk.len() };
 
         // Compress final block
-        tp.compress_block(blk.clone(), self.mta.blk_c, blk.len());
+        tp.compress_block(blk.clone(), self.mta.blk_c);
         self.mta.blk_c += 1;
 
         // Output blocks
