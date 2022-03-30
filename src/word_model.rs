@@ -1,5 +1,14 @@
-use crate::statemap::StateMap;
-use crate::predictor::next_state;
+use std::{
+    cell::RefCell,
+    rc::Rc,
+};
+
+use crate::{
+    statemap::StateMap,
+    predictor::next_state,
+    hash_table::HashTable,
+};
+
 
 pub struct WordModel {
     cxt:           u32,
@@ -7,19 +16,22 @@ pub struct WordModel {
     pub word_cxt:  u32,
     pub state:     *mut u8,
     sm:            StateMap,
+    ht:            Rc<RefCell<HashTable>>,
 }
 impl WordModel {
-    pub fn new() -> WordModel {
+    pub fn new(ht: Rc<RefCell<HashTable>>) -> WordModel {
         WordModel {
-            cxt:       0,
+            cxt:       1,
             bits:      0,
             word_cxt:  0,
             state:     &mut 0,
             sm:        StateMap::new(256),
+            ht,
         }
     }
 
     pub fn p(&mut self, bit: i32) -> i32 {
+        self.update(bit);
         unsafe { self.sm.p(bit, *self.state as i32) }
     }
 
@@ -29,7 +41,8 @@ impl WordModel {
         self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
 
-        if self.bits == 8 {
+        if self.cxt >= 256 {
+            self.cxt -= 256;
             self.word_cxt = match self.cxt {
                 65..=90 => {
                     self.cxt += 32; // Fold to lowercase
@@ -40,10 +53,14 @@ impl WordModel {
                 },
                 _ => 0,
             };
-            self.cxt = 0;
+            unsafe { self.state = self.ht.borrow_mut().hash(self.word_cxt).add(1); }
+            self.cxt = 1;
             self.bits = 0;
         }
-        if self.bits > 0 {
+        if self.bits == 4 {
+            unsafe { self.state = self.ht.borrow_mut().hash(self.word_cxt + self.cxt).add(1); }
+        }
+        else if self.bits > 0 {
             let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
             unsafe { self.state = self.state.add(j); }
         }

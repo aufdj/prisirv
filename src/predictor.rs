@@ -1,3 +1,8 @@
+use std::{
+    cell::RefCell,
+    rc::Rc,
+};
+
 use crate::{
     logistic::stretch, 
     tables::STATE_TABLE,
@@ -81,8 +86,6 @@ pub fn next_state(state: u8, bit: i32) -> u8 {
 }
 
 pub struct Predictor {
-    cxt:   u32,            // Order 0 context
-    bits:  usize,          // Number of bits currently in 'cxt'
     pr:    i32,            // Prediction
     wm:    WordModel,      // Lowercase unigram word model
     mm:    MatchModel,     // Match model
@@ -91,7 +94,6 @@ pub struct Predictor {
     cm3:   ContextModelO3, // Order 3 context model
     cm4:   ContextModelO4, // Order 4 context model
     cm6:   ContextModelO6, // Order 6 context model
-    ht:    HashTable,      // Hash table for mapping contexts to state arrays
     mxr:   Mixer,          // For weighted averaging of independent predictions
     apm1:  Apm,            // Adaptive Probability Map for refining Mixer output
     apm2:  Apm,            //
@@ -99,18 +101,19 @@ pub struct Predictor {
 impl Predictor {
     /// Create a new Predictor.
     pub fn new(mem: usize) -> Predictor {
-        let mut p = Predictor {
-            cxt:   1,                               
-            bits:  0,            
+        // Hash table for mapping context hashes to state arrays.
+        // Shared between models.
+        let ht = Rc::new(RefCell::new(HashTable::new(mem*2)));
+
+        let mut p = Predictor {           
             pr:    2048,         
-            wm:    WordModel::new(),
-            mm:    MatchModel::new(mem),
             cm1:   ContextModelO1::new(),
-            cm2:   ContextModelO2::new(),
-            cm3:   ContextModelO3::new(),
-            cm4:   ContextModelO4::new(),
-            cm6:   ContextModelO6::new(),
-            ht:    HashTable::new(mem*2),
+            cm2:   ContextModelO2::new(Rc::clone(&ht)),
+            cm3:   ContextModelO3::new(Rc::clone(&ht)),
+            cm4:   ContextModelO4::new(Rc::clone(&ht)),
+            cm6:   ContextModelO6::new(Rc::clone(&ht)),
+            wm:    WordModel::new(Rc::clone(&ht)),
+            mm:    MatchModel::new(mem),
             mxr:   Mixer::new(7, 80),
             apm1:  Apm::new(256),
             apm2:  Apm::new(16384),
@@ -137,27 +140,8 @@ impl Predictor {
         assert!(bit == 0 || bit == 1);
         
         self.mxr.update(bit);
-        self.wm.update(bit);
-        self.cm1.update(bit);
-        self.cm2.update(bit);
-        self.cm3.update(bit);
-        self.cm4.update(bit);
-        self.cm6.update(bit);
         
-        // Update order-0 context
-        self.cxt = (self.cxt << 1) + bit as u32;
-        self.bits += 1;
-
-        if self.cxt >= 256 { // Byte boundary
-            self.new_state_arr(0);
-            self.cxt = 1;
-            self.bits = 0;
-        }
-        if self.bits == 4 { // Nibble boundary
-            self.new_state_arr(self.cxt);
-        }
-        
-        // Add independent predictions to mixer 
+        // Add independent predictions to mixer
         self.mxr.add(stretch(self.mm.p(bit)));
         self.mxr.add(stretch(self.wm.p(bit)));
         self.mxr.add(stretch(self.cm1.p(bit)));
@@ -174,19 +158,8 @@ impl Predictor {
         self.pr = self.mxr.p();
 
         // 2 SSE stages
-        self.pr = (self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cxt)) >> 2;
-        self.pr = (self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cxt ^ self.cm1.o1cxt >> 2)) >> 2;
-    }
-    
-    /// Map context hashes to state arrays
-    pub fn new_state_arr(&mut self, nibble: u32) {
-        unsafe {
-            self.wm.state  = self.ht.hash(self.wm.word_cxt + nibble).add(1);
-            self.cm2.state = self.ht.hash(self.cm2.o2cxt + nibble).add(1);
-            self.cm3.state = self.ht.hash(self.cm3.o3cxt + nibble).add(1);
-            self.cm4.state = self.ht.hash(self.cm4.o4cxt + nibble).add(1);
-            self.cm6.state = self.ht.hash(self.cm6.o6cxt + nibble).add(1);
-        }
+        self.pr = (self.pr + 3 * self.apm1.p(bit, 7, self.pr, self.cm1.cxt)) >> 2;
+        self.pr = (self.pr + 3 * self.apm2.p(bit, 7, self.pr, self.cm1.cxt ^ self.cm1.o1cxt >> 2)) >> 2;
     }
 
     /// Determine order from match model length or number
