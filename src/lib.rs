@@ -60,7 +60,7 @@ pub struct Prisirv {
 impl Prisirv {
     /// Create a new Prisirv archiver or extractor with an empty Config.
     pub fn new() -> Prisirv {
-        Prisirv { cfg: Config::new_empty() }
+        Prisirv { cfg: Config::default() }
     }
 
     /// Create a solid archive instead of non-solid.
@@ -120,7 +120,7 @@ impl Prisirv {
         let paths = paths.iter().map(PathBuf::from).collect::<Vec<PathBuf>>();
         self.cfg.inputs.extend_from_slice(&paths);
 
-        self.cfg.dir_out = fmt_root_output_dir(self.cfg.arch, self.cfg.mode, &self.cfg.user_out, &self.cfg.inputs[0]);
+        self.cfg.dir_out = fmt_root_output_dir(&self.cfg);
 
         self.cfg.print();
 
@@ -136,9 +136,10 @@ impl Prisirv {
         let paths = paths.iter().map(PathBuf::from).collect::<Vec<PathBuf>>();
         self.cfg.inputs.extend_from_slice(&paths);
 
-        self.cfg.dir_out = fmt_root_output_dir(self.cfg.arch, self.cfg.mode, &self.cfg.user_out, &self.cfg.inputs[0]);
+        self.cfg.dir_out = fmt_root_output_dir(&self.cfg);
 
         self.cfg.print();
+
         match self.cfg.arch {
             Arch::Solid    => { SolidExtractor::new(self.cfg.clone()).extract_archive(); }
             Arch::NonSolid => { Extractor::new(self.cfg.clone()).extract_archive();      }

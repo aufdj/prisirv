@@ -6,7 +6,6 @@ use std::{
 };
 
 use crate::{
-    Mode,
     progress::Progress,
     metadata::Metadata,
     config::Config,
@@ -36,7 +35,7 @@ pub struct Archiver {
 impl Archiver {
     /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
-        let prg = Progress::new(&cfg, Mode::Compress);
+        let prg = Progress::new(&cfg);
         
         Archiver {
             cfg, prg, files: Vec::new(),

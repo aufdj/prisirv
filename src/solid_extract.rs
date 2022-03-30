@@ -5,7 +5,6 @@ use std::{
 };
 
 use crate::{
-    Mode,
     metadata::{Metadata, FileData},
     threads::ThreadPool,
     progress::Progress,
@@ -82,7 +81,7 @@ impl SolidExtractor {
         new_dir_checked(&cfg.dir_out, cfg.clbr);
         let mut archive = new_input_file(4096, &cfg.inputs[0]);
         let mta = read_metadata(&mut archive);
-        let prg = Progress::new(&cfg, Mode::Decompress);
+        let prg = Progress::new(&cfg);
         
         let mut extr = SolidExtractor { 
             archive, mta, cfg, prg, 

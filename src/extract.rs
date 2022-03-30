@@ -6,7 +6,6 @@ use std::{
 };
 
 use crate::{
-    Mode,
     progress::Progress,
     metadata::Metadata,
     config::Config,
@@ -30,7 +29,7 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new extractor.
     pub fn new(cfg: Config) -> Extractor {
-        let prg = Progress::new(&cfg, Mode::Decompress);
+        let prg = Progress::new(&cfg);
         
         Extractor { 
             cfg, prg 

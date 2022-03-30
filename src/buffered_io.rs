@@ -250,7 +250,7 @@ pub fn new_dir(path: &str) {
                     println!("Invalid directory name.");
                 },
                 _ => 
-                    println!("Error"),
+                    println!("Error: {}", err),
             }
         }
     }

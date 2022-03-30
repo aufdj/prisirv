@@ -5,7 +5,6 @@ use std::{
 };
 
 use crate::{
-    Mode,
     sort::sort_files,
     metadata::{Metadata, FileData},
     threads::ThreadPool,
@@ -41,7 +40,7 @@ impl SolidArchiver {
             sort_files(&f1.path, &f2.path, cfg.sort)
         );
 
-        let mut prg = Progress::new(&cfg, Mode::Compress);
+        let mut prg = Progress::new(&cfg);
         prg.get_archive_size_enc(&mta.files);
 
         let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);

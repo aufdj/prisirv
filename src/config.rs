@@ -44,7 +44,7 @@ pub struct Config {
 }
 impl Config {
     /// Create a new default Config.
-    pub fn new_empty() -> Config {
+    pub fn default() -> Config {
         Config {
             sort:      Sort::None,
             user_out:  String::new(),
@@ -63,20 +63,11 @@ impl Config {
     pub fn new(args: &[String]) -> Config {
         if args.is_empty() { print_program_info(); }
 
-        let mut parser   = Parse::None;
-        let mut sort     = Sort::None;
-        let mut user_out = String::new();
-        let mut blk_sz   = 10 << 20;
-        let mut mem      = 1 << 22;
-        let mut arch     = Arch::NonSolid;
-        let mut mode     = Mode::Compress;
-        let mut quiet    = false;
-        let mut clbr     = false;
-        let mut list     = false;
-        let mut fv       = false;
-        let mut threads  = 4;
-        let mut inputs   = Vec::new();
-        let mut col_opt  = 10.0;
+        let mut parser = Parse::None;
+        let mut cfg    = Config::default();
+        let mut list   = false;
+        let mut fv     = false;
+        let mut cs     = 10.0;
         
         for arg in args.iter() {
             match arg.as_str() {
@@ -119,7 +110,7 @@ impl Config {
             }
             match parser {
                 Parse::Sort => {
-                    sort = match arg.as_str() {
+                    cfg.sort = match arg.as_str() {
                         "ext"  => Sort::Ext,
                         "name" => Sort::Name,
                         "len"  => Sort::Len,
@@ -135,13 +126,13 @@ impl Config {
                 }
                 Parse::Lvl => {
                     match arg.parse::<usize>() {
-                        Ok(lvl) => sort = Sort::PrtDir(lvl),
+                        Ok(lvl) => cfg.sort = Sort::PrtDir(lvl),
                         Err(_)  => { error::invalid_lvl(); }
                     }
                 }
                 Parse::Mem => {
                     // Parse memory option (0..9)
-                    mem = match arg.parse::<u64>() {
+                    cfg.mem = match arg.parse::<u64>() {
                         Ok(opt) => match opt {
                             0..=9 => 1 << (20 + opt),
                             _ => error::out_of_range_memory_option(opt),
@@ -150,13 +141,13 @@ impl Config {
                     };
                 } 
                 Parse::BlkSz => {
-                    blk_sz = match arg.parse::<usize>() {
+                    cfg.blk_sz = match arg.parse::<usize>() {
                         Ok(size) => size * 1024 * 1024,
                         Err(_)   => error::invalid_block_size(),
                     }
                 }
                 Parse::Threads => {
-                    threads = match arg.parse::<usize>() {
+                    cfg.threads = match arg.parse::<usize>() {
                         Ok(count) => match count {
                             0..=128 => count,
                             _ => error::max_thread_count(count),
@@ -164,13 +155,13 @@ impl Config {
                         Err(_) => error::invalid_thread_count(),
                     };
                 }
-                Parse::Compress   => mode = Mode::Compress,
-                Parse::Decompress => mode = Mode::Decompress,
-                Parse::DirOut     => user_out = arg.to_string(),
-                Parse::Inputs     => inputs.push(PathBuf::from(arg)),
-                Parse::Solid      => arch = Arch::Solid,
-                Parse::Quiet      => quiet = true,
-                Parse::Clobber    => clbr = true,
+                Parse::Compress   => cfg.mode = Mode::Compress,
+                Parse::Decompress => cfg.mode = Mode::Decompress,
+                Parse::DirOut     => cfg.user_out = arg.to_string(),
+                Parse::Inputs     => cfg.inputs.push(PathBuf::from(arg)),
+                Parse::Solid      => cfg.arch = Arch::Solid,
+                Parse::Quiet      => cfg.quiet = true,
+                Parse::Clobber    => cfg.clbr = true,
                 Parse::List => {
                     list = true; 
                     parser = Parse::Inputs;
@@ -178,35 +169,29 @@ impl Config {
                 Parse::Fv => {
                     fv = true;
                     match arg.parse::<f64>() {
-                        Ok(c) =>  {
-                            col_opt = c;
+                        Ok(c) => {
+                            cs = c;
                             parser = Parse::Inputs;
                         }
-                        Err(_) => inputs.push(PathBuf::from(arg)),
+                        Err(_) => cfg.inputs.push(PathBuf::from(arg)),
                     }
                 }
                 Parse::None => {},
             }
         }
 
-        if inputs.is_empty() { error::no_inputs(); }
+        if cfg.inputs.is_empty() { error::no_inputs(); }
 
-        for input in inputs.iter() {
+        for input in cfg.inputs.iter() {
             if !(input.is_file() || input.is_dir()) {
                 error::invalid_input(input);
             }
         }
 
-        if fv { fv::fv(&inputs[0], col_opt); }
+        if fv { fv::fv(&cfg.inputs[0], cs); }
 
-        let dir_out = fmt_root_output_dir(arch, mode, &user_out, &inputs[0]);
+        cfg.dir_out = fmt_root_output_dir(&cfg);
 
-        let cfg = Config {
-            sort,    user_out, inputs,  
-            arch,    quiet,    mode,
-            mem,     clbr,     blk_sz,
-            threads, dir_out,
-        };
         if list { cfg.list_archive(); }
         cfg.print();
         cfg

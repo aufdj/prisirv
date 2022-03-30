@@ -26,7 +26,7 @@ pub struct Progress {
 #[allow(dead_code)]
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
-    pub fn new(cfg: &Config, mode: Mode) -> Progress {
+    pub fn new(cfg: &Config) -> Progress {
         Progress {
             in_size:     0,
             blks:        0,
@@ -34,7 +34,7 @@ impl Progress {
             blk_sz:      cfg.blk_sz as u64,
             quiet:       cfg.quiet,
             time:        Instant::now(),
-            mode,
+            mode:        cfg.mode,
         }
     }
     
