@@ -141,8 +141,16 @@ impl Config {
                     };
                 } 
                 Parse::BlkSz => {
-                    cfg.blk_sz = match arg.parse::<usize>() {
-                        Ok(size) => size * 1024 * 1024,
+                    let scale = 
+                    if      arg.contains("K") { 1024 }
+                    else if arg.contains("M") { 1024*1024 }
+                    else if arg.contains("G") { 1024*1024*1024 }
+                    else { error::invalid_scale(); };
+
+                    cfg.blk_sz = 
+                    match arg.chars().filter(|s| s.is_numeric())
+                    .collect::<String>().parse::<usize>() {
+                        Ok(size) => size * scale,
                         Err(_)   => error::invalid_block_size(),
                     }
                 }
@@ -228,7 +236,8 @@ impl Config {
                     Sort::PrtDir(_) => "Parent Directory",
                 });
                 println!(" Memory Usage: {} MiB", 3 + (self.mem >> 20) * 3);
-                println!(" Block Size: {} MiB", self.blk_sz/1024/1024);    
+                let (size, suffix) = format(self.blk_sz);
+                println!(" Block Size: {} {}", size, suffix);    
             }
             println!(" Threads: Up to {}", self.threads);
             println!("=======================================================================");
@@ -329,5 +338,18 @@ fn print_program_info() {
     println!();
     println!("          prisirv d -i \\foo\\arch.prsv -sld ");
     std::process::exit(0);
+}
+
+fn format(size: usize) -> (usize, String) {
+    if size >= 1024*1024*1024 {
+        (size/1024/1024/1024, String::from("GiB"))
+    }
+    else if size >= 1024*1024 {
+        (size/1024/1024, String::from("MiB"))
+    }
+    else if size >= 1024 {
+        (size/1024, String::from("KiB"))
+    }
+    else { (0, String::from("")) }
 }
 

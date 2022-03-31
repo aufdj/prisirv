@@ -59,6 +59,11 @@ pub fn invalid_memory_option() -> ! {
     exit(0);
 }
 
+pub fn invalid_scale() -> ! {
+    println!("Invalid scale."); 
+    exit(0);
+}
+
 pub fn invalid_block_size() -> ! {
     println!("Invalid block size."); 
     exit(0);
