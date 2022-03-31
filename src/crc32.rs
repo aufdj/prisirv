@@ -38,19 +38,34 @@ const CRC_TABLE: [u32; 256] = [
 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d];
 
 /// CRC-32 implementation from Rosetta Code,
-/// modified to take a file path instead of a string.
+/// modified to take a file path or Vec instead of a string.
 /// <https://rosettacode.org/wiki/CRC-32#Rust>
-pub fn crc32(path: &Path) -> u32 {
-    let mut crc32 = 0xFFFFFFFF;
-
-    let mut file_in = new_input_file(4096, path);
-
-    while file_in.fill_buffer() == BufferState::NotEmpty {
-        for byte in file_in.buffer().iter() {
+pub trait Crc32 {
+    fn crc32(&self) -> u32;
+}
+impl Crc32 for Path {
+    fn crc32(&self) -> u32 {
+        let mut crc32 = 0xFFFFFFFF;
+    
+        let mut file_in = new_input_file(4096, self);
+    
+        while file_in.fill_buffer() == BufferState::NotEmpty {
+            for byte in file_in.buffer().iter() {
+                crc32 = (crc32 >> 8) ^ CRC_TABLE[((crc32 & 0xff) ^ *byte as u32) as usize]
+            }
+        }
+        crc32 ^ 0xFFFFFFFF
+    }
+}
+impl Crc32 for &Vec<u8> {
+    fn crc32(&self) -> u32 {
+        let mut crc32 = 0xFFFFFFFF;
+    
+        for byte in self.iter() {
             crc32 = (crc32 >> 8) ^ CRC_TABLE[((crc32 & 0xff) ^ *byte as u32) as usize]
         }
+        crc32 ^ 0xFFFFFFFF
     }
-    crc32 ^ 0xFFFFFFFF
 }
 // fn crc32_compute_table() -> [u32; 256] {
 //     let mut crc32_table = [0; 256];

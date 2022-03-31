@@ -3,10 +3,10 @@ use crate::predictor::Predictor;
 /// A block based arithmetic encoder. Accepts an uncompressed block and
 /// returns a compressed block.
 pub struct Encoder {
-    high:       u32,       // Right endpoint of range
-    low:        u32,       // Left endpoint of range
-    predictor:  Predictor, // Generates predictions
-    pub out:    Vec<u8>,   // Compressed block
+    high:        u32,       // Right endpoint of range
+    low:         u32,       // Left endpoint of range
+    predictor:   Predictor, // Generates predictions
+    pub blk_out: Vec<u8>,   // Compressed block
 }
 impl Encoder {
     /// Create a new Encoder.
@@ -15,7 +15,7 @@ impl Encoder {
             high: 0xFFFFFFFF,
             low: 0,
             predictor: Predictor::new(mem),
-            out: Vec::with_capacity(blk_sz),
+            blk_out: Vec::with_capacity(blk_sz),
         }
     }
 
@@ -37,31 +37,30 @@ impl Encoder {
         self.predictor.update(bit);
         
         while ( (self.high ^ self.low) & 0xFF000000) == 0 {
-            self.out.push((self.high >> 24) as u8);
+            self.blk_out.push((self.high >> 24) as u8);
             self.high = (self.high << 8) + 255;
             self.low <<= 8;
         }
     }
 
     /// Compress one block.
-    pub fn compress_block(&mut self, block: &[u8]) -> Vec<u8> {
-        for byte in block.iter() {
+    pub fn compress_block(&mut self, blk_in: &[u8]) {
+        for byte in blk_in.iter() {
             for i in (0..=7).rev() {
                 self.compress_bit(((*byte >> i) & 1) as i32);
             }
         }
         self.flush();
-        self.out.clone()
     }
 
     /// Flush any remaining equal Most Significant Bytes (MSBs), then flush
     /// the first non-equal MSB, marking the end of compression.
     pub fn flush(&mut self) {
         while ( (self.high ^ self.low) & 0xFF000000) == 0 {
-            self.out.push((self.high >> 24) as u8);
+            self.blk_out.push((self.high >> 24) as u8);
             self.high = (self.high << 8) + 255;
             self.low <<= 8;
         }
-        self.out.push((self.high >> 24) as u8);
+        self.blk_out.push((self.high >> 24) as u8);
     }
 }

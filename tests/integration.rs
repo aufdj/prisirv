@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod tests {
     use prisirv::Prisirv;
-    use prisirv::crc32::crc32;
+    use prisirv::crc32::Crc32;
     use std::{fs, path::Path};
 
     #[test]
@@ -13,8 +13,8 @@ mod tests {
         let inputs: Vec<&str> = vec!["tests\\data\\calgary.prsv"];
         Prisirv::new().solid().clobber().extract_archive_of(&inputs);
         
-        let crc1 = crc32(Path::new("tests\\data\\calgary.tar"));
-        let crc2 = crc32(Path::new("tests\\data\\calgary_d\\tests\\data\\calgary.tar"));
+        let crc1 = Path::new("tests\\data\\calgary.tar").crc32();
+        let crc2 = Path::new("tests\\data\\calgary_d\\tests\\data\\calgary.tar").crc32();
 
         fs::remove_dir_all("tests\\data\\calgary_d").unwrap();
         fs::remove_file("tests\\data\\calgary.prsv").unwrap();

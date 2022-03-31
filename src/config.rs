@@ -155,13 +155,6 @@ impl Config {
                         Err(_) => error::invalid_thread_count(),
                     };
                 }
-                Parse::Compress   => cfg.mode = Mode::Compress,
-                Parse::Decompress => cfg.mode = Mode::Decompress,
-                Parse::DirOut     => cfg.user_out = arg.to_string(),
-                Parse::Inputs     => cfg.inputs.push(PathBuf::from(arg)),
-                Parse::Solid      => cfg.arch = Arch::Solid,
-                Parse::Quiet      => cfg.quiet = true,
-                Parse::Clobber    => cfg.clbr = true,
                 Parse::List => {
                     list = true; 
                     parser = Parse::Inputs;
@@ -176,6 +169,13 @@ impl Config {
                         Err(_) => cfg.inputs.push(PathBuf::from(arg)),
                     }
                 }
+                Parse::Compress   => cfg.mode = Mode::Compress,
+                Parse::Decompress => cfg.mode = Mode::Decompress,
+                Parse::DirOut     => cfg.user_out = arg.to_string(),
+                Parse::Inputs     => cfg.inputs.push(PathBuf::from(arg)),
+                Parse::Solid      => cfg.arch = Arch::Solid,
+                Parse::Quiet      => cfg.quiet = true,
+                Parse::Clobber    => cfg.clbr = true,
                 Parse::None => {},
             }
         }
@@ -237,7 +237,7 @@ impl Config {
     }
 
     fn list_archive(self) -> ! {
-        let extr = SolidExtractor::new(self);
+        let extr = SolidExtractor::new(self); 
         println!("=======================================================================");
         println!("Archive {}", extr.cfg.inputs[0].display());
         println!();

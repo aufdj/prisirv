@@ -66,8 +66,9 @@ impl Archiver {
         self.prg.get_file_size_enc(file_in_path);
 
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
+        let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
+        let mut blks_wrtn: u64 = 0;
 
-        // Create input file with buffer = block size
         let mut file_in = new_input_file(mta.blk_sz, file_in_path);
 
         // Create output file and write metadata placeholder
@@ -79,9 +80,6 @@ impl Archiver {
         // Set metadata extension field
         mta.set_ext(file_in_path);
         
-        let mut blks_wrtn: u64 = 0;
-        let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
-
         while file_in.fill_buffer() == BufferState::NotEmpty {
             mta.fblk_sz = file_in.buffer().len();
             tp.compress_block(file_in.buffer().to_vec(), mta.blk_c);
