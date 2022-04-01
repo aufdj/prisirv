@@ -66,7 +66,6 @@ impl SolidArchiver {
                 blk.data.push(file_in.read_byte());
             }
             if blk.data.len() >= self.cfg.blk_sz {
-                blk.unsize = blk.data.len() as u64;
                 tp.compress_block(blk.clone());
                 self.mta.blk_c += 1;
                 blk.next();
@@ -78,7 +77,6 @@ impl SolidArchiver {
 
         // Compress final block
         if !blk.data.is_empty() {
-            blk.unsize = blk.data.len() as u64;
             tp.compress_block(blk.clone());
             self.mta.blk_c += 1;
         }
@@ -86,7 +84,10 @@ impl SolidArchiver {
         // Output blocks
         let mut blks_wrtn: u64 = 0;
         while blks_wrtn != self.mta.blk_c {
-            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut self.mta, &mut self.archive);
+            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+                blk.write(&mut self.archive);
+                blks_wrtn += 1;
+            }
         }
         self.archive.flush_buffer();
 

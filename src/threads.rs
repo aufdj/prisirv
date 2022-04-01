@@ -65,10 +65,10 @@ impl ThreadPool {
                     Block {
                         chksum: (&blk.data).crc32(),
                         files:  blk.files,
+                        size:   enc.blk_out.len() as u64,
                         data:   enc.blk_out,
                         id:     blk.id,
-                        size:   0,
-                        unsize: blk.unsize,
+                        unsize: blk.data.len() as u64,
                     }
                 })
             )

@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    io::{Seek, SeekFrom, BufWriter, BufReader},
+    io::{BufWriter, BufReader},
     fs::File,
 };
 
@@ -168,48 +168,7 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
     mta.fblk_sz = archive.read_u64() as usize;
     mta.blk_c   = archive.read_u64();
     mta.f_ptr   = archive.read_u64();
-    verify_magic_number(mta.mgcs);
-
-    /*
-    // Seek to end of file metadata
-    archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
-
-    let mut path: Vec<u8> = Vec::with_capacity(64);
-
-    let num_files = archive.read_u64();
-
-    // Read null terminated file path strings and lengths.
-    for _ in 0..num_files {
-        loop {
-            match archive.read_byte() {
-                0 => {
-                    let path_string = path.iter()
-                        .map(|b| *b as char)
-                        .collect::<String>();
-                    let file_len = archive.read_u64();
-
-                    mta.files.push(
-                        FileData {
-                            path: PathBuf::from(&path_string),
-                            len:  file_len,
-                        }
-                    );
-                    path.clear();
-                    break;
-                }
-                byte => path.push(byte),
-            }
-        }
-    }
-
-    // Get compressed block sizes
-    for _ in 0..mta.blk_c {
-        mta.enc_blk_szs.push(archive.read_u64());
-    }
-    */
-    // Seek back to beginning of compressed data
-    archive.seek(SeekFrom::Start(48)).unwrap();
-    
+    verify_magic_number(mta.mgcs); 
     mta
 }
 

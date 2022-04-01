@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 use crate::{
-    metadata::{Metadata, FileData},
+    metadata::FileData,
     buffered_io::{BufferedWrite, BufferedRead},
 };
 
@@ -33,12 +33,7 @@ impl Block {
         self.files.clear();
         self.id += 1;
     }
-    fn get_size(&mut self) {
-        self.size = self.data.len() as u64;
-    }
     pub fn write(&mut self, archive: &mut BufWriter<File>) {
-        self.get_size();
-
         archive.write_u64(self.size);
         archive.write_u64(self.unsize);
         archive.write_u32(self.chksum);
@@ -92,7 +87,8 @@ impl Block {
     }
     //pub fn print(&self) {
     //    println!();
-    //    println!("Size: {}", self.size);
+    //    println!("Compressed Size: {}", self.size);
+    //    println!("Uncompressed Size: {}", self.size);
     //    println!("Files:");
     //    for file in self.files.iter() {
     //        println!("  {}", file.path.display());
@@ -118,52 +114,6 @@ impl BlockQueue {
             blocks: Vec::new(),
             next_out: 0,
         }
-    }
-
-    /// Try writing the next compressed block to be output. If this block 
-    /// hasn't been added to the queue yet, do nothing.
-    pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> u64 {
-        let len = self.blocks.len();
-        let mut index = None;
-
-        for (i, blk) in self.blocks.iter_mut().enumerate() {
-            if blk.id == self.next_out {
-                mta.enc_blk_szs.push(blk.data.len() as u64);
-                blk.write(file_out);
-                index = Some(i);
-            }
-        }
-
-        // If next block was found, remove from list
-        if let Some(i) = index {
-            self.blocks.swap_remove(i as usize);
-            self.next_out += 1;
-        }
-
-        (len - self.blocks.len()) as u64
-    }
-
-    /// Try writing the next decompressed block to be output. If this block 
-    /// hasn't been added to the queue yet, do nothing.
-    pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> u64 {
-        let len = self.blocks.len();
-        let mut next_out = self.next_out;
-
-        self.blocks.retain(|block|
-            if block.id == next_out {
-                for byte in block.data.iter() {
-                    file_out.write_byte(*byte);
-                }
-                next_out += 1;
-                false
-            }
-            else { 
-                true 
-            } 
-        );
-        let blks_wrtn = (len - self.blocks.len()) as u64;
-        self.next_out += blks_wrtn;
-        blks_wrtn
     }
 
     /// Try getting the next block to be output. If this block hasn't been 

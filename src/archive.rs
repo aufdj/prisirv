@@ -18,6 +18,7 @@ use crate::{
         fmt_file_out_ns_archive,
         fmt_nested_dir_ns_archive,
     },
+    block::Block,
 };
 
 /// Size of header in bytes
@@ -67,6 +68,7 @@ impl Archiver {
 
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
+        let mut blk = Block::new(mta.blk_sz);
         let mut blks_wrtn: u64 = 0;
 
         let mut file_in = new_input_file(mta.blk_sz, file_in_path);
@@ -81,13 +83,19 @@ impl Archiver {
         mta.set_ext(file_in_path);
         
         while file_in.fill_buffer() == BufferState::NotEmpty {
-            mta.fblk_sz = file_in.buffer().len();
-            //tp.compress_block(file_in.buffer().to_vec(), mta.blk_c);
+            blk.data.extend_from_slice(file_in.buffer());
+            tp.compress_block(blk.clone());
+            blk.next();
             mta.blk_c += 1;
         }
 
         while blks_wrtn != mta.blk_c {
-            blks_wrtn += tp.bq.lock().unwrap().try_write_block_enc(&mut mta, &mut file_out);
+            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
+                file_out.write_u64(blk.unsize);
+                file_out.write_u64(blk.size);
+                file_out.write_all(&blk.data).unwrap();
+                blks_wrtn += 1;
+            }
         }   
 
         self.write_metadata(&mut file_out, &mut mta);
@@ -118,13 +126,6 @@ impl Archiver {
 
     /// Rewind to the beginning of the file and write a 56 byte header.
     fn write_metadata(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
-        // Get index to end of file metadata
-        mta.f_ptr = file_out.stream_position().unwrap();
-
-        for blk_sz in mta.enc_blk_szs.iter() {
-            file_out.write_u64(*blk_sz);
-        }
-
         file_out.rewind().unwrap();
         file_out.write_u64(mta.mem);
         file_out.write_u64(mta.mgc);

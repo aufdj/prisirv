@@ -1,8 +1,7 @@
 use std::{
     path::{Path, PathBuf},
-    io::{Seek, SeekFrom},
     fs::File,
-    io::BufReader,
+    io::{Write, BufReader},
 };
 
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
     metadata::Metadata,
     config::Config,
     threads::ThreadPool,
+    block::Block,
     buffered_io::{
         BufferedRead, BufferedWrite, file_len, 
         new_input_file, new_output_file, new_dir_checked,
@@ -65,29 +65,25 @@ impl Extractor {
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
         
-        let mut index: u64 = 0;
         let mut blks_wrtn: u64 = 0;
         let mut tp = ThreadPool::new(self.cfg.threads, mta.mem, self.prg);
-        
-        for _ in 0..(mta.blk_c-1) {
-            // Read and decompress compressed blocks
-            let mut block_in = Vec::with_capacity(mta.blk_sz);
-            for _ in 0..mta.enc_blk_szs[index as usize] {
-                block_in.push(file_in.read_byte());
-            }
-            //tp.decompress_block(block_in, index, mta.blk_sz);
-            index += 1;
-        }
+        let mut blk = Block::new(mta.blk_sz);
 
-        // Read and decompress final compressed block
-        let mut block_in = Vec::with_capacity(mta.blk_sz);
-        for _ in 0..mta.enc_blk_szs[index as usize] {
-            block_in.push(file_in.read_byte());
+        for _ in 0..mta.blk_c {
+            blk.unsize = file_in.read_u64();
+            blk.size = file_in.read_u64();
+            for _ in 0..blk.size {
+                blk.data.push(file_in.read_byte());
+            }
+            tp.decompress_block(blk.clone());
+            blk.next();
         }
-        //tp.decompress_block(block_in, index, mta.fblk_sz);
 
         while blks_wrtn != mta.blk_c {
-            blks_wrtn += tp.bq.lock().unwrap().try_write_block_dec(&mut file_out);
+            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
+                file_out.write_all(&blk.data).unwrap();
+                blks_wrtn += 1;
+            }
         }
     
         file_out.flush_buffer();
@@ -125,18 +121,8 @@ impl Extractor {
         mta.blk_sz  = file_in.read_u64() as usize;
         mta.blk_c   = file_in.read_u64();
         mta.f_ptr   = file_in.read_u64();
-
         self.verify_magic_number(mta.mgc);
 
-        // Seek to end of file metadata
-        file_in.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
-
-        for _ in 0..mta.blk_c {
-            mta.enc_blk_szs.push(file_in.read_u64());
-        }
-
-        // Seek back to beginning of compressed data
-        file_in.seek(SeekFrom::Start(56)).unwrap();
         mta
     }
 
