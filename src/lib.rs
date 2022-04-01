@@ -24,6 +24,7 @@ mod error;
 mod fv;
 mod word_model;
 mod context_model;
+mod block;
 
 use std::path::PathBuf;
 

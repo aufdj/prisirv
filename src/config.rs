@@ -99,8 +99,8 @@ impl Config {
                     parser = Parse::Fv;
                     continue;
                 }
-                "c" | "compress"    => parser = Parse::Compress,
-                "d" | "decompress"  => parser = Parse::Decompress,
+                "create"            => parser = Parse::Compress,
+                "extract"           => parser = Parse::Decompress,
                 "-sld" | "-solid"   => parser = Parse::Solid,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
                 "-clb" | "-clobber" => parser = Parse::Clobber,
@@ -294,8 +294,8 @@ fn print_program_info() {
     println!("  USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]");
     println!();
     println!("  REQUIRED:");
-    println!("     c,      compress      Compress");
-    println!("     d,      decompress    Decompress");
+    println!("     create                Compress");
+    println!("     extract               Decompress");
     println!("    -i,     -inputs        Specify list of input files/dirs");
     println!();
     println!("  OPTIONS:");

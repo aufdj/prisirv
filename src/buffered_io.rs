@@ -18,6 +18,7 @@ pub enum BufferState {
 /// A trait for handling buffered reading.
 pub trait BufferedRead {
     fn read_byte(&mut self) -> u8;
+    fn read_u32(&mut self) -> u32;
     fn read_u64(&mut self) -> u64;
     fn fill_buffer(&mut self) -> BufferState;
 }
@@ -44,7 +45,31 @@ impl BufferedRead for BufReader<File> {
         }
         u8::from_le_bytes(byte)
     }
-
+    fn read_u32(&mut self) -> u32 {
+        let mut bytes = [0u8; 4];
+        let len = match self.read(&mut bytes) {
+            Ok(len)  => { len },
+            Err(e) => {
+                println!("Function read_u64 failed.");
+                println!("Error: {}", e);
+                0
+            },
+        };
+        if self.buffer().is_empty() {
+            self.consume(self.capacity());
+            match self.fill_buf() {
+                Ok(_)  => {},
+                Err(e) => {
+                    println!("Function read_u64 failed.");
+                    println!("Error: {}", e);
+                },
+            }
+            if len < 4 {
+                self.read_exact(&mut bytes[len..]).unwrap();
+            }
+        }
+        u32::from_le_bytes(bytes)
+    }
     /// Read 8 bytes from an input file, taking care to handle reading 
     /// across buffer boundaries.
     fn read_u64(&mut self) -> u64 {

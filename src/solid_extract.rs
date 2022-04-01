@@ -8,6 +8,7 @@ use crate::{
     metadata::{Metadata, FileData},
     threads::ThreadPool,
     progress::Progress,
+    block::Block,
     formatting::fmt_file_out_s_extract,
     config::Config,
     buffered_io::{
@@ -21,26 +22,24 @@ use crate::{
 /// A decompressed block can span multiple files, so a FileWriter is used 
 /// to handle swapping files when needed while writing a block.
 struct FileWriter {
-    files:          Box<dyn Iterator<Item = FileData>>, // Input file data
-    file_out:       BufWriter<File>,                    // Current output file
-    file_out_pos:   u64,                                // Current output file position
-    file_in_len:    u64,                                // Uncompressed file length
-    dir_out:        String,                             // Output directory
+    files:         Box<dyn Iterator<Item = FileData>>, // Input file data
+    file_out:      BufWriter<File>,                    // Current output file
+    file_out_pos:  u64,                                // Current output file position
+    file_in_len:   u64,                                // Uncompressed file length
+    dir_out:       String,                             // Output directory
 }
 impl FileWriter {
     fn new(files: Vec<FileData>, dir_out: &str) -> FileWriter {
         let mut files = files.into_iter();
 
         let file = files.next().unwrap();
-        let file_out = next_file(&file.path, dir_out);
-        let file_in_len = file.len;
 
         FileWriter {
             dir_out:      dir_out.to_string(),
-            files:        Box::new(files), 
+            files:        Box::new(files),
             file_out_pos: 0,
-            file_out, 
-            file_in_len,
+            file_out:     next_file(&file.path, dir_out),
+            file_in_len:  file.len,
         }
     }
     fn update(&mut self) {
@@ -94,30 +93,53 @@ impl SolidExtractor {
     /// multiple files.
     pub fn extract_archive(&mut self) {
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
-        let mut blk = Vec::with_capacity(self.mta.blk_sz);
-        let mut index: u64 = 0;
+        let mut blk = Block::new(self.mta.blk_sz);
+
+        for _ in 0..self.mta.blk_c {
+            blk.read(&mut self.archive);
+            tp.decompress_block(blk.clone());
+            blk.next();
+        }
+
+        let mut blks_wrtn: u64 = 0;
+    
+        // Write blocks to output 
+        while blks_wrtn != self.mta.blk_c {
+            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
+                let mut fw = FileWriter::new(blk.files, &self.cfg.dir_out);
+                for byte in blk.data.iter() {
+                    fw.write_byte(*byte);
+                }
+                blks_wrtn += 1;
+                //fw.file_out.flush_buffer();
+            }  
+        }
+
+
+        /*
+        let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
+        let mut blk = Block::new(self.mta.blk_sz);
 
         // Full blocks
         for _ in 0..self.mta.blk_c-1 {
             for _ in 0..self.mta.enc_blk_szs[index as usize] {
-                blk.push(self.archive.read_byte());
+                blk.data.push(self.archive.read_byte());
             }
-            tp.decompress_block(blk.clone(), index, self.mta.blk_sz);
-            blk.clear();
-            index += 1;
+            tp.decompress_block(blk.clone(), self.mta.blk_sz);
+            blk.next();
         }
 
         // Final block
         for _ in 0..self.mta.enc_blk_szs[index as usize] {
             blk.push(self.archive.read_byte());
         }
-        tp.decompress_block(blk.clone(), index, self.mta.fblk_sz);
-        blk.clear();
+        tp.decompress_block(blk.clone(), self.mta.fblk_sz);
 
         let mut fw = FileWriter::new(self.mta.files.clone(), &self.cfg.dir_out);
         let mut blks_wrtn: u64 = 0;
         
         // Write blocks to output 
+        let mut blk = Vec::with_capacity(self.mta.blk_sz);
         while blks_wrtn != self.mta.blk_c {
             tp.bq.lock().unwrap().try_get_block(&mut blk);
             if !blk.is_empty() {
@@ -134,6 +156,7 @@ impl SolidExtractor {
         let mut lens: Vec<u64> = Vec::new();
         get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);
         self.prg.print_archive_stats(lens.iter().sum());
+        */
     } 
 }
 
@@ -145,9 +168,9 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
     mta.fblk_sz = archive.read_u64() as usize;
     mta.blk_c   = archive.read_u64();
     mta.f_ptr   = archive.read_u64();
-
     verify_magic_number(mta.mgcs);
 
+    /*
     // Seek to end of file metadata
     archive.seek(SeekFrom::Start(mta.f_ptr)).unwrap();
 
@@ -183,9 +206,10 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
     for _ in 0..mta.blk_c {
         mta.enc_blk_szs.push(archive.read_u64());
     }
-
+    */
     // Seek back to beginning of compressed data
     archive.seek(SeekFrom::Start(48)).unwrap();
+    
     mta
 }
 

@@ -4,16 +4,13 @@ use std::{
         mpsc::{self, Sender, Receiver},
         Arc, Mutex,
     },
-    fs::File,
-    io::BufWriter,
 };
 use crate::{
     encoder::Encoder,
     decoder::Decoder,
-    metadata::Metadata,
-    buffered_io::BufferedWrite,
     progress::Progress,
     crc32::Crc32,
+    block::{Block, BlockQueue},
 };
 
 pub enum Message {
@@ -57,18 +54,21 @@ impl ThreadPool {
     }
     
     /// Create a new message containing a job consisting of compressing an
-    /// input block and returning the compressed block and its index.
-    pub fn compress_block(&mut self, block: Vec<u8>, index: u64) {
+    /// input block and returning the compressed block.
+    pub fn compress_block(&mut self, blk: Block) {
         let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut enc = Encoder::new(mem, block.len());
-                    enc.compress_block(&block);
+                    let mut enc = Encoder::new(mem, blk.data.len());
+                    enc.compress_block(&blk.data);
                     Block {
-                        chksum: (&block).crc32(),
+                        chksum: (&blk.data).crc32(),
+                        files:  blk.files,
                         data:   enc.blk_out,
-                        id:     index,
+                        id:     blk.id,
+                        size:   0,
+                        unsize: blk.unsize,
                     }
                 })
             )
@@ -76,20 +76,21 @@ impl ThreadPool {
     }
 
     /// Create a new message containing a job consisting of decompressing
-    /// an input block and returning the compressed block and its index.
-    //  The decompressed block will be larger than the compressed block, 
-    //  so pass in blk_sz instead of blk.len() to avoid growing output vector.
-    pub fn decompress_block(&mut self, blk: Vec<u8>, index: u64, blk_sz: usize) {
+    /// an input block and returning the decompressed block.
+    pub fn decompress_block(&mut self, blk: Block) {
         let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut dec = Decoder::new(blk, mem);
-                    let blk_out = dec.decompress_block(blk_sz);
+                    let mut dec = Decoder::new(blk.data, mem);
+                    let blk_out = dec.decompress_block(blk.unsize as usize);
                     Block {
                         chksum: (&blk_out).crc32(),
+                        files:  blk.files,
                         data:   blk_out,
-                        id:     index,
+                        id:     blk.id,
+                        size:   0,
+                        unsize: 0,
                     }
                 })
             )
@@ -146,94 +147,3 @@ impl Thread {
     }
 }
 
-
-pub struct Block {
-    data:   Vec<u8>,
-    id:     u64,
-    chksum: u32,
-}
-
-/// Stores compressed or decompressed blocks. Blocks need to be written in
-/// the same order that they were read, but no guarantee can be made about
-/// which blocks will be compressed/decompressed first, so each block is 
-/// added to a BlockQueue, which handles outputting in the correct order.
-pub struct BlockQueue {
-    pub blocks: Vec<Block>, // Blocks to be output
-    next_out:   u64, // Next block to be output
-}
-impl BlockQueue {
-    /// Create a new BlockQueue.
-    pub fn new() -> BlockQueue {
-        BlockQueue {
-            blocks: Vec::new(),
-            next_out: 0,
-        }
-    }
-
-    /// Try writing the next compressed block to be output. If this block 
-    /// hasn't been added to the queue yet, do nothing.
-    pub fn try_write_block_enc(&mut self, mta: &mut Metadata, file_out: &mut BufWriter<File>) -> u64 {
-        let len = self.blocks.len();
-        let mut next_out = self.next_out;
-
-        self.blocks.retain(|block|
-            if block.id == next_out {
-                mta.enc_blk_szs.push(block.data.len() as u64);
-                for byte in block.data.iter() {
-                    file_out.write_byte(*byte);
-                }
-                next_out += 1;
-                false
-            }
-            else { 
-                true 
-            }
-        );
-        let blocks_written = (len - self.blocks.len()) as u64;
-        self.next_out += blocks_written;
-        blocks_written
-    }
-
-    /// Try writing the next decompressed block to be output. If this block 
-    /// hasn't been added to the queue yet, do nothing.
-    pub fn try_write_block_dec(&mut self, file_out: &mut BufWriter<File>) -> u64 {
-        let len = self.blocks.len();
-        let mut next_out = self.next_out;
-
-        self.blocks.retain(|block|
-            if block.id == next_out {
-                for byte in block.data.iter() {
-                    file_out.write_byte(*byte);
-                }
-                next_out += 1;
-                false
-            }
-            else { 
-                true 
-            } 
-        );
-        let blocks_written = (len - self.blocks.len()) as u64;
-        self.next_out += blocks_written;
-        blocks_written
-    }
-
-    /// Try getting the next block to be output. If this block hasn't been 
-    /// added to the queue yet, do nothing.
-    pub fn try_get_block(&mut self, blk_out: &mut Vec<u8>) {
-        let mut index = None;
-
-        // Try to find next block to be output
-        for (blk_i, blk) in self.blocks.iter_mut().enumerate() {
-            if blk.id == self.next_out {
-                blk_out.append(&mut blk.data);
-                index = Some(blk_i);
-            }
-        }
-
-        // If next block was found, remove from list
-        if let Some(i) = index {
-            self.blocks.swap_remove(i);
-            self.next_out += 1;
-        }
-    }
-}

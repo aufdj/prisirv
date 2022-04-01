@@ -51,9 +51,9 @@ impl Decoder {
     }
 
     /// Decompress one block.
-    pub fn decompress_block(&mut self, block_size: usize) -> Vec<u8> {
-        let mut block: Vec<u8> = Vec::with_capacity(block_size);
-        while block.len() < block.capacity() {
+    pub fn decompress_block(&mut self, size: usize) -> Vec<u8> {
+        let mut block: Vec<u8> = Vec::with_capacity(size);
+        for _ in 0..size {
             let mut byte: i32 = 1;
             while byte < 256 {
                 byte = (byte << 1) + self.decompress_bit();

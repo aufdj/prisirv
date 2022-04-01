@@ -75,7 +75,7 @@ impl Extractor {
             for _ in 0..mta.enc_blk_szs[index as usize] {
                 block_in.push(file_in.read_byte());
             }
-            tp.decompress_block(block_in, index, mta.blk_sz);
+            //tp.decompress_block(block_in, index, mta.blk_sz);
             index += 1;
         }
 
@@ -84,7 +84,7 @@ impl Extractor {
         for _ in 0..mta.enc_blk_szs[index as usize] {
             block_in.push(file_in.read_byte());
         }
-        tp.decompress_block(block_in, index, mta.fblk_sz);
+        //tp.decompress_block(block_in, index, mta.fblk_sz);
 
         while blks_wrtn != mta.blk_c {
             blks_wrtn += tp.bq.lock().unwrap().try_write_block_dec(&mut file_out);

@@ -120,22 +120,22 @@ impl Progress {
         if !self.quiet {
             match self.mode {
                 Mode::Compress => {
-                    print!("\rCompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})  ", 
-                         self.blks, 
-                         self.total_blks, 
-                        (self.blks as f64/self.total_blks as f64)*100.0,
-                         self.time.elapsed()
-                    );
-                    std::io::stdout().flush().unwrap();
+                    //print!("\rCompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})  ", 
+                    //     self.blks, 
+                    //     self.total_blks, 
+                    //    (self.blks as f64/self.total_blks as f64)*100.0,
+                    //     self.time.elapsed()
+                    //);
+                    //std::io::stdout().flush().unwrap();
                 }
                 Mode::Decompress =>  {
-                    print!("\rDecompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})  ", 
-                         self.blks, 
-                         self.total_blks, 
-                        (self.blks as f64/self.total_blks as f64)*100.0,
-                         self.time.elapsed()
-                    );
-                    std::io::stdout().flush().unwrap();
+                    //print!("\rDecompressed block {} of {} ({:.2}%) (Time elapsed: {:.2?})  ", 
+                    //     self.blks, 
+                    //     self.total_blks, 
+                    //    (self.blks as f64/self.total_blks as f64)*100.0,
+                    //     self.time.elapsed()
+                    //);
+                    //std::io::stdout().flush().unwrap();
                 }
             } 
         }

@@ -14,6 +14,7 @@ use crate::{
         BufferedRead, BufferedWrite, file_len,
         new_input_file, new_output_file_checked,
     },
+    block::Block,
 };
 
 /// Size of header in bytes
@@ -54,31 +55,34 @@ impl SolidArchiver {
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
-        let mut blk = Vec::with_capacity(self.cfg.blk_sz);
+        let mut blk = Block::new(self.cfg.blk_sz);
 
-        // Read files into blocka and compress
+        // Read files into blocks and compress
         for file in self.mta.files.iter() {
-            let mut file_in = new_input_file(blk.capacity(), &file.path);
+            blk.files.push(file.clone());
+            let mut file_in = new_input_file(blk.data.capacity(), &file.path);
 
             for _ in 0..file.len {
-                blk.push(file_in.read_byte());
-                
-                // Compress full block
-                if blk.len() == blk.capacity() {
-                    tp.compress_block(blk.clone(), self.mta.blk_c);
-                    self.mta.blk_c += 1;
-                    blk.clear();
-                }
+                blk.data.push(file_in.read_byte());
+            }
+            if blk.data.len() >= self.cfg.blk_sz {
+                blk.unsize = blk.data.len() as u64;
+                tp.compress_block(blk.clone());
+                self.mta.blk_c += 1;
+                blk.next();
             }
         }
         self.mta.fblk_sz = 
-            if blk.is_empty() { blk.capacity() } 
-            else { blk.len() };
+            if blk.data.is_empty() { blk.data.capacity() } 
+            else { blk.data.len() };
 
         // Compress final block
-        tp.compress_block(blk.clone(), self.mta.blk_c);
-        self.mta.blk_c += 1;
-
+        if !blk.data.is_empty() {
+            blk.unsize = blk.data.len() as u64;
+            tp.compress_block(blk.clone());
+            self.mta.blk_c += 1;
+        }
+        
         // Output blocks
         let mut blks_wrtn: u64 = 0;
         while blks_wrtn != self.mta.blk_c {
@@ -92,24 +96,24 @@ impl SolidArchiver {
     /// Write footer containing file paths and lengths.
     fn write_metadata(&mut self) {
         // Get index to footer
-        self.mta.f_ptr = self.archive.stream_position().unwrap();
+        //self.mta.f_ptr = self.archive.stream_position().unwrap();
 
-        self.archive.write_u64(self.mta.files.len() as u64);
+        //self.archive.write_u64(self.mta.files.len() as u64);
 
-        for file in self.mta.files.iter() {
-            // Output null terminated path string.
-            let path = file.path.to_str().unwrap().as_bytes();
-            self.archive.write_all(path).unwrap();
-            self.archive.write_byte(0);
+        //for file in self.mta.files.iter() {
+        //    // Output null terminated path string.
+        //    let path = file.path.to_str().unwrap().as_bytes();
+        //    self.archive.write_all(path).unwrap();
+        //    self.archive.write_byte(0);
 
-            // Output file length
-            self.archive.write_u64(file.len);
-        }
+        //    // Output file length
+        //    self.archive.write_u64(file.len);
+        //}
 
         // Write compressed block sizes
-        for blk_sz in self.mta.enc_blk_szs.iter() {
-            self.archive.write_u64(*blk_sz);
-        }
+        //for blk_sz in self.mta.enc_blk_szs.iter() {
+        //    self.archive.write_u64(*blk_sz);
+        //}
 
         // Return final archive size including footer
         self.prg.print_archive_stats(self.archive.stream_position().unwrap());

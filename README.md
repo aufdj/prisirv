@@ -6,8 +6,8 @@ Prisirv is a context mixing archiver based on [lpaq1 by Matt Mahoney.](http://ma
 USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]
 
 REQUIRED: 
-    c,     compress      Compress
-    d,     decompress    Decompress
+    create               Compress
+    extract              Decompress
    -i,    -inputs        Specify list of inputs
 
 OPTIONS:

@@ -82,7 +82,7 @@ impl Archiver {
         
         while file_in.fill_buffer() == BufferState::NotEmpty {
             mta.fblk_sz = file_in.buffer().len();
-            tp.compress_block(file_in.buffer().to_vec(), mta.blk_c);
+            //tp.compress_block(file_in.buffer().to_vec(), mta.blk_c);
             mta.blk_c += 1;
         }
 
