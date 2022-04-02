@@ -1,5 +1,5 @@
 use std::{
-    fs::{File, create_dir},
+    fs::{File, create_dir, OpenOptions},
     process::exit,
     path::Path,
     io::{
@@ -235,6 +235,15 @@ pub fn new_input_file(capacity: usize, file_path: &Path) -> BufReader<File> {
         }
     )
 }
+
+/// Takes a file path and returns an output file wrapped in a BufWriter.
+pub fn new_output_file_no_trunc(capacity: usize, file_path: &Path) -> BufWriter<File> {
+    BufWriter::with_capacity(
+        capacity, 
+        OpenOptions::new().write(true).open(file_path).unwrap(),
+    )
+}
+
 
 /// Takes a file path and returns an output file wrapped in a BufWriter.
 pub fn new_output_file(capacity: usize, file_path: &Path) -> BufWriter<File> {

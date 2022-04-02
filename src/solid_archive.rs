@@ -9,7 +9,7 @@ use crate::{
     metadata::{Metadata, FileData},
     threads::ThreadPool,
     progress::Progress,
-    config::Config,
+    config::{Config, Align},
     buffered_io::{
         BufferedRead, BufferedWrite, file_len,
         new_input_file, new_output_file_checked,
@@ -62,13 +62,25 @@ impl SolidArchiver {
             blk.files.push(file.clone());
             let mut file_in = new_input_file(blk.data.capacity(), &file.path);
 
-            for _ in 0..file.len {
-                blk.data.push(file_in.read_byte());
+            if self.cfg.align == Align::File {
+                for _ in 0..file.len {
+                    blk.data.push(file_in.read_byte());
+                }
+                if blk.data.len() >= self.cfg.blk_sz {
+                    tp.compress_block(blk.clone());
+                    self.mta.blk_c += 1;
+                    blk.next();
+                }
             }
-            if blk.data.len() >= self.cfg.blk_sz {
-                tp.compress_block(blk.clone());
-                self.mta.blk_c += 1;
-                blk.next();
+            else {
+                for _ in 0..file.len {
+                    blk.data.push(file_in.read_byte());
+                    if blk.data.len() >= self.cfg.blk_sz {
+                        tp.compress_block(blk.clone());
+                        self.mta.blk_c += 1;
+                        blk.next();
+                    }
+                }
             }
         }
         self.mta.fblk_sz = 
@@ -96,26 +108,6 @@ impl SolidArchiver {
 
     /// Write footer containing file paths and lengths.
     fn write_metadata(&mut self) {
-        // Get index to footer
-        //self.mta.f_ptr = self.archive.stream_position().unwrap();
-
-        //self.archive.write_u64(self.mta.files.len() as u64);
-
-        //for file in self.mta.files.iter() {
-        //    // Output null terminated path string.
-        //    let path = file.path.to_str().unwrap().as_bytes();
-        //    self.archive.write_all(path).unwrap();
-        //    self.archive.write_byte(0);
-
-        //    // Output file length
-        //    self.archive.write_u64(file.len);
-        //}
-
-        // Write compressed block sizes
-        //for blk_sz in self.mta.enc_blk_szs.iter() {
-        //    self.archive.write_u64(*blk_sz);
-        //}
-
         // Return final archive size including footer
         self.prg.print_archive_stats(self.archive.stream_position().unwrap());
 

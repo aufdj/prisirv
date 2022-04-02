@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    io::{BufWriter, BufReader},
+    io::{BufWriter, BufReader, Seek, SeekFrom},
     fs::File,
 };
 
@@ -14,7 +14,7 @@ use crate::{
     buffered_io::{
         BufferedRead, BufferedWrite, file_len,
         new_input_file, new_output_file, 
-        new_dir_checked, 
+        new_dir_checked, new_output_file_no_trunc,
     },
     error,
 };
@@ -24,36 +24,43 @@ use crate::{
 struct FileWriter {
     files:         Box<dyn Iterator<Item = FileData>>, // Input file data
     file_out:      BufWriter<File>,                    // Current output file
+    file_in:       FileData,                           // Current input file data
     file_out_pos:  u64,                                // Current output file position
-    file_in_len:   u64,                                // Uncompressed file length
     dir_out:       String,                             // Output directory
 }
 impl FileWriter {
-    fn new(files: Vec<FileData>, dir_out: &str) -> FileWriter {
+    fn new(files: Vec<FileData>, dir_out: &str, pos: u64) -> FileWriter {
         let mut files = files.into_iter();
 
-        let file = files.next().unwrap();
+        let file_in = files.next().unwrap();                  
+        let mut file_out = next_file(&file_in.path, dir_out);  
+        file_out.seek(SeekFrom::Start(pos)).unwrap();         
 
         FileWriter {
             dir_out:      dir_out.to_string(),
             files:        Box::new(files),
-            file_out_pos: 0,
-            file_out:     next_file(&file.path, dir_out),
-            file_in_len:  file.len,
+            file_out_pos: pos,
+            file_out,
+            file_in,
         }
     }
+    /// Switch to new file when current is correct size.
     fn update(&mut self) {
-        let file = self.files.next().unwrap();
-        self.file_out = next_file(&file.path, &self.dir_out);
-        self.file_in_len = file.len;
+        let file_in = self.files.next().unwrap();
+        self.file_out = next_file(&file_in.path, &self.dir_out);
+        self.file_in = file_in;
         self.file_out_pos = 0;
     }
     fn write_byte(&mut self, byte: u8) {
-        if self.file_out_pos == self.file_in_len {
+        if self.file_out_pos == self.file_in.len {
+            self.file_out.flush_buffer();
             self.update();
         }
         self.file_out.write_byte(byte);
         self.file_out_pos += 1;
+    }
+    fn current(&self) -> FileData {
+        self.file_in.clone()
     }
 }
 
@@ -64,6 +71,9 @@ impl FileWriter {
 /// correct size.
 fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
     let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
+    if file_out_path.exists() {
+        return new_output_file_no_trunc(4096, &file_out_path)
+    }
     new_output_file(4096, &file_out_path)
 }
 
@@ -102,61 +112,35 @@ impl SolidExtractor {
         }
 
         let mut blks_wrtn: u64 = 0;
-    
+        let mut pos = 0;
+        let mut carry = false;
+        let mut file_data = FileData { path: PathBuf::from(""), len: 0 }; 
+        
         // Write blocks to output 
         while blks_wrtn != self.mta.blk_c {
-            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
-                let mut fw = FileWriter::new(blk.files, &self.cfg.dir_out);
+            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+                
+                if carry { blk.files.insert(0, file_data); }
+                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.dir_out, pos);
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
                 }
+                fw.file_out.flush_buffer();
+                file_data = fw.current();
                 blks_wrtn += 1;
-                //fw.file_out.flush_buffer();
-            }  
-        }
-
-
-        /*
-        let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
-        let mut blk = Block::new(self.mta.blk_sz);
-
-        // Full blocks
-        for _ in 0..self.mta.blk_c-1 {
-            for _ in 0..self.mta.enc_blk_szs[index as usize] {
-                blk.data.push(self.archive.read_byte());
-            }
-            tp.decompress_block(blk.clone(), self.mta.blk_sz);
-            blk.next();
-        }
-
-        // Final block
-        for _ in 0..self.mta.enc_blk_szs[index as usize] {
-            blk.push(self.archive.read_byte());
-        }
-        tp.decompress_block(blk.clone(), self.mta.fblk_sz);
-
-        let mut fw = FileWriter::new(self.mta.files.clone(), &self.cfg.dir_out);
-        let mut blks_wrtn: u64 = 0;
-        
-        // Write blocks to output 
-        let mut blk = Vec::with_capacity(self.mta.blk_sz);
-        while blks_wrtn != self.mta.blk_c {
-            tp.bq.lock().unwrap().try_get_block(&mut blk);
-            if !blk.is_empty() {
-                for byte in blk.iter() {
-                    fw.write_byte(*byte);
+                
+                // Check if last file is cut off at block boundary. If so,
+                // add file to beginning of subsequent block's file list 
+                // and save the current file position.
+                if fw.file_out_pos != fw.file_in.len {
+                    carry = true;
+                    pos = fw.file_out_pos; 
                 }
-                blks_wrtn += 1;
-                blk.clear();
+                else {
+                    pos = 0;
+                }
             }  
         }
-
-        fw.file_out.flush_buffer();
-
-        let mut lens: Vec<u64> = Vec::new();
-        get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);
-        self.prg.print_archive_stats(lens.iter().sum());
-        */
     } 
 }
 
@@ -183,18 +167,18 @@ fn verify_magic_number(mgc: u64) {
     }
 }
 
-/// Get total size of decompressed archive.
-fn get_file_out_lens(dir_in: &Path, lens: &mut Vec<u64>) {
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| d.unwrap().path())
-        .partition(|f| f.is_file());
-
-    for file in files.iter() {
-        lens.push(file_len(file));
-    }
-    for dir in dirs.iter() {
-        get_file_out_lens(dir, lens);
-    }
-}
+// Get total size of decompressed archive.
+//fn get_file_out_lens(dir_in: &Path, lens: &mut Vec<u64>) {
+//    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+//        dir_in.read_dir().unwrap()
+//        .map(|d| d.unwrap().path())
+//        .partition(|f| f.is_file());
+//
+//    for file in files.iter() {
+//        lens.push(file_len(file));
+//    }
+//    for dir in dirs.iter() {
+//        get_file_out_lens(dir, lens);
+//    }
+//}
 

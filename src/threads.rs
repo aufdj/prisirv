@@ -84,6 +84,7 @@ impl ThreadPool {
                 Box::new(move || {
                     let mut dec = Decoder::new(blk.data, mem);
                     let blk_out = dec.decompress_block(blk.unsize as usize);
+                    // Verify checksum
                     Block {
                         chksum: (&blk_out).crc32(),
                         files:  blk.files,

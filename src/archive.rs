@@ -69,8 +69,7 @@ impl Archiver {
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
         let mut blk = Block::new(mta.blk_sz);
-        let mut blks_wrtn: u64 = 0;
-
+        
         let mut file_in = new_input_file(mta.blk_sz, file_in_path);
 
         // Create output file and write metadata placeholder
@@ -89,6 +88,7 @@ impl Archiver {
             mta.blk_c += 1;
         }
 
+        let mut blks_wrtn: u64 = 0;
         while blks_wrtn != mta.blk_c {
             if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
                 file_out.write_u64(blk.unsize);

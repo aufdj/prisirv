@@ -25,6 +25,13 @@ enum Parse {
     Threads,
     List,
     Fv,
+    Align,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Align {
+    File,
+    Exact,
 }
 
 /// A list of all user defined configuration settings.
@@ -41,6 +48,7 @@ pub struct Config {
     pub clbr:      bool,         // Allow clobbering files
     pub blk_sz:    usize,        // Block size
     pub threads:   usize,        // Maximum number of threads
+    pub align:     Align,        // Block size exactly as specified or extended to next file boundary
 }
 impl Config {
     /// Create a new default Config.
@@ -57,6 +65,7 @@ impl Config {
             threads:   4,
             inputs:    Vec::new(),
             dir_out:   String::new(),
+            align:     Align::Exact,
         }
     }
     /// Create a new Config with the specified command line arguments.
@@ -90,7 +99,7 @@ impl Config {
                 "-blk" | "-block-size" => {
                     parser = Parse::BlkSz;
                     continue;
-                }
+                } 
                 "-threads" => {
                     parser = Parse::Threads;
                     continue;
@@ -104,6 +113,7 @@ impl Config {
                 "-sld" | "-solid"   => parser = Parse::Solid,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
                 "-clb" | "-clobber" => parser = Parse::Clobber,
+                "-file-align"       => parser = Parse::Align,
                 "ls" | "list"       => parser = Parse::List,
                 "help"              => print_program_info(),
                 _ => {},
@@ -184,6 +194,7 @@ impl Config {
                 Parse::Solid      => cfg.arch = Arch::Solid,
                 Parse::Quiet      => cfg.quiet = true,
                 Parse::Clobber    => cfg.clbr = true,
+                Parse::Align      => cfg.align = Align::File,
                 Parse::None => {},
             }
         }
@@ -237,7 +248,11 @@ impl Config {
                 });
                 println!(" Memory Usage: {} MiB", 3 + (self.mem >> 20) * 3);
                 let (size, suffix) = format(self.blk_sz);
-                println!(" Block Size: {} {}", size, suffix);    
+                println!(" Block Size: {} {}", size, suffix); 
+                println!("Block alignment: {}", 
+                    if self.align == Align::File { "File" } 
+                    else { "Exact" }
+                );
             }
             println!(" Threads: Up to {}", self.threads);
             println!("=======================================================================");
