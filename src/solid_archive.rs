@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Size of header in bytes
-const PLACEHOLDER: [u8; 48] = [0; 48];
+const PLACEHOLDER: [u8; 40] = [0; 40];
 
 /// A solid archiver creates solid archives, or an archive containing files 
 /// compressed as one stream. Solid archives take advantage of redundancy 
@@ -66,7 +66,7 @@ impl SolidArchiver {
                 for _ in 0..file.len {
                     blk.data.push(file_in.read_byte());
                 }
-                if blk.data.len() >= self.cfg.blk_sz {
+                if blk.data.len() >= blk.data.capacity() {
                     tp.compress_block(blk.clone());
                     self.mta.blk_c += 1;
                     blk.next();
@@ -75,7 +75,7 @@ impl SolidArchiver {
             else {
                 for _ in 0..file.len {
                     blk.data.push(file_in.read_byte());
-                    if blk.data.len() >= self.cfg.blk_sz {
+                    if blk.data.len() >= blk.data.capacity() {
                         tp.compress_block(blk.clone());
                         self.mta.blk_c += 1;
                         blk.next();
@@ -83,9 +83,6 @@ impl SolidArchiver {
                 }
             }
         }
-        self.mta.fblk_sz = 
-            if blk.data.is_empty() { blk.data.capacity() } 
-            else { blk.data.len() };
 
         // Compress final block
         if !blk.data.is_empty() {
@@ -115,7 +112,6 @@ impl SolidArchiver {
         self.archive.write_u64(self.mta.mem);     
         self.archive.write_u64(self.mta.mgcs);
         self.archive.write_u64(self.mta.blk_sz as u64);
-        self.archive.write_u64(self.mta.fblk_sz as u64);
         self.archive.write_u64(self.mta.blk_c);
         self.archive.write_u64(self.mta.f_ptr);
     }

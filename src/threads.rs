@@ -79,6 +79,7 @@ impl ThreadPool {
     /// an input block and returning the decompressed block.
     pub fn decompress_block(&mut self, blk: Block) {
         let mem = self.mem as usize;
+        let len = blk.data.len();
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
@@ -88,10 +89,11 @@ impl ThreadPool {
                     Block {
                         chksum: (&blk_out).crc32(),
                         files:  blk.files,
+                        unsize: len as u64,
+                        size:   blk_out.len() as u64,
                         data:   blk_out,
                         id:     blk.id,
-                        size:   0,
-                        unsize: 0,
+                        
                     }
                 })
             )
@@ -132,14 +134,8 @@ impl Thread {
             match message {
                 Message::NewJob(job) => { 
                     let block = job();
-                    {
-                        let prg_guard = prg.lock().unwrap();
-                        let mut prg = prg_guard;
-                        prg.update();
-                    }
-                    let queue_guard = bq.lock().unwrap();
-                    let mut queue = queue_guard;
-                    queue.blocks.push(block);
+                    { prg.lock().unwrap().update(block.unsize); }
+                    bq.lock().unwrap().blocks.push(block);
                 }
                 Message::Terminate => { break; }
             }

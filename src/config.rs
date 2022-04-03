@@ -152,9 +152,9 @@ impl Config {
                 } 
                 Parse::BlkSz => {
                     let scale = 
-                    if      arg.contains("K") { 1024 }
-                    else if arg.contains("M") { 1024*1024 }
-                    else if arg.contains("G") { 1024*1024*1024 }
+                    if      arg.contains('K') { 1024 }
+                    else if arg.contains('M') { 1024*1024 }
+                    else if arg.contains('G') { 1024*1024*1024 }
                     else { error::invalid_scale(); };
 
                     cfg.blk_sz = 
@@ -249,7 +249,7 @@ impl Config {
                 println!(" Memory Usage: {} MiB", 3 + (self.mem >> 20) * 3);
                 let (size, suffix) = format(self.blk_sz);
                 println!(" Block Size: {} {}", size, suffix); 
-                println!("Block alignment: {}", 
+                println!(" Block alignment: {}", 
                     if self.align == Align::File { "File" } 
                     else { "Exact" }
                 );
@@ -309,8 +309,8 @@ fn print_program_info() {
     println!("  USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]");
     println!();
     println!("  REQUIRED:");
-    println!("     create                Compress");
-    println!("     extract               Decompress");
+    println!("     create                Create archive");
+    println!("     extract               Extract archive");
     println!("    -i,     -inputs        Specify list of input files/dirs");
     println!();
     println!("  OPTIONS:");
@@ -324,6 +324,7 @@ fn print_program_info() {
     println!("    -sld,   -solid         Create solid archive");
     println!("    -q,     -quiet         Suppresses output other than errors");
     println!("    -clb,   -clobber       Allows clobbering files");
+    println!("    -file-align            Extends blocks to end of current file");
     println!();
     println!("  Sorting Methods:");
     println!("      -sort ext      Sort by extension");

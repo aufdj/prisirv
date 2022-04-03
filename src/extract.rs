@@ -60,7 +60,7 @@ impl Extractor {
         let mut file_in = new_input_file(4096, file_in_path);
         let mta: Metadata = self.read_metadata(&mut file_in);
 
-        self.prg.get_file_size_dec(file_in_path, mta.enc_blk_szs.len());
+        self.prg.get_file_size(file_in_path);
 
         let file_out_path = fmt_file_out_ns_extract(&mta.get_ext(), dir_out, file_in_path);
         let mut file_out = new_output_file(4096, &file_out_path);
@@ -113,16 +113,14 @@ impl Extractor {
 
     /// Read 56 byte header.
     fn read_metadata(&mut self, file_in: &mut BufReader<File>) -> Metadata {
-        let mut mta: Metadata = Metadata::new();
+        let mut mta = Metadata::new();
         mta.mem     = file_in.read_u64();
         mta.mgc     = file_in.read_u64();
         mta.ext     = file_in.read_u64();
-        mta.fblk_sz = file_in.read_u64() as usize;
         mta.blk_sz  = file_in.read_u64() as usize;
         mta.blk_c   = file_in.read_u64();
         mta.f_ptr   = file_in.read_u64();
         self.verify_magic_number(mta.mgc);
-
         mta
     }
 

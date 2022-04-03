@@ -6,12 +6,12 @@ Prisirv is a context mixing archiver based on [lpaq1 by Matt Mahoney.](http://ma
 USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]
 
 REQUIRED: 
-    create               Compress
-    extract              Decompress
+    create               Create archive
+    extract              Extract archive
    -i,    -inputs        Specify list of inputs
 
 OPTIONS:
-   -out,  -outputdir     Specify output path
+   -out,  -output-path   Specify output path
    -mem,  -memory        Specify memory usage   (Default - 15 MiB)
    -blk,  -blocksize     Specify block size     (Default - 10 MiB)
    -threads              Specify thread count   (Default - 4)
@@ -51,4 +51,14 @@ EXAMPLE:
 
     prisirv d -i \foo\arch.prsv -sld
 </pre>
+
+#### -out, -output-path
+
+<p>Specifies the output path of the created archive. By default, the output
+path will be in the same directory as the first supplied input. To change this, 
+specify an output path. If the path includes '\'s, like so:</p>
+
+> prisirv create -inputs \foo.txt -output-path \bar\baz
+
+<p>It will be treated as an absolute path i.e. the </p>
 

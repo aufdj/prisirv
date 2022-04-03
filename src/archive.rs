@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// Size of header in bytes
-const PLACEHOLDER: [u8; 56] = [0; 56];
+const PLACEHOLDER: [u8; 48] = [0; 48];
 
 /// An archiver creates non-solid archives. A non-solid archive is an 
 /// archive containing independently compressed files. Non-solid archiving 
@@ -64,7 +64,7 @@ impl Archiver {
 
     /// Compress a single file.
     pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
-        self.prg.get_file_size_enc(file_in_path);
+        self.prg.get_file_size(file_in_path);
 
         let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
@@ -130,7 +130,6 @@ impl Archiver {
         file_out.write_u64(mta.mem);
         file_out.write_u64(mta.mgc);
         file_out.write_u64(mta.ext);
-        file_out.write_u64(mta.fblk_sz as u64);
         file_out.write_u64(mta.blk_sz as u64);
         file_out.write_u64(mta.blk_c);
         file_out.write_u64(mta.f_ptr);

@@ -95,7 +95,7 @@ impl SolidExtractor {
         let mut extr = SolidExtractor { 
             archive, mta, cfg, prg, 
         };
-        extr.prg.get_archive_size_dec(&extr.cfg.inputs, extr.mta.blk_c);
+        extr.prg.get_archive_size_dec(&extr.cfg.inputs);
         extr
     }
 
@@ -114,12 +114,11 @@ impl SolidExtractor {
         let mut blks_wrtn: u64 = 0;
         let mut pos = 0;
         let mut carry = false;
-        let mut file_data = FileData { path: PathBuf::from(""), len: 0 }; 
+        let mut file_data = FileData::default(); 
         
         // Write blocks to output 
         while blks_wrtn != self.mta.blk_c {
             if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
-                
                 if carry { blk.files.insert(0, file_data); }
                 let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.dir_out, pos);
                 for byte in blk.data.iter() {
@@ -141,6 +140,9 @@ impl SolidExtractor {
                 }
             }  
         }
+        let mut lens: Vec<u64> = Vec::new();
+        get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);
+        self.prg.print_archive_stats(lens.iter().sum());
     } 
 }
 
@@ -149,7 +151,6 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
     mta.mem     = archive.read_u64();
     mta.mgcs    = archive.read_u64();
     mta.blk_sz  = archive.read_u64() as usize;
-    mta.fblk_sz = archive.read_u64() as usize;
     mta.blk_c   = archive.read_u64();
     mta.f_ptr   = archive.read_u64();
     verify_magic_number(mta.mgcs); 
@@ -168,17 +169,17 @@ fn verify_magic_number(mgc: u64) {
 }
 
 // Get total size of decompressed archive.
-//fn get_file_out_lens(dir_in: &Path, lens: &mut Vec<u64>) {
-//    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-//        dir_in.read_dir().unwrap()
-//        .map(|d| d.unwrap().path())
-//        .partition(|f| f.is_file());
-//
-//    for file in files.iter() {
-//        lens.push(file_len(file));
-//    }
-//    for dir in dirs.iter() {
-//        get_file_out_lens(dir, lens);
-//    }
-//}
+fn get_file_out_lens(dir_in: &Path, lens: &mut Vec<u64>) {
+    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+        dir_in.read_dir().unwrap()
+        .map(|d| d.unwrap().path())
+        .partition(|f| f.is_file());
+
+    for file in files.iter() {
+        lens.push(file_len(file));
+    }
+    for dir in dirs.iter() {
+        get_file_out_lens(dir, lens);
+    }
+}
 

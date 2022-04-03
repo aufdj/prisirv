@@ -12,6 +12,14 @@ pub struct FileData {
     pub path:  PathBuf,
     pub len:   u64,
 }
+impl Default for FileData {
+    fn default() -> FileData {
+        FileData { 
+            path: PathBuf::from(""), 
+            len: 0 
+        }
+    }
+}
 
 
 /// # Metadata Structure 

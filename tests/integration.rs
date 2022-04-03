@@ -19,10 +19,11 @@ mod tests {
         fs::remove_dir_all("tests\\data\\calgary_d").unwrap();
         fs::remove_file("tests\\data\\calgary.prsv").unwrap();
 
+        println!();
         println!("Input CRC:  {:x}", crc1);
         println!("Output CRC: {:x}", crc2);
         println!();
         
         assert!(crc1 == crc2);
-    }  
+    }
 }
