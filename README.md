@@ -51,14 +51,3 @@ EXAMPLE:
 
     prisirv d -i \foo\arch.prsv -sld
 </pre>
-
-#### -out, -output-path
-
-<p>Specifies the output path of the created archive. By default, the output
-path will be in the same directory as the first supplied input. To change this, 
-specify an output path. If the path includes '\'s, like so:</p>
-
-> prisirv create -inputs \foo.txt -output-path \bar\baz
-
-<p>It will be treated as an absolute path i.e. the </p>
-
