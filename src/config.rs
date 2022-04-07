@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::io::{Seek, SeekFrom};
 
 use crate::{
     sort::Sort, Mode, Arch, fv,
@@ -265,20 +264,11 @@ impl Config {
     fn list_archive(self) -> ! {
         let mut blk = Block::new(self.blk_sz);
         let mut extr = SolidExtractor::new(self); 
-        println!("stream pos: {}", extr.archive.stream_position().unwrap());
-        blk.read_from(&mut extr.archive);
-        blk.print();
-        println!("stream pos: {}", extr.archive.stream_position().unwrap());
-        blk.read_from(&mut extr.archive);
-        blk.print();
-        //println!("=======================================================================");
-        //println!("Archive {}", extr.cfg.inputs[0].display());
-        //println!();
-        //println!("Contents:");
-        //for file in extr.mta.files.iter() {
-        //    println!("{} ({} bytes)", file.path.display(), file.len);
-        //}
-        //println!("=======================================================================");
+        for _ in 0..extr.mta.blk_c {
+            blk.read_from(&mut extr.archive);
+            blk.print();
+            blk.next();
+        }
         std::process::exit(0);
     }
 }
