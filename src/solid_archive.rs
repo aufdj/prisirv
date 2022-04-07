@@ -94,7 +94,7 @@ impl SolidArchiver {
         let mut blks_wrtn: u64 = 0;
         while blks_wrtn != self.mta.blk_c {
             if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
-                blk.write(&mut self.archive);
+                blk.write_to(&mut self.archive);
                 blks_wrtn += 1;
             }
         }

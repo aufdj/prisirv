@@ -90,10 +90,8 @@ impl Archiver {
 
         let mut blks_wrtn: u64 = 0;
         while blks_wrtn != mta.blk_c {
-            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
-                file_out.write_u64(blk.unsize);
-                file_out.write_u64(blk.size);
-                file_out.write_all(&blk.data).unwrap();
+            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+                blk.write_to(&mut file_out);
                 blks_wrtn += 1;
             }
         }   

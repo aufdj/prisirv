@@ -1,10 +1,12 @@
 use std::path::PathBuf;
+use std::io::{Seek, SeekFrom};
 
 use crate::{
     sort::Sort, Mode, Arch, fv,
     formatting::fmt_root_output_dir,
     solid_extract::SolidExtractor,
     error,
+    block::Block,
 };
 
 
@@ -233,7 +235,7 @@ impl Config {
                 );
             }
             println!();
-            println!(" Output Directory: {}", self.dir_out);
+            println!(" Output Path: {}", self.dir_out);
             if self.mode == Mode::Compress {
                 println!(" Sorting by: {}", 
                 match self.sort {
@@ -261,15 +263,22 @@ impl Config {
     }
 
     fn list_archive(self) -> ! {
-        let extr = SolidExtractor::new(self); 
-        println!("=======================================================================");
-        println!("Archive {}", extr.cfg.inputs[0].display());
-        println!();
-        println!("Contents:");
-        for file in extr.mta.files.iter() {
-            println!("{} ({} bytes)", file.path.display(), file.len);
-        }
-        println!("=======================================================================");
+        let mut blk = Block::new(self.blk_sz);
+        let mut extr = SolidExtractor::new(self); 
+        println!("stream pos: {}", extr.archive.stream_position().unwrap());
+        blk.read_from(&mut extr.archive);
+        blk.print();
+        println!("stream pos: {}", extr.archive.stream_position().unwrap());
+        blk.read_from(&mut extr.archive);
+        blk.print();
+        //println!("=======================================================================");
+        //println!("Archive {}", extr.cfg.inputs[0].display());
+        //println!();
+        //println!("Contents:");
+        //for file in extr.mta.files.iter() {
+        //    println!("{} ({} bytes)", file.path.display(), file.len);
+        //}
+        //println!("=======================================================================");
         std::process::exit(0);
     }
 }

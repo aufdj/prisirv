@@ -14,8 +14,8 @@ pub struct Block {
     pub files:  Vec<FileData>, // Files in this block
     pub id:     u64,           // Block id
     pub chksum: u32,           // Uncompressed block checksum
-    pub size:   u64,           // Compressed data size
-    pub unsize: u64,           // Uncompressed data size
+    pub sizec:  u64,           // Compressed data size
+    pub sizeu:  u64,           // Uncompressed data size
 }
 impl Block {
     pub fn new(blk_sz: usize) -> Block {
@@ -24,8 +24,8 @@ impl Block {
             files:  Vec::new(),
             id:     0,
             chksum: 0,
-            size:   0,
-            unsize: 0,
+            sizec:  0,
+            sizeu:  0,
         }
     }
     pub fn next(&mut self) {
@@ -33,11 +33,11 @@ impl Block {
         self.files.clear();
         self.id += 1;
     }
-    pub fn write(&mut self, archive: &mut BufWriter<File>) {
-        archive.write_u64(self.size);
-        archive.write_u64(self.unsize);
+    pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
+        archive.write_u64(self.sizec);
+        archive.write_u64(self.sizeu);
         archive.write_u32(self.chksum);
-        archive.write_u64(self.files.len() as u64);
+        archive.write_u32(self.files.len() as u32);
 
         for file in self.files.iter() {
             let path = file.path.to_str().unwrap().as_bytes();
@@ -49,13 +49,13 @@ impl Block {
             archive.write_byte(*byte);
         }
     }
-    pub fn read(&mut self, archive: &mut BufReader<File>) {
+    pub fn read_from(&mut self, archive: &mut BufReader<File>) {
         let mut path: Vec<u8> = Vec::with_capacity(64);
 
-        self.size = archive.read_u64();
-        self.unsize = archive.read_u64();
+        self.sizec = archive.read_u64();
+        self.sizeu = archive.read_u64();
         self.chksum = archive.read_u32();
-        let num_files = archive.read_u64();
+        let num_files = archive.read_u32();
 
         // Read null terminated path strings and lengths
         for _ in 0..num_files {
@@ -81,22 +81,25 @@ impl Block {
             }
         }
         // Read compressed data
-        for _ in 0..self.size {
+        for _ in 0..self.sizec {
             self.data.push(archive.read_byte());
         }
     }
-    //pub fn print(&self) {
-    //    println!();
-    //    println!("Compressed Size: {}", self.size);
-    //    println!("Uncompressed Size: {}", self.size);
-    //    println!("Files:");
-    //    for file in self.files.iter() {
-    //        println!("  {}", file.path.display());
-    //        println!("  {}", file.len)
-    //    }
-    //    println!("Id: {}", self.id);
-    //    println!("Checksum: {:x}", self.chksum);
-    //}
+    pub fn print(&self) {
+        println!();
+        println!("Block {}:", self.id);
+        println!("==========================================");
+        println!("Compressed Size:   {}", self.sizec);
+        println!("Uncompressed Size: {}", self.sizeu);
+        println!("Checksum:          {:x}", self.chksum);
+        println!();
+        println!("Files:");
+        for file in self.files.iter() {
+            println!("  {}", file.path.display());
+            println!("  {}", file.len)
+        }
+        println!("==========================================");
+    }
 }
 
 /// Stores compressed or decompressed blocks. Blocks need to be written in

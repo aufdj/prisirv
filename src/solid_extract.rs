@@ -79,7 +79,7 @@ fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
 
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
-    archive:  BufReader<File>,
+    pub archive:  BufReader<File>,
     pub cfg:  Config,
     prg:      Progress,
     pub mta:  Metadata,
@@ -87,7 +87,6 @@ pub struct SolidExtractor {
 impl SolidExtractor {
     /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
-        new_dir_checked(&cfg.dir_out, cfg.clbr);
         let mut archive = new_input_file(4096, &cfg.inputs[0]);
         let mta = read_metadata(&mut archive);
         let prg = Progress::new(&cfg);
@@ -102,11 +101,12 @@ impl SolidExtractor {
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
+        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
         let mut blk = Block::new(self.mta.blk_sz);
 
         for _ in 0..self.mta.blk_c {
-            blk.read(&mut self.archive);
+            blk.read_from(&mut self.archive);
             tp.decompress_block(blk.clone());
             blk.next();
         }

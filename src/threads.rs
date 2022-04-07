@@ -55,20 +55,20 @@ impl ThreadPool {
     
     /// Create a new message containing a job consisting of compressing an
     /// input block and returning the compressed block.
-    pub fn compress_block(&mut self, blk: Block) {
+    pub fn compress_block(&mut self, blk_in: Block) {
         let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut enc = Encoder::new(mem, blk.data.len());
-                    enc.compress_block(&blk.data);
+                    let mut enc = Encoder::new(mem, blk_in.data.len());
+                    enc.compress_block(&blk_in.data);
                     Block {
-                        chksum: (&blk.data).crc32(),
-                        files:  blk.files,
-                        size:   enc.blk_out.len() as u64,
+                        chksum: (&blk_in.data).crc32(),
+                        sizec:  enc.blk_out.len() as u64,
+                        sizeu:  blk_in.data.len() as u64,
+                        files:  blk_in.files,
                         data:   enc.blk_out,
-                        id:     blk.id,
-                        unsize: blk.data.len() as u64,
+                        id:     blk_in.id,
                     }
                 })
             )
@@ -77,23 +77,26 @@ impl ThreadPool {
 
     /// Create a new message containing a job consisting of decompressing
     /// an input block and returning the decompressed block.
-    pub fn decompress_block(&mut self, blk: Block) {
+    pub fn decompress_block(&mut self, blk_in: Block) {
         let mem = self.mem as usize;
-        let len = blk.data.len();
+        let len = blk_in.data.len();
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut dec = Decoder::new(blk.data, mem);
-                    let blk_out = dec.decompress_block(blk.unsize as usize);
-                    // Verify checksum
+                    let mut dec = Decoder::new(blk_in.data, mem);
+                    let blk_out = dec.decompress_block(blk_in.sizeu as usize);
+                    let chksum = (&blk_out).crc32();
+                    if chksum != blk_in.chksum {
+                        println!("Incorrect Checksum: Block {}", blk_in.id);
+                        std::process::exit(0);
+                    }
                     Block {
-                        chksum: (&blk_out).crc32(),
-                        files:  blk.files,
-                        unsize: len as u64,
-                        size:   blk_out.len() as u64,
+                        chksum,
+                        sizec:  blk_out.len() as u64,
+                        sizeu:  len as u64,
+                        files:  blk_in.files,
                         data:   blk_out,
-                        id:     blk.id,
-                        
+                        id:     blk_in.id,
                     }
                 })
             )
@@ -134,7 +137,7 @@ impl Thread {
             match message {
                 Message::NewJob(job) => { 
                     let block = job();
-                    { prg.lock().unwrap().update(block.unsize); }
+                    { prg.lock().unwrap().update(block.sizeu); }
                     bq.lock().unwrap().blocks.push(block);
                 }
                 Message::Terminate => { break; }

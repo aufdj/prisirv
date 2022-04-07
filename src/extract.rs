@@ -70,11 +70,7 @@ impl Extractor {
         let mut blk = Block::new(mta.blk_sz);
 
         for _ in 0..mta.blk_c {
-            blk.unsize = file_in.read_u64();
-            blk.size = file_in.read_u64();
-            for _ in 0..blk.size {
-                blk.data.push(file_in.read_byte());
-            }
+            blk.read_from(&mut file_in);
             tp.decompress_block(blk.clone());
             blk.next();
         }
