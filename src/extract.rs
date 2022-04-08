@@ -111,11 +111,10 @@ impl Extractor {
     fn read_metadata(&mut self, file_in: &mut BufReader<File>) -> Metadata {
         let mut mta = Metadata::new();
         mta.mem     = file_in.read_u64();
-        mta.mgc     = file_in.read_u64();
+        mta.mgc     = file_in.read_u32();
         mta.ext     = file_in.read_u64();
         mta.blk_sz  = file_in.read_u64() as usize;
         mta.blk_c   = file_in.read_u64();
-        mta.f_ptr   = file_in.read_u64();
         self.verify_magic_number(mta.mgc);
         mta
     }
@@ -123,7 +122,7 @@ impl Extractor {
     /// Check for a valid magic number.
     /// * Non-solid archives - 'prsv'
     /// * Solid archives     - 'PRSV'
-    fn verify_magic_number(&self, mgc: u64) {
+    fn verify_magic_number(&self, mgc: u32) {
         match mgc {
             0x7673_7270 => {},
             0x5653_5250 => error::found_solid_archive(),

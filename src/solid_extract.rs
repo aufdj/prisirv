@@ -80,9 +80,9 @@ fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
 /// A SolidExtractor extracts solid archives.
 pub struct SolidExtractor {
     pub archive:  BufReader<File>,
-    pub cfg:  Config,
-    prg:      Progress,
-    pub mta:  Metadata,
+    pub cfg:      Config,
+    pub mta:      Metadata,
+    prg:          Progress,
 }
 impl SolidExtractor {
     /// Create a new SolidExtractor.
@@ -149,10 +149,9 @@ impl SolidExtractor {
 pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
     let mut mta: Metadata = Metadata::new();
     mta.mem     = archive.read_u64();
-    mta.mgcs    = archive.read_u64();
+    mta.mgcs    = archive.read_u32();
     mta.blk_sz  = archive.read_u64() as usize;
     mta.blk_c   = archive.read_u64();
-    mta.f_ptr   = archive.read_u64();
     verify_magic_number(mta.mgcs); 
     mta
 }
@@ -160,7 +159,7 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
 /// Check for a valid magic number.
 /// * Non-solid archives - 'prsv'
 /// * Solid archives     - 'PRSV'
-fn verify_magic_number(mgc: u64) {
+fn verify_magic_number(mgc: u32) {
     match mgc {
         0x5653_5250 => {},
         0x7673_7270 => error::found_non_solid_archive(),

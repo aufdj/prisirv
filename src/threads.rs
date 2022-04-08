@@ -4,6 +4,7 @@ use std::{
         mpsc::{self, Sender, Receiver},
         Arc, Mutex,
     },
+    time::SystemTime,
 };
 use crate::{
     encoder::Encoder,
@@ -62,6 +63,9 @@ impl ThreadPool {
                 Box::new(move || {
                     let mut enc = Encoder::new(mem, blk_in.data.len());
                     enc.compress_block(&blk_in.data);
+                    let crtd = SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap().as_secs() as u64;
                     Block {
                         chksum: (&blk_in.data).crc32(),
                         sizec:  enc.blk_out.len() as u64,
@@ -69,6 +73,7 @@ impl ThreadPool {
                         files:  blk_in.files,
                         data:   enc.blk_out,
                         id:     blk_in.id,
+                        crtd,
                     }
                 })
             )
@@ -88,7 +93,6 @@ impl ThreadPool {
                     let chksum = (&blk_out).crc32();
                     if chksum != blk_in.chksum {
                         println!("Incorrect Checksum: Block {}", blk_in.id);
-                        std::process::exit(0);
                     }
                     Block {
                         chksum,
@@ -97,6 +101,7 @@ impl ThreadPool {
                         files:  blk_in.files,
                         data:   blk_out,
                         id:     blk_in.id,
+                        crtd:   0,
                     }
                 })
             )

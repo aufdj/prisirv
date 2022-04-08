@@ -24,9 +24,9 @@ impl Default for FileData {
 
 /// # Metadata Structure 
 ///
-/// * A prisirv non-solid archive contains a 56 byte header followed by compressed 
+/// * A prisirv non-solid archive contains a 36 byte header followed by compressed 
 /// data, followed by a footer containing the size of each compressed block.
-/// * A prisirv solid archive contains a 48 byte header followed by compressed data,
+/// * A prisirv solid archive contains a 28 byte header followed by compressed data,
 /// followed by a footer containing information about each compressed file.
 ///
 /// ## Non-Solid Archive
@@ -34,12 +34,9 @@ impl Default for FileData {
 /// * Memory Option     
 /// * Magic Number
 /// * File Extension
-/// * Final Block Size
 /// * Block Size
 /// * Block Count
-/// * Footer Pointer
 /// * Compressed Data
-/// * Footer
 ///    
 /// The footer for a non-solid archive contains a list of 
 /// compressed sizes for each block, each value being 8 bytes.
@@ -49,9 +46,8 @@ impl Default for FileData {
 /// * Memory Option
 /// * Magic Number
 /// * Block Size
-/// * Footer Pointer
+/// * Block Count
 /// * Compressed Data
-/// * Footer
 ///     
 /// A solid archive footer consists of an 8 byte value denoting  
 /// the number of compressed files, followed by a list of file 
@@ -65,15 +61,12 @@ impl Default for FileData {
 #[derive(Debug)]
 pub struct Metadata {
     pub mem:      u64,   // Memory Usage
-    pub mgc:      u64,   // Magic Number
-    pub mgcs:     u64,   // Magic Number (Solid)
+    pub mgc:      u32,   // Magic Number
+    pub mgcs:     u32,   // Magic Number (Solid)
     pub ext:      u64,   // Extension
-    pub fblk_sz:  usize, // Final block size
     pub blk_sz:   usize, // Block size
     pub blk_c:    u64,   // Block count
-    pub f_ptr:    u64,   // Pointer to footer
-    pub enc_blk_szs: Vec<u64>, // Compressed block sizes
-    pub files: Vec<FileData>,    
+    pub files: Vec<FileData>,
 }
 impl Metadata {
     /// Initialize new metadata.
@@ -83,12 +76,9 @@ impl Metadata {
             mgc:      0x7673_7270,
             mgcs:     0x5653_5250,
             ext:      0,
-            fblk_sz:  0,
             blk_sz:   10 << 20,
             blk_c:    0,
-            f_ptr:    0,
             files:    Vec::new(),
-            enc_blk_szs: Vec::new(),
         }
     }
     pub fn new_with_cfg(cfg: &Config) -> Metadata {
@@ -97,12 +87,9 @@ impl Metadata {
             mgc:      0x7673_7270,
             mgcs:     0x5653_5250,
             ext:      0,
-            fblk_sz:  0,
             blk_sz:   cfg.blk_sz,
             blk_c:    0,
-            f_ptr:    0,
             files:    Vec::new(),
-            enc_blk_szs: Vec::new(),
         }
     }
 

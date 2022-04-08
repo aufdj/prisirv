@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// Size of header in bytes
-const PLACEHOLDER: [u8; 48] = [0; 48];
+const PLACEHOLDER: [u8; 36] = [0; 36];
 
 /// An archiver creates non-solid archives. A non-solid archive is an 
 /// archive containing independently compressed files. Non-solid archiving 
@@ -126,10 +126,9 @@ impl Archiver {
     fn write_metadata(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
         file_out.rewind().unwrap();
         file_out.write_u64(mta.mem);
-        file_out.write_u64(mta.mgc);
+        file_out.write_u32(mta.mgc);
         file_out.write_u64(mta.ext);
         file_out.write_u64(mta.blk_sz as u64);
         file_out.write_u64(mta.blk_c);
-        file_out.write_u64(mta.f_ptr);
     }
 }

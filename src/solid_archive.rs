@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// Size of header in bytes
-const PLACEHOLDER: [u8; 40] = [0; 40];
+const PLACEHOLDER: [u8; 28] = [0; 28];
 
 /// A solid archiver creates solid archives, or an archive containing files 
 /// compressed as one stream. Solid archives take advantage of redundancy 
@@ -27,8 +27,8 @@ const PLACEHOLDER: [u8; 40] = [0; 40];
 pub struct SolidArchiver {
     pub archive:  BufWriter<File>,
     cfg:          Config,
-    prg:          Progress,
     mta:          Metadata,
+    prg:          Progress,
 }
 impl SolidArchiver {
     /// Create a new SolidArchiver.
@@ -110,10 +110,9 @@ impl SolidArchiver {
 
         self.archive.rewind().unwrap();
         self.archive.write_u64(self.mta.mem);     
-        self.archive.write_u64(self.mta.mgcs);
+        self.archive.write_u32(self.mta.mgcs);
         self.archive.write_u64(self.mta.blk_sz as u64);
         self.archive.write_u64(self.mta.blk_c);
-        self.archive.write_u64(self.mta.f_ptr);
     }
 }
 
