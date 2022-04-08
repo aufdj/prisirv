@@ -1,16 +1,28 @@
 use std::{
     path::{Path, PathBuf},
-    cmp::min,
     ffi::OsStr,
 };
 
 use crate::config::Config;
+
+/// Return the length of a file.
+pub fn file_len(path: &Path) -> u64 {
+    path.metadata().unwrap().len()
+}
 
 /// Input file data
 #[derive(Debug, Clone)]
 pub struct FileData {
     pub path:  PathBuf,
     pub len:   u64,
+}
+impl FileData {
+    pub fn new(path: PathBuf) -> FileData {
+        FileData {
+            len: file_len(&path),
+            path,
+        }
+    }
 }
 impl Default for FileData {
     fn default() -> FileData {
@@ -24,10 +36,8 @@ impl Default for FileData {
 
 /// # Metadata Structure 
 ///
-/// * A prisirv non-solid archive contains a 36 byte header followed by compressed 
-/// data, followed by a footer containing the size of each compressed block.
-/// * A prisirv solid archive contains a 28 byte header followed by compressed data,
-/// followed by a footer containing information about each compressed file.
+/// * A prisirv non-solid archive contains a 36 byte header followed by compressed data.
+/// * A prisirv solid archive contains a 28 byte header followed by compressed data.
 ///
 /// ## Non-Solid Archive
 ///
@@ -38,8 +48,6 @@ impl Default for FileData {
 /// * Block Count
 /// * Compressed Data
 ///    
-/// The footer for a non-solid archive contains a list of 
-/// compressed sizes for each block, each value being 8 bytes.
 ///
 /// ## Solid Archive
 ///
@@ -49,11 +57,7 @@ impl Default for FileData {
 /// * Block Count
 /// * Compressed Data
 ///     
-/// A solid archive footer consists of an 8 byte value denoting  
-/// the number of compressed files, followed by a list of file 
-/// paths and lengths.
 /// 
-///
 /// Memory Option: 1<<20..1<<29,
 /// Magic Number:  'prsv' for non-solid archives, 'PRSV' for solid archives,
 /// Block Size:    10<<20,
@@ -100,11 +104,9 @@ impl Metadata {
             Some(ext) => { ext },
             None => OsStr::new(""),
         };
-        // Get extension as byte slice, truncated to 8 bytes
-        let mut ext = ext.to_str().unwrap().as_bytes();
-        ext = &ext[..min(ext.len(), 8)];
+        let bytes = ext.to_str().unwrap().as_bytes();
 
-        for byte in ext.iter().rev() {
+        for byte in bytes.iter().take(8).rev() {
             self.ext = (self.ext << 8) | *byte as u64;
         }
     }

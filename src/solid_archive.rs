@@ -11,7 +11,7 @@ use crate::{
     progress::Progress,
     config::{Config, Align},
     buffered_io::{
-        BufferedRead, BufferedWrite, file_len,
+        BufferedRead, BufferedWrite,
         new_input_file, new_output_file_checked,
     },
     block::Block,
@@ -125,12 +125,7 @@ fn collect_files(inputs: &[PathBuf], mta: &mut Metadata) {
 
     // Walk through directories and collect all files
     for file in files.iter() {
-        mta.files.push(
-            FileData {
-                path: file.clone(),
-                len:  file_len(file),
-            }
-        );
+        mta.files.push(FileData::new(file.clone()));
     }
     for dir in dirs.iter() {
         collect(dir, mta);
@@ -143,12 +138,7 @@ fn collect(dir_in: &Path, mta: &mut Metadata) {
         .partition(|f| f.is_file());
 
     for file in files.iter() {
-        mta.files.push(
-            FileData {
-                path: file.clone(),
-                len:  file_len(file),
-            }
-        );
+        mta.files.push(FileData::new(file.clone()));
     }
     for dir in dirs.iter() {
         collect(dir, mta);

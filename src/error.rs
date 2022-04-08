@@ -79,13 +79,15 @@ pub fn invalid_thread_count() -> ! {
     exit(0);
 }
 
+
+
 pub fn no_inputs() -> ! {
     println!("No inputs found.");
     exit(0);
 }
 
-pub fn invalid_input(input: &Path) -> ! {
-    println!("{} is not a valid input.", input.display());
+pub fn invalid_input(path: &Path) -> ! {
+    println!("{} is not a valid input.", path.display());
     exit(0);
 }
 
@@ -111,6 +113,8 @@ pub fn not_solid_archive(input: &Path) -> ! {
     exit(0);
 }
 
+
+
 pub fn metadata_not_supported() -> ! {
     println!("Couldn't get metadata.");
     exit(0);
@@ -128,5 +132,39 @@ pub fn access_time_not_supported() -> ! {
 
 pub fn modified_time_not_supported() -> ! {
     println!("Last modified time metadata not supported on this platform.");
+    exit(0);
+}
+
+
+
+pub fn file_general(path: &Path) -> ! {
+    println!("Couldn't open file {}", path.display());
+    exit(0);
+}
+
+pub fn dir_general(path: &Path) -> ! {
+    println!("Couldn't create directory {}", path.display());
+    exit(0);
+}
+
+pub fn file_already_exists(path: &Path) -> ! {
+    println!("A file at location {} already exists.", path.display());
+    println!("To overwrite existing files, enable file clobbering via '-clb' or '-clobber'.");
+    exit(0);
+}
+
+pub fn file_not_found(path: & Path) -> ! {
+    println!("Couldn't open file {}: Not Found", path.display());
+    exit(0);
+}
+
+pub fn permission_denied(path: &Path) -> ! {
+    println!("Couldn't open file {}: Permission Denied", path.display());
+    exit(0);
+}
+
+pub fn dir_already_exists(path: &Path) -> ! {
+    println!("A directory at location {} already exists.", path.display());
+    println!("To overwrite existing directories, enable file clobbering via '-clb' or '-clobber'.");
     exit(0);
 }

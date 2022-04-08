@@ -1,12 +1,13 @@
 use std::{
     fs::{File, create_dir, OpenOptions},
-    process::exit,
     path::Path,
     io::{
         Read, Write, BufReader, BufWriter, 
         BufRead, ErrorKind
     },
 };
+
+use crate::error;
 
 // Indicates an empty or non-empty buffer. 
 #[derive(PartialEq, Eq)]
@@ -213,57 +214,39 @@ impl BufferedWrite for BufWriter<File> {
 
 
 /// Takes a file path and returns an input file wrapped in a BufReader.
-pub fn new_input_file(capacity: usize, file_path: &Path) -> BufReader<File> {
+pub fn new_input_file(capacity: usize, path: &Path) -> BufReader<File> {
     BufReader::with_capacity(
         capacity, 
-        match File::open(file_path) {
+        match File::open(path) {
             Ok(file) => file,
             Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    println!("Couldn't open file {}: Not Found", file_path.display());
-                    exit(0); 
-                }
-                ErrorKind::PermissionDenied => {
-                    println!("Couldn't open file {}: Permission Denied", file_path.display());
-                    exit(0);
-                }
-                _ => {
-                    println!("Couldn't open file {}", file_path.display());
-                    exit(0);
-                }
+                ErrorKind::NotFound => error::file_not_found(path),
+                ErrorKind::PermissionDenied => error::permission_denied(path),
+                _ => error::file_general(path),
             }
         }
     )
 }
 
 /// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file_no_trunc(capacity: usize, file_path: &Path) -> BufWriter<File> {
+pub fn new_output_file_no_trunc(capacity: usize, path: &Path) -> BufWriter<File> {
     BufWriter::with_capacity(
         capacity, 
-        OpenOptions::new().write(true).open(file_path).unwrap(),
+        OpenOptions::new().write(true).open(path).unwrap(),
     )
 }
 
 
 /// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file(capacity: usize, file_path: &Path) -> BufWriter<File> {
+pub fn new_output_file(capacity: usize, path: &Path) -> BufWriter<File> {
     BufWriter::with_capacity(
         capacity, 
-        match File::create(file_path) {
+        match File::create(path) {
             Ok(file) => file,
             Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    println!("Couldn't open file {}: Not Found", file_path.display());
-                    exit(0); 
-                }
-                ErrorKind::PermissionDenied => {
-                    println!("Couldn't open file {}: Permission Denied", file_path.display());
-                    exit(0);
-                }
-                _ => {
-                    println!("Couldn't open file {}", file_path.display());
-                    exit(0);
-                }  
+                ErrorKind::NotFound => error::file_not_found(path),
+                ErrorKind::PermissionDenied => error::permission_denied(path),
+                _ => error::file_general(path),
             }
         }
     )
@@ -276,15 +259,9 @@ pub fn new_dir(path: &str) {
         Ok(_) => {},
         Err(err) => {
             match err.kind() {
-                ErrorKind::AlreadyExists => {
-                    println!("Directory {} already exists.", path.display());
-                    exit(0);
-                },
-                ErrorKind::InvalidInput  => {
-                    println!("Invalid directory name.");
-                },
-                _ => 
-                    println!("Error: {}", err),
+                ErrorKind::AlreadyExists => error::dir_already_exists(path),
+                ErrorKind::InvalidInput  => error::invalid_input(path),
+                _ => error::dir_general(path),
             }
         }
     }
@@ -301,11 +278,7 @@ pub fn new_dir_checked(dir_out: &str, clbr: bool) {
     // If directory exists but is empty, ignore clobber option.
     else if path.read_dir().unwrap().count() == 0 {}
     // If directory exists and is not empty, abort if user disallowed clobbering (default)
-    else if !clbr {
-        println!("Directory {} already exists.", dir_out);
-        println!("To overwrite existing directories, enable flag '-clb'.");
-        exit(0);
-    }
+    else if !clbr { error::dir_already_exists(path); }
     // If directory exists and is not empty and user allowed clobbering, continue as normal.
     else {}
 }
@@ -317,11 +290,7 @@ pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
     // If file doesn't exist or is empty, ignore clobber option.
     if !path.exists() || file_len(path) == 0 {}
     // If file exists or is not empty, abort if user disallowed clobbering (default)
-    else if !clbr {
-        println!("Archive {} already exists.", dir_out);
-        println!("To overwrite existing archives, enable flag '-clb'.");
-        exit(0);
-    }
+    else if !clbr { error::file_already_exists(path); }
     // If file exists and is not empty and user allowed clobbering, continue as normal.
     else {}
     new_output_file(4096, path)
