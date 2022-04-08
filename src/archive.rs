@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     progress::Progress,
-    metadata::Metadata,
+    metadata::{Metadata, FileData},
     config::Config,
     threads::ThreadPool,
     buffered_io::{
@@ -47,18 +47,18 @@ impl Archiver {
     pub fn create_archive(&mut self) {
         new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
 
-        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
+        let (files, dirs): (Vec<FileData>, Vec<FileData>) = 
             self.cfg.inputs.clone().into_iter()
-            .partition(|f| f.is_file());
+            .partition(|f| f.path.is_file());
 
         let mut dir_out = self.cfg.dir_out.clone();
 
         for file in files.iter() {
-            self.prg.print_file_name(file);
-            self.compress_file(file, &dir_out);
+            self.prg.print_file_name(&file.path);
+            self.compress_file(&file.path, &dir_out);
         }
         for dir in dirs.iter() {
-            self.compress_dir(dir, &mut dir_out);      
+            self.compress_dir(&dir.path, &mut dir_out);      
         }
     }
 

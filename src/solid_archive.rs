@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     io::{Write, Seek, BufWriter},
     fs::File,
 };
@@ -42,7 +42,7 @@ impl SolidArchiver {
         );
 
         let mut prg = Progress::new(&cfg);
-        prg.get_archive_size_enc(&mta.files);
+        prg.get_archive_size(&mta.files);
 
         let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
         archive.write_all(&PLACEHOLDER).unwrap();
@@ -117,30 +117,30 @@ impl SolidArchiver {
 }
 
 /// Recursively collect all files into a vector for sorting before compression.
-fn collect_files(inputs: &[PathBuf], mta: &mut Metadata) {
+fn collect_files(inputs: &[FileData], mta: &mut Metadata) {
     // Group files and directories 
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
         inputs.iter().cloned()
-        .partition(|f| f.is_file());
+        .partition(|f| f.path.is_file());
 
     // Walk through directories and collect all files
-    for file in files.iter() {
-        mta.files.push(FileData::new(file.clone()));
+    for file in files.into_iter() {
+        mta.files.push(file);
     }
     for dir in dirs.iter() {
-        collect(dir, mta);
+        collect(&dir.path, mta);
     }
 }
 fn collect(dir_in: &Path, mta: &mut Metadata) {
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
+    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
         dir_in.read_dir().unwrap()
-        .map(|d| d.unwrap().path())
-        .partition(|f| f.is_file());
+        .map(|d| FileData::new(d.unwrap().path()))
+        .partition(|f| f.path.is_file());
 
-    for file in files.iter() {
-        mta.files.push(FileData::new(file.clone()));
+    for file in files.into_iter() {
+        mta.files.push(file);
     }
     for dir in dirs.iter() {
-        collect(dir, mta);
+        collect(&dir.path, mta);
     }
 }

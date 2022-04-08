@@ -6,6 +6,7 @@ use crate::{
     solid_extract::SolidExtractor,
     error,
     block::Block,
+    metadata::FileData,
 };
 
 
@@ -38,18 +39,18 @@ pub enum Align {
 /// A list of all user defined configuration settings.
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub sort:      Sort,         // Sorting method (solid archives only)
-    pub user_out:  String,       // User specified output directory (optional)
-    pub dir_out:   String,       // Output directory
-    pub inputs:    Vec<PathBuf>, // Inputs to be archived or extracted
-    pub arch:      Arch,         // Solid or non-solid archive
-    pub quiet:     bool,         // Suppresses output other than errors
-    pub mode:      Mode,         // Compress or decompress
-    pub mem:       u64,          // Memory usage 
-    pub clbr:      bool,         // Allow clobbering files
-    pub blk_sz:    usize,        // Block size
-    pub threads:   usize,        // Maximum number of threads
-    pub align:     Align,        // Block size exactly as specified or extended to next file boundary
+    pub sort:      Sort,          // Sorting method (solid archives only)
+    pub user_out:  String,        // User specified output directory (optional)
+    pub dir_out:   String,        // Output directory
+    pub inputs:    Vec<FileData>, // Inputs to be archived or extracted
+    pub arch:      Arch,          // Solid or non-solid archive
+    pub quiet:     bool,          // Suppresses output other than errors
+    pub mode:      Mode,          // Compress or decompress
+    pub mem:       u64,           // Memory usage 
+    pub clbr:      bool,          // Allow clobbering files
+    pub blk_sz:    usize,         // Block size
+    pub threads:   usize,         // Maximum number of threads
+    pub align:     Align,         // Block size exactly as specified or extended to next file boundary
 }
 impl Config {
     /// Create a new default Config.
@@ -185,13 +186,13 @@ impl Config {
                             cs = c;
                             parser = Parse::Inputs;
                         }
-                        Err(_) => cfg.inputs.push(PathBuf::from(arg)),
+                        Err(_) => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
                     }
                 }
                 Parse::Compress   => cfg.mode = Mode::Compress,
                 Parse::Decompress => cfg.mode = Mode::Decompress,
                 Parse::DirOut     => cfg.user_out = arg.to_string(),
-                Parse::Inputs     => cfg.inputs.push(PathBuf::from(arg)),
+                Parse::Inputs     => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
                 Parse::Solid      => cfg.arch = Arch::Solid,
                 Parse::Quiet      => cfg.quiet = true,
                 Parse::Clobber    => cfg.clbr = true,
@@ -203,12 +204,12 @@ impl Config {
         if cfg.inputs.is_empty() { error::no_inputs(); }
 
         for input in cfg.inputs.iter() {
-            if !(input.is_file() || input.is_dir()) {
-                error::invalid_input(input);
+            if !(input.path.is_file() || input.path.is_dir()) {
+                error::invalid_input(&input.path);
             }
         }
 
-        if fv { fv::fv(&cfg.inputs[0], cs); }
+        if fv { fv::fv(&cfg.inputs[0].path, cs); }
 
         cfg.dir_out = fmt_root_output_dir(&cfg);
 
@@ -222,18 +223,22 @@ impl Config {
         if !self.quiet {
             println!();
             println!("=======================================================================");
+
             println!(" {} {} Archive of Inputs:", 
                 if self.mode == Mode::Compress { "Creating" } else { "Extracting" },
-                if self.arch == Arch::Solid { "Solid" } else { "Non-Solid" });
+                if self.arch == Arch::Solid    { "Solid"    } else { "Non-Solid"  }
+            );
+
             for input in self.inputs.iter() {
                 println!("    {} ({})", 
-                    input.display(),
-                    if input.is_file() { "File" }
-                    else if input.is_dir() { "Directory" }
+                    input.path.display(),
+                    if input.path.is_file() { "File" }
+                    else if input.path.is_dir() { "Directory" }
                     else { "" }
                 );
             }
             println!();
+
             println!(" Output Path: {}", self.dir_out);
             if self.mode == Mode::Compress {
                 println!(" Sorting by: {}", 
@@ -247,15 +252,20 @@ impl Config {
                     Sort::Modified => "Last modified time",
                     Sort::PrtDir(_) => "Parent Directory",
                 });
+
                 println!(" Memory Usage: {} MiB", 3 + (self.mem >> 20) * 3);
+
                 let (size, suffix) = format(self.blk_sz);
                 println!(" Block Size: {} {}", size, suffix); 
+
                 println!(" Block alignment: {}", 
                     if self.align == Align::File { "File" } 
                     else { "Exact" }
                 );
             }
+
             println!(" Threads: Up to {}", self.threads);
+
             println!("=======================================================================");
             println!();
         }

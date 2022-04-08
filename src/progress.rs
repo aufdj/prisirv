@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     time::Instant,
     io::Write,
 };
@@ -15,12 +15,12 @@ use crate::{
 /// Track compression or decompression progress.
 #[derive(Copy, Clone, Debug)]
 pub struct Progress {
-    total:    u64,
-    current:  u64,
-    blks:     u64,
-    quiet:    bool,
-    mode:     Mode,
-    time:     Instant,
+    total:    u64,     // Total size of uncompressed data
+    current:  u64,     // Portion of uncompressed data compressed
+    blks:     u64,     // Number of blocks compressed
+    quiet:    bool,    // Suppress output
+    mode:     Mode,    // Archive or extract
+    time:     Instant, // Timer
 }
 #[allow(dead_code)]
 impl Progress {
@@ -68,16 +68,9 @@ impl Progress {
     // Solid Archives ==============================
 
     /// Get size of files to be archived.
-    pub fn get_archive_size_enc(&mut self, files: &[FileData]) {
+    pub fn get_archive_size(&mut self, files: &[FileData]) {
         for file in files.iter() {
             self.total += file.len;
-        }
-    }
-
-    /// Get size of archive.
-    pub fn get_archive_size_dec(&mut self, files: &[PathBuf]) {
-        for file in files.iter() {
-            self.total += file_len(file);
         }
     }
 
@@ -91,7 +84,7 @@ impl Progress {
 
 
 
-    /// Update current output size and print stats.
+    /// Update and print stats.
     pub fn update(&mut self, size: u64) {
         self.current += size;
         if self.blks > 0 {
@@ -103,7 +96,7 @@ impl Progress {
     // Print percentage and elapsed time.
     fn print_stats(&self) {
         if !self.quiet {
-            let percent = (self.current as f64 / self.total as f64) * 100.0;
+            let percent = (self.current as f64 / self.total as f64).ceil() * 100.0;
             match self.mode {
                 Mode::Compress => {
                     print!("\r{} ({:.2}%) (Time elapsed: {:.2?})  ", 

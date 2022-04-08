@@ -87,14 +87,14 @@ pub struct SolidExtractor {
 impl SolidExtractor {
     /// Create a new SolidExtractor.
     pub fn new(cfg: Config) -> SolidExtractor {
-        let mut archive = new_input_file(4096, &cfg.inputs[0]);
+        let mut archive = new_input_file(4096, &cfg.inputs[0].path);
         let mta = read_metadata(&mut archive);
         let prg = Progress::new(&cfg);
         
         let mut extr = SolidExtractor { 
             archive, mta, cfg, prg, 
         };
-        extr.prg.get_archive_size_dec(&extr.cfg.inputs);
+        extr.prg.get_archive_size(&extr.cfg.inputs);
         extr
     }
 

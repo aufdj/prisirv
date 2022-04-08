@@ -55,16 +55,16 @@ enum Format {
 pub fn fmt_root_output_dir(cfg: &Config) -> String {
     match (cfg.arch, cfg.mode) {
         (Arch::Solid, Mode::Compress) => {
-            fmt_dir_out(Format::ArchiveSolid, &cfg.user_out, &cfg.inputs[0])
+            fmt_dir_out(Format::ArchiveSolid, &cfg.user_out, &cfg.inputs[0].path)
         }
         (Arch::Solid, Mode::Decompress) => {
-            fmt_dir_out(Format::ExtractSolid, &cfg.user_out, &cfg.inputs[0])   
+            fmt_dir_out(Format::ExtractSolid, &cfg.user_out, &cfg.inputs[0].path)   
         }
         (Arch::NonSolid, Mode::Compress) => {
-            fmt_dir_out(Format::Archive,      &cfg.user_out, &cfg.inputs[0])
+            fmt_dir_out(Format::Archive,      &cfg.user_out, &cfg.inputs[0].path)
         }
         (Arch::NonSolid, Mode::Decompress) => {
-            fmt_dir_out(Format::Extract,      &cfg.user_out, &cfg.inputs[0])
+            fmt_dir_out(Format::Extract,      &cfg.user_out, &cfg.inputs[0].path)
         }
     }
 }

@@ -33,6 +33,7 @@ use crate::{
     extract::Extractor,
     solid_archive::SolidArchiver,
     solid_extract::SolidExtractor,
+    metadata::FileData,
     config::Config,
     sort::Sort,
     formatting::fmt_root_output_dir,
@@ -118,7 +119,7 @@ impl Prisirv {
     /// Create archive of supplied paths.
     pub fn create_archive_of(&mut self, paths: &[&str]) {
         self.cfg.mode = Mode::Compress;
-        let paths = paths.iter().map(PathBuf::from).collect::<Vec<PathBuf>>();
+        let paths = paths.iter().map(PathBuf::from).map(FileData::new).collect::<Vec<FileData>>();
         self.cfg.inputs.extend_from_slice(&paths);
 
         self.cfg.dir_out = fmt_root_output_dir(&self.cfg);
@@ -134,7 +135,7 @@ impl Prisirv {
     /// Extract supplied paths.
     pub fn extract_archive_of(&mut self, paths: &[&str]) {
         self.cfg.mode = Mode::Decompress;
-        let paths = paths.iter().map(PathBuf::from).collect::<Vec<PathBuf>>();
+        let paths = paths.iter().map(PathBuf::from).map(FileData::new).collect::<Vec<FileData>>();
         self.cfg.inputs.extend_from_slice(&paths);
 
         self.cfg.dir_out = fmt_root_output_dir(&self.cfg);

@@ -1,14 +1,10 @@
 use std::{
     path::{Path, PathBuf},
     ffi::OsStr,
+    fmt,
 };
 
 use crate::config::Config;
-
-/// Return the length of a file.
-pub fn file_len(path: &Path) -> u64 {
-    path.metadata().unwrap().len()
-}
 
 /// Input file data
 #[derive(Debug, Clone)]
@@ -19,7 +15,7 @@ pub struct FileData {
 impl FileData {
     pub fn new(path: PathBuf) -> FileData {
         FileData {
-            len: file_len(&path),
+            len: path.metadata().unwrap().len(),
             path,
         }
     }
@@ -30,6 +26,11 @@ impl Default for FileData {
             path: PathBuf::from(""), 
             len: 0 
         }
+    }
+}
+impl fmt::Display for FileData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.path.display(), self.len)
     }
 }
 
@@ -70,7 +71,7 @@ pub struct Metadata {
     pub ext:      u64,   // Extension
     pub blk_sz:   usize, // Block size
     pub blk_c:    u64,   // Block count
-    pub files: Vec<FileData>,
+    pub files:    Vec<FileData>,
 }
 impl Metadata {
     /// Initialize new metadata.

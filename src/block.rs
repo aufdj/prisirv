@@ -16,7 +16,7 @@ pub struct Block {
     pub sizeu:  u64,           // Uncompressed data size
     pub data:   Vec<u8>,       // Compressed data
     pub files:  Vec<FileData>, // Files in this block
-    pub crtd:   u64,           // Creation time,
+    pub crtd:   u64,           // Creation time
 }
 impl Block {
     pub fn new(blk_sz: usize) -> Block {
