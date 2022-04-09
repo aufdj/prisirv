@@ -7,7 +7,10 @@ use std::{
     },
 };
 
-use crate::error;
+use crate::{
+    error,
+    metadata::FileData,
+};
 
 // Indicates an empty or non-empty buffer. 
 #[derive(PartialEq, Eq)]
@@ -253,8 +256,7 @@ pub fn new_output_file(capacity: usize, path: &Path) -> BufWriter<File> {
 }
 
 /// Create a new directory.
-pub fn new_dir(path: &str) {
-    let path = Path::new(path);
+pub fn new_dir(path: &Path) {
     match create_dir(path) {
         Ok(_) => {},
         Err(err) => {
@@ -269,34 +271,27 @@ pub fn new_dir(path: &str) {
 
 /// Create a new directory only if the clobber flag is set or the existing 
 /// directory is empty.
-pub fn new_dir_checked(dir_out: &str, clbr: bool) {
-    let path = Path::new(dir_out);
+pub fn new_dir_checked(dir_out: &FileData, clbr: bool) {
     // Create output directory if it doesn't exist.
-    if !path.exists() {
-        new_dir(dir_out);
+    if !dir_out.path.exists() {
+        new_dir(&dir_out.path);
     }
     // If directory exists but is empty, ignore clobber option.
-    else if path.read_dir().unwrap().count() == 0 {}
+    else if dir_out.path.read_dir().unwrap().count() == 0 {}
     // If directory exists and is not empty, abort if user disallowed clobbering (default)
-    else if !clbr { error::dir_already_exists(path); }
+    else if !clbr { error::dir_already_exists(&dir_out.path); }
     // If directory exists and is not empty and user allowed clobbering, continue as normal.
     else {}
 }
 
 /// Create a new file only if the clobber flag is set or the existing file 
 /// is empty.
-pub fn new_output_file_checked(dir_out: &str, clbr: bool) -> BufWriter<File> {
-    let path = Path::new(&dir_out);
+pub fn new_output_file_checked(file: &FileData, clbr: bool) -> BufWriter<File> {
     // If file doesn't exist or is empty, ignore clobber option.
-    if !path.exists() || file_len(path) == 0 {}
+    if !file.path.exists() || file.len == 0 {}
     // If file exists or is not empty, abort if user disallowed clobbering (default)
-    else if !clbr { error::file_already_exists(path); }
+    else if !clbr { error::file_already_exists(&file.path); }
     // If file exists and is not empty and user allowed clobbering, continue as normal.
     else {}
-    new_output_file(4096, path)
-}
-
-/// Return the length of a file.
-pub fn file_len(path: &Path) -> u64 {
-    path.metadata().unwrap().len()
+    new_output_file(4096, &file.path)
 }

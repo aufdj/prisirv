@@ -7,8 +7,9 @@ use std::{
 use crate::{
     buffered_io::{
         BufferedRead, BufferedWrite,
-        new_input_file, new_output_file, file_len,
+        new_input_file, new_output_file,
     },
+    metadata::FileData,
 };
 
 
@@ -153,10 +154,10 @@ impl Image {
     }
 }
 
-pub fn fv(file_path: &Path, col_opt: f64) -> ! {
+pub fn fv(file: &FileData, col_opt: f64) -> ! {
     let time        = Instant::now();
-    let size        = file_len(file_path);
-    let mut file_in = new_input_file(4096, file_path);
+    let size        = file.len;
+    let mut file_in = new_input_file(4096, &file.path);
 
     let width: i32 = 512;
     let height: i32 = 256;
@@ -164,8 +165,8 @@ pub fn fv(file_path: &Path, col_opt: f64) -> ! {
     let fheight = height as f64;
     let fsize   = size   as f64;
 
-    println!("Drawing fv.bmp {} by {} from {} ({} bytes)",
-        width, height, file_path.display(), size);
+    println!("Drawing fv.bmp {} by {} from {}",
+        width, height, file);
     
     // Create blank white image
     let mut img = Image::new(width, height);

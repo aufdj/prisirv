@@ -1,5 +1,4 @@
 use std::{
-    path::{Path, PathBuf},
     io::{BufWriter, BufReader, Seek, SeekFrom},
     fs::File,
 };
@@ -12,7 +11,7 @@ use crate::{
     formatting::fmt_file_out_s_extract,
     config::Config,
     buffered_io::{
-        BufferedRead, BufferedWrite, file_len,
+        BufferedRead, BufferedWrite,
         new_input_file, new_output_file, 
         new_dir_checked, new_output_file_no_trunc,
     },
@@ -33,7 +32,7 @@ impl FileWriter {
         let mut files = files.into_iter();
 
         let file_in = files.next().unwrap();                  
-        let mut file_out = next_file(&file_in.path, dir_out);  
+        let mut file_out = next_file(&file_in, dir_out);  
         file_out.seek(SeekFrom::Start(pos)).unwrap();         
 
         FileWriter {
@@ -47,7 +46,7 @@ impl FileWriter {
     /// Switch to new file when current is correct size.
     fn update(&mut self) {
         let file_in = self.files.next().unwrap();
-        self.file_out = next_file(&file_in.path, &self.dir_out);
+        self.file_out = next_file(&file_in, &self.dir_out);
         self.file_in = file_in;
         self.file_out_pos = 0;
     }
@@ -69,8 +68,8 @@ impl FileWriter {
 ///
 /// The input file length is needed to know when the output file is the 
 /// correct size.
-fn next_file(file_in_path: &Path, dir_out: &str) -> BufWriter<File> {
-    let file_out_path = fmt_file_out_s_extract(dir_out, file_in_path);
+fn next_file(file_in: &FileData, dir_out: &str) -> BufWriter<File> {
+    let file_out_path = fmt_file_out_s_extract(dir_out, &file_in.path);
     if file_out_path.exists() {
         return new_output_file_no_trunc(4096, &file_out_path)
     }
@@ -120,7 +119,7 @@ impl Extractor {
         while blks_wrtn != self.mta.blk_c {
             if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
                 if carry { blk.files.insert(0, file_data); }
-                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.dir_out, pos);
+                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.dir_out.path.to_str().unwrap(), pos);
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
                 }
@@ -141,7 +140,7 @@ impl Extractor {
             }  
         }
         let mut lens: Vec<u64> = Vec::new();
-        get_file_out_lens(Path::new(&self.cfg.dir_out), &mut lens);
+        get_file_out_lens(&self.cfg.dir_out, &mut lens);
         self.prg.print_archive_stats(lens.iter().sum());
     } 
 }
@@ -164,17 +163,17 @@ fn verify_magic_number(mgc: u32) {
 }
 
 // Get total size of decompressed archive.
-fn get_file_out_lens(dir_in: &Path, lens: &mut Vec<u64>) {
-    let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| d.unwrap().path())
-        .partition(|f| f.is_file());
+fn get_file_out_lens(dir_in: &FileData, lens: &mut Vec<u64>) {
+    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
+        dir_in.path.read_dir().unwrap()
+        .map(|d| FileData::new(d.unwrap().path()))
+        .partition(|f| f.path.is_file());
 
     for file in files.iter() {
-        lens.push(file_len(file));
+        lens.push(file.len);
     }
     for dir in dirs.iter() {
-        get_file_out_lens(dir, lens);
+        get_file_out_lens(&dir, lens);
     }
 }
 

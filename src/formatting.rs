@@ -2,7 +2,11 @@ use std::{
     path::{Path, PathBuf},
     fs::create_dir_all,
 };
-use crate::{Mode, config::Config};
+use crate::{
+    Mode, 
+    config::Config,
+    metadata::FileData,
+};
 
 
 trait PathFmt {
@@ -48,13 +52,21 @@ enum Format {
 
 
 /// Creates a new archive or extracted archive path.
-pub fn fmt_root_output_dir(cfg: &Config) -> String {
+pub fn fmt_root_output_dir(cfg: &Config) -> FileData {
     match cfg.mode {
         Mode::Compress => {
-            fmt_dir_out(Format::Archive, &cfg.user_out, &cfg.inputs[0].path)
+            FileData::new(
+                PathBuf::from(
+                    fmt_dir_out(Format::Archive, &cfg.user_out, &cfg.inputs[0].path)
+                )
+            )
         }
         Mode::Decompress => {
-            fmt_dir_out(Format::Extract, &cfg.user_out, &cfg.inputs[0].path)
+            FileData::new(
+                PathBuf::from(
+                    fmt_dir_out(Format::Extract, &cfg.user_out, &cfg.inputs[0].path)
+                )
+            )
         }
     }
 }

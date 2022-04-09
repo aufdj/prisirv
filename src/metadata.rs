@@ -29,7 +29,7 @@ impl Default for FileData {
 }
 impl fmt::Display for FileData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {})", self.path.display(), self.len)
+        write!(f, "{}", self.path.display())
     }
 }
 

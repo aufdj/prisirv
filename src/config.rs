@@ -40,7 +40,7 @@ pub enum Align {
 pub struct Config {
     pub sort:      Sort,          // Sorting method (solid archives only)
     pub user_out:  String,        // User specified output directory (optional)
-    pub dir_out:   String,        // Output directory
+    pub dir_out:   FileData,      // Output directory
     pub inputs:    Vec<FileData>, // Inputs to be archived or extracted
     pub quiet:     bool,          // Suppresses output other than errors
     pub mode:      Mode,          // Compress or decompress
@@ -63,7 +63,7 @@ impl Config {
             clbr:      false,
             threads:   4,
             inputs:    Vec::new(),
-            dir_out:   String::new(),
+            dir_out:   FileData::default(),
             align:     Align::Exact,
         }
     }
@@ -205,7 +205,7 @@ impl Config {
             }
         }
 
-        if fv { fv::fv(&cfg.inputs[0].path, cs); }
+        if fv { fv::fv(&cfg.inputs[0], cs); }
 
         cfg.dir_out = fmt_root_output_dir(&cfg);
 
