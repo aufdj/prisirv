@@ -1,134 +1,148 @@
 use std::{
-    path::{Path, PathBuf},
-    io::{Write, Seek},
+    path::Path,
+    io::{Write, Seek, BufWriter},
     fs::File,
-    io::BufWriter,
 };
 
 use crate::{
-    progress::Progress,
+    sort::sort_files,
     metadata::{Metadata, FileData},
-    config::Config,
     threads::ThreadPool,
+    progress::Progress,
+    config::{Config, Align},
     buffered_io::{
-        BufferedRead, BufferedWrite, BufferState, file_len, 
-        new_input_file, new_output_file, new_dir_checked,
-    },
-    formatting::{
-        fmt_file_out_ns_archive,
-        fmt_nested_dir_ns_archive,
+        BufferedRead, BufferedWrite,
+        new_input_file, new_output_file_checked,
     },
     block::Block,
 };
 
 /// Size of header in bytes
-const PLACEHOLDER: [u8; 36] = [0; 36];
+const PLACEHOLDER: [u8; 28] = [0; 28];
 
-/// An archiver creates non-solid archives. A non-solid archive is an 
-/// archive containing independently compressed files. Non-solid archiving 
-/// typically results in worse compression ratios than solid archiving, but 
-/// allows for extracting individual files.
+/// An archiver creates archives, or an archive containing files 
+/// compressed as one stream. Solid archives take advantage of redundancy 
+/// across files and therefore achieve better compression ratios than non-
+/// solid archives, but don't allow for extracting individual files like
+/// non-solid archives.
 pub struct Archiver {
-    cfg:    Config,
-    prg:    Progress,
-    files:  Vec<PathBuf>, // Keep list of files already compressed to prevent accidental clobbering
+    pub archive:  BufWriter<File>,
+    cfg:          Config,
+    mta:          Metadata,
+    prg:          Progress,
 }
 impl Archiver {
     /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
-        let prg = Progress::new(&cfg);
+        let mut mta = Metadata::new_with_cfg(&cfg);
         
-        Archiver {
-            cfg, prg, files: Vec::new(),
+        // Collect and sort files.
+        collect_files(&cfg.inputs, &mut mta);
+        mta.files.sort_by(|f1, f2| 
+            sort_files(&f1.path, &f2.path, cfg.sort)
+        );
+
+        let mut prg = Progress::new(&cfg);
+        prg.get_archive_size(&mta.files);
+
+        let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
+        archive.write_all(&PLACEHOLDER).unwrap();
+
+        Archiver { 
+            archive, cfg, prg, mta
         }
     }
 
-    /// Compress all files.
+    /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
-
-        let (files, dirs): (Vec<FileData>, Vec<FileData>) = 
-            self.cfg.inputs.clone().into_iter()
-            .partition(|f| f.path.is_file());
-
-        let mut dir_out = self.cfg.dir_out.clone();
-
-        for file in files.iter() {
-            self.prg.print_file_name(&file.path);
-            self.compress_file(&file.path, &dir_out);
-        }
-        for dir in dirs.iter() {
-            self.compress_dir(&dir.path, &mut dir_out);      
-        }
-    }
-
-    /// Compress a single file.
-    pub fn compress_file(&mut self, file_in_path: &Path, dir_out: &str) {
-        self.prg.get_file_size(file_in_path);
-
-        let mut mta: Metadata = Metadata::new_with_cfg(&self.cfg);
         let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
-        let mut blk = Block::new(mta.blk_sz);
-        
-        let mut file_in = new_input_file(mta.blk_sz, file_in_path);
+        let mut blk = Block::new(self.cfg.blk_sz);
 
-        // Create output file and write metadata placeholder
-        let file_out_path = fmt_file_out_ns_archive(dir_out, file_in_path, self.cfg.clbr, &self.files);
-        if self.cfg.clbr { self.files.push(file_out_path.clone()); }
-        let mut file_out = new_output_file(4096, &file_out_path);
-        file_out.write_all(&PLACEHOLDER).unwrap();
+        // Read files into blocks and compress
+        for file in self.mta.files.iter() {
+            blk.files.push(file.clone());
+            let mut file_in = new_input_file(blk.data.capacity(), &file.path);
 
-        // Set metadata extension field
-        mta.set_ext(file_in_path);
-        
-        while file_in.fill_buffer() == BufferState::NotEmpty {
-            blk.data.extend_from_slice(file_in.buffer());
-            tp.compress_block(blk.clone());
-            blk.next();
-            mta.blk_c += 1;
+            if self.cfg.align == Align::File {
+                for _ in 0..file.len {
+                    blk.data.push(file_in.read_byte());
+                }
+                if blk.data.len() >= self.cfg.blk_sz {
+                    tp.compress_block(blk.clone());
+                    self.mta.blk_c += 1;
+                    blk.next();
+                }
+            }
+            else {
+                for _ in 0..file.len {
+                    blk.data.push(file_in.read_byte());
+                    if blk.data.len() >= self.cfg.blk_sz {
+                        tp.compress_block(blk.clone());
+                        self.mta.blk_c += 1;
+                        blk.next();
+                    }
+                }
+            }
+
         }
 
+        // Compress final block
+        if !blk.data.is_empty() {
+            tp.compress_block(blk.clone());
+            self.mta.blk_c += 1;
+        }
+        
+        // Output blocks
         let mut blks_wrtn: u64 = 0;
-        while blks_wrtn != mta.blk_c {
+        while blks_wrtn != self.mta.blk_c {
             if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
-                blk.write_to(&mut file_out);
+                blk.write_to(&mut self.archive);
                 blks_wrtn += 1;
             }
-        }   
+        }
+        self.archive.flush_buffer();
 
-        self.write_metadata(&mut file_out, &mut mta);
-
-        self.prg.print_file_stats(file_len(&file_out_path));
+        self.write_metadata();
     }
-    
-    /// Compress all files in a directory.
-    pub fn compress_dir(&mut self, dir_in: &Path, dir_out: &mut String) {
-        let mut dir_out = fmt_nested_dir_ns_archive(dir_out, dir_in);
-        new_dir_checked(&dir_out, self.cfg.clbr);
 
-        // Sort files and directories
-        let (files, dirs): (Vec<PathBuf>, Vec<PathBuf>) = 
-            dir_in.read_dir().unwrap()
-            .map(|d| d.unwrap().path())
-            .partition(|f| f.is_file());
+    /// Write footer containing file paths and lengths.
+    fn write_metadata(&mut self) {
+        // Return final archive size including footer
+        self.prg.print_archive_stats(self.archive.stream_position().unwrap());
 
-        // Compress files first, then directories
-        for file in files.iter() {
-            self.prg.print_file_name(file);
-            self.compress_file(file, &dir_out);
-        }
-        for dir in dirs.iter() {
-            self.compress_dir(dir, &mut dir_out);
-        }
-    } 
+        self.archive.rewind().unwrap();
+        self.archive.write_u64(self.mta.mem);     
+        self.archive.write_u32(self.mta.mgc);
+        self.archive.write_u64(self.mta.blk_sz as u64);
+        self.archive.write_u64(self.mta.blk_c);
+    }
+}
 
-    /// Rewind to the beginning of the file and write a 56 byte header.
-    fn write_metadata(&mut self, file_out: &mut BufWriter<File>, mta: &mut Metadata) {
-        file_out.rewind().unwrap();
-        file_out.write_u64(mta.mem);
-        file_out.write_u32(mta.mgc);
-        file_out.write_u64(mta.ext);
-        file_out.write_u64(mta.blk_sz as u64);
-        file_out.write_u64(mta.blk_c);
+/// Recursively collect all files into a vector for sorting before compression.
+fn collect_files(inputs: &[FileData], mta: &mut Metadata) {
+    // Group files and directories 
+    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
+        inputs.iter().cloned()
+        .partition(|f| f.path.is_file());
+
+    // Walk through directories and collect all files
+    for file in files.into_iter() {
+        mta.files.push(file);
+    }
+    for dir in dirs.iter() {
+        collect(&dir.path, mta);
+    }
+}
+fn collect(dir_in: &Path, mta: &mut Metadata) {
+    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
+        dir_in.read_dir().unwrap()
+        .map(|d| FileData::new(d.unwrap().path()))
+        .partition(|f| f.path.is_file());
+
+    for file in files.into_iter() {
+        mta.files.push(file);
+    }
+    for dir in dirs.iter() {
+        collect(&dir.path, mta);
     }
 }

@@ -9,9 +9,7 @@ mod hash_table;
 mod logistic;      
 mod metadata;
 mod archive;       
-mod solid_archive; 
 mod extract;
-mod solid_extract;
 mod tables;  
 mod sort;
 mod buffered_io;   
@@ -31,8 +29,6 @@ use std::path::PathBuf;
 use crate::{
     archive::Archiver,
     extract::Extractor,
-    solid_archive::SolidArchiver,
-    solid_extract::SolidExtractor,
     metadata::FileData,
     config::Config,
     sort::Sort,
@@ -46,13 +42,6 @@ pub enum Mode {
     Decompress,
 }
 
-/// Archive type (Solid | Non-Solid)
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub enum Arch {
-    Solid,
-    NonSolid,
-}
-
 /// Prisirv API. Allows for creating or extracting a Prisirv archive
 /// using method chaining syntax or by supplying an existing Config.
 #[derive(Clone)]
@@ -63,12 +52,6 @@ impl Prisirv {
     /// Create a new Prisirv archiver or extractor with an empty Config.
     pub fn new() -> Prisirv {
         Prisirv { cfg: Config::default() }
-    }
-
-    /// Create a solid archive instead of non-solid.
-    pub fn solid(&mut self) -> &mut Self {
-        self.cfg.arch = Arch::Solid;
-        &mut *self
     }
 
     /// Choose number of threads to use.
@@ -126,10 +109,7 @@ impl Prisirv {
 
         self.cfg.print();
 
-        match self.cfg.arch {
-            Arch::Solid    => { SolidArchiver::new(self.cfg.clone()).create_archive(); }
-            Arch::NonSolid => { Archiver::new(self.cfg.clone()).create_archive();      }
-        }  
+        Archiver::new(self.cfg.clone()).create_archive();  
     }
 
     /// Extract supplied paths.
@@ -142,10 +122,7 @@ impl Prisirv {
 
         self.cfg.print();
 
-        match self.cfg.arch {
-            Arch::Solid    => { SolidExtractor::new(self.cfg.clone()).extract_archive(); }
-            Arch::NonSolid => { Extractor::new(self.cfg.clone()).extract_archive();      }
-        }  
+        Extractor::new(self.cfg.clone()).extract_archive(); 
     }
 
 
@@ -156,18 +133,12 @@ impl Prisirv {
 
     /// Create an archive from inputs specified in Config.
     pub fn create_archive(self) {
-        match self.cfg.arch {
-            Arch::Solid    => { SolidArchiver::new(self.cfg).create_archive(); }
-            Arch::NonSolid => { Archiver::new(self.cfg).create_archive();      }
-        }  
+        Archiver::new(self.cfg).create_archive();  
     }
 
     /// Extract inputs specified in Config.
     pub fn extract_archive(self) {
-        match self.cfg.arch {
-            Arch::Solid    => { SolidExtractor::new(self.cfg).extract_archive(); }
-            Arch::NonSolid => { Extractor::new(self.cfg).extract_archive();      }
-        }  
+        Extractor::new(self.cfg).extract_archive(); 
     }
 }
 impl Default for Prisirv {

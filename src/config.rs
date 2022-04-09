@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
 use crate::{
-    sort::Sort, Mode, Arch, fv,
+    sort::Sort, Mode, fv,
     formatting::fmt_root_output_dir,
-    solid_extract::SolidExtractor,
+    extract::Extractor,
     error,
     block::Block,
     metadata::FileData,
@@ -16,7 +16,6 @@ enum Parse {
     Compress,
     Decompress,
     DirOut,
-    Solid,
     Sort,
     Inputs,
     Quiet,
@@ -43,7 +42,6 @@ pub struct Config {
     pub user_out:  String,        // User specified output directory (optional)
     pub dir_out:   String,        // Output directory
     pub inputs:    Vec<FileData>, // Inputs to be archived or extracted
-    pub arch:      Arch,          // Solid or non-solid archive
     pub quiet:     bool,          // Suppresses output other than errors
     pub mode:      Mode,          // Compress or decompress
     pub mem:       u64,           // Memory usage 
@@ -60,7 +58,6 @@ impl Config {
             user_out:  String::new(),
             blk_sz:    10 << 20,
             mem:       1 << 22,
-            arch:      Arch::NonSolid,
             mode:      Mode::Compress,
             quiet:     false,
             clbr:      false,
@@ -112,7 +109,6 @@ impl Config {
                 }
                 "create"            => parser = Parse::Compress,
                 "extract"           => parser = Parse::Decompress,
-                "-sld" | "-solid"   => parser = Parse::Solid,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
                 "-clb" | "-clobber" => parser = Parse::Clobber,
                 "-file-align"       => parser = Parse::Align,
@@ -154,7 +150,8 @@ impl Config {
                 } 
                 Parse::BlkSz => {
                     let scale = 
-                    if      arg.contains('K') { 1024 }
+                    if      arg.contains('B') { 1 }
+                    else if arg.contains('K') { 1024 }
                     else if arg.contains('M') { 1024*1024 }
                     else if arg.contains('G') { 1024*1024*1024 }
                     else { error::invalid_scale(); };
@@ -193,7 +190,6 @@ impl Config {
                 Parse::Decompress => cfg.mode = Mode::Decompress,
                 Parse::DirOut     => cfg.user_out = arg.to_string(),
                 Parse::Inputs     => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
-                Parse::Solid      => cfg.arch = Arch::Solid,
                 Parse::Quiet      => cfg.quiet = true,
                 Parse::Clobber    => cfg.clbr = true,
                 Parse::Align      => cfg.align = Align::File,
@@ -224,9 +220,8 @@ impl Config {
             println!();
             println!("=======================================================================");
 
-            println!(" {} {} Archive of Inputs:", 
+            println!(" {} Archive of Inputs:", 
                 if self.mode == Mode::Compress { "Creating" } else { "Extracting" },
-                if self.arch == Arch::Solid    { "Solid"    } else { "Non-Solid"  }
             );
 
             for input in self.inputs.iter() {
@@ -273,7 +268,7 @@ impl Config {
 
     fn list_archive(self) -> ! {
         let mut blk = Block::new(self.blk_sz);
-        let mut extr = SolidExtractor::new(self); 
+        let mut extr = Extractor::new(self); 
         for _ in 0..extr.mta.blk_c {
             blk.read_from(&mut extr.archive);
             blk.print();
@@ -374,6 +369,9 @@ fn format(size: usize) -> (usize, String) {
     }
     else if size >= 1024 {
         (size/1024, String::from("KiB"))
+    }
+    else if size >= 1 {
+        (size, String::from("B"))
     }
     else { (0, String::from("")) }
 }

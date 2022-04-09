@@ -91,16 +91,6 @@ pub fn invalid_input(path: &Path) -> ! {
     exit(0);
 }
 
-pub fn found_solid_archive() -> ! {
-    println!("Expected non-solid archive, found solid archive.");
-    exit(0);
-}
-
-pub fn found_non_solid_archive() -> ! {
-    println!("Expected solid archive, found non-solid archive.");
-    exit(0);
-}
-
 pub fn no_prisirv_archive() -> ! {
     println!("Not a prisirv archive.");
     exit(0);

@@ -1,5 +1,4 @@
 use std::{
-    path::Path,
     time::Instant,
     io::Write,
 };
@@ -7,7 +6,6 @@ use std::{
 use crate::{
     Mode,
     config::Config,
-    buffered_io::file_len,
     metadata::FileData,
 };
 
@@ -35,37 +33,6 @@ impl Progress {
             time:     Instant::now(),
         }
     }
-    
-    // Non-Solid Archives ==========================
-
-    /// Get input file size.
-    pub fn get_file_size(&mut self, input: &Path) {
-        self.total = file_len(input);
-    }
-
-    /// Print final compressed file size and time elapsed.
-    pub fn print_file_stats(&self, out_size: u64) {
-        if !self.quiet {
-            println!("\n{} bytes -> {} bytes in {:.2?}\n", 
-                self.total, out_size, self.time.elapsed());
-        }
-    }
-
-    pub fn print_file_name(&self, file: &Path) {
-        if !self.quiet { 
-            match self.mode {
-                Mode::Compress => {
-                    println!("Compressing {}", file.display());
-                }
-                Mode::Decompress => {
-                    println!("Decompressing {}", file.display());
-                }   
-            } 
-        } 
-    }
-
-
-    // Solid Archives ==============================
 
     /// Get size of files to be archived.
     pub fn get_archive_size(&mut self, files: &[FileData]) {
@@ -81,7 +48,6 @@ impl Progress {
                 self.total, out_size, self.time.elapsed());
         }
     }
-
 
 
     /// Update and print stats.
