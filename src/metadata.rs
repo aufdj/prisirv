@@ -20,6 +20,9 @@ impl FileData {
 
         FileData { len, path }
     }
+    pub fn path_str(&self) -> &str {
+        self.path.to_str().unwrap()
+    }
 }
 impl Default for FileData {
     fn default() -> FileData {

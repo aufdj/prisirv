@@ -64,6 +64,7 @@ impl Archiver {
             let mut file_in = new_input_file(blk.data.capacity(), &file.path);
 
             if self.cfg.align == Align::File {
+                // Align block to end of current file
                 for _ in 0..file.len {
                     blk.data.push(file_in.read_byte());
                 }
@@ -74,6 +75,7 @@ impl Archiver {
                 }
             }
             else {
+                // Align block to exact specified size
                 for _ in 0..file.len {
                     blk.data.push(file_in.read_byte());
                     if blk.data.len() >= self.cfg.blk_sz {

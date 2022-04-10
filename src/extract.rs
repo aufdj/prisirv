@@ -18,6 +18,8 @@ use crate::{
     error,
 };
 
+
+
 /// A decompressed block can span multiple files, so a FileWriter is used 
 /// to handle swapping files when needed while writing a block.
 struct FileWriter {
@@ -112,31 +114,33 @@ impl Extractor {
 
         let mut blks_wrtn: u64 = 0;
         let mut pos = 0;
-        let mut carry = false;
         let mut file_data = FileData::default(); 
-        
+
         // Write blocks to output 
         while blks_wrtn != self.mta.blk_c {
             if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
-                if carry { blk.files.insert(0, file_data); }
-                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.out.path.to_str().unwrap(), pos);
+
+                // Add last file of previous block to new block, assuming that
+                // the file crossed a block boundary. If the file did end on a
+                // block boundary, it will be immediately skipped.
+                if file_data.path.exists() { 
+                    blk.files.insert(0, file_data); 
+                }
+                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.out.path_str(), pos);
+
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
                 }
+
                 fw.file_out.flush_buffer();
                 file_data = fw.current();
                 blks_wrtn += 1;
                 
-                // Check if last file is cut off at block boundary. If so,
-                // add file to beginning of subsequent block's file list 
-                // and save the current file position.
-                if fw.file_out_pos != fw.file_in.len {
-                    carry = true;
-                    pos = fw.file_out_pos; 
-                }
-                else {
-                    pos = 0;
-                }
+                // A new file writer is created for each block, meaning 
+                // the current file position will be wiped with each new 
+                // block. To handle files that cross block boundaries, 
+                // save the current file position.
+                pos = fw.file_out_pos; 
             }  
         }
         let mut lens: Vec<u64> = Vec::new();
@@ -158,7 +162,7 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
 /// Check for a valid magic number.
 fn verify_magic_number(mgc: u32) {
     if mgc != 0x5653_5250 {
-        error::no_prisirv_archive()
+        error::no_prisirv_archive();
     }
 }
 
