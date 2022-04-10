@@ -32,7 +32,7 @@ use crate::{
     metadata::FileData,
     config::Config,
     sort::Sort,
-    formatting::fmt_root_output_dir,
+    formatting::fmt_root_output,
 };
 
 /// Mode (Compress | Decompress)
@@ -105,7 +105,7 @@ impl Prisirv {
         let paths = paths.iter().map(PathBuf::from).map(FileData::new).collect::<Vec<FileData>>();
         self.cfg.inputs.extend_from_slice(&paths);
 
-        self.cfg.dir_out = fmt_root_output_dir(&self.cfg);
+        self.cfg.out = fmt_root_output(&self.cfg);
 
         self.cfg.print();
 
@@ -118,7 +118,7 @@ impl Prisirv {
         let paths = paths.iter().map(PathBuf::from).map(FileData::new).collect::<Vec<FileData>>();
         self.cfg.inputs.extend_from_slice(&paths);
 
-        self.cfg.dir_out = fmt_root_output_dir(&self.cfg);
+        self.cfg.out = fmt_root_output(&self.cfg);
 
         self.cfg.print();
 

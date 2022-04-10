@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     sort::Sort, Mode, fv,
-    formatting::fmt_root_output_dir,
+    formatting::fmt_root_output,
     extract::Extractor,
     error,
     block::Block,
@@ -40,7 +40,7 @@ pub enum Align {
 pub struct Config {
     pub sort:      Sort,          // Sorting method (solid archives only)
     pub user_out:  String,        // User specified output directory (optional)
-    pub dir_out:   FileData,      // Output directory
+    pub out:       FileData,      // Output
     pub inputs:    Vec<FileData>, // Inputs to be archived or extracted
     pub quiet:     bool,          // Suppresses output other than errors
     pub mode:      Mode,          // Compress or decompress
@@ -63,7 +63,7 @@ impl Config {
             clbr:      false,
             threads:   4,
             inputs:    Vec::new(),
-            dir_out:   FileData::default(),
+            out:       FileData::default(),
             align:     Align::Exact,
         }
     }
@@ -207,7 +207,7 @@ impl Config {
 
         if fv { fv::fv(&cfg.inputs[0], cs); }
 
-        cfg.dir_out = fmt_root_output_dir(&cfg);
+        cfg.out = fmt_root_output(&cfg);
 
         if list { cfg.list_archive(); }
         cfg.print();
@@ -234,7 +234,7 @@ impl Config {
             }
             println!();
 
-            println!(" Output Path: {}", self.dir_out);
+            println!(" Output Path: {}", self.out);
             if self.mode == Mode::Compress {
                 println!(" Sorting by: {}", 
                 match self.sort {
@@ -253,7 +253,7 @@ impl Config {
                 let (size, suffix) = format(self.blk_sz);
                 println!(" Block Size: {} {}", size, suffix); 
 
-                println!(" Block alignment: {}", 
+                println!(" Block Alignment: {}", 
                     if self.align == Align::File { "File" } 
                     else { "Exact" }
                 );

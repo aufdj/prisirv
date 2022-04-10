@@ -8,7 +8,7 @@ use crate::{
     threads::ThreadPool,
     progress::Progress,
     block::Block,
-    formatting::fmt_file_out_s_extract,
+    formatting::fmt_file_out_extract,
     config::Config,
     buffered_io::{
         BufferedRead, BufferedWrite,
@@ -69,7 +69,7 @@ impl FileWriter {
 /// The input file length is needed to know when the output file is the 
 /// correct size.
 fn next_file(file_in: &FileData, dir_out: &str) -> BufWriter<File> {
-    let file_out_path = fmt_file_out_s_extract(dir_out, &file_in.path);
+    let file_out_path = fmt_file_out_extract(dir_out, &file_in.path);
     if file_out_path.exists() {
         return new_output_file_no_trunc(4096, &file_out_path)
     }
@@ -100,7 +100,7 @@ impl Extractor {
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
-        new_dir_checked(&self.cfg.dir_out, self.cfg.clbr);
+        new_dir_checked(&self.cfg.out, self.cfg.clbr);
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
         let mut blk = Block::new(self.mta.blk_sz);
 
@@ -119,7 +119,7 @@ impl Extractor {
         while blks_wrtn != self.mta.blk_c {
             if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
                 if carry { blk.files.insert(0, file_data); }
-                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.dir_out.path.to_str().unwrap(), pos);
+                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.out.path.to_str().unwrap(), pos);
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
                 }
@@ -140,7 +140,7 @@ impl Extractor {
             }  
         }
         let mut lens: Vec<u64> = Vec::new();
-        get_file_out_lens(&self.cfg.dir_out, &mut lens);
+        get_file_out_lens(&self.cfg.out, &mut lens);
         self.prg.print_archive_stats(lens.iter().sum());
     } 
 }

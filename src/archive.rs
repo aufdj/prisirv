@@ -45,7 +45,7 @@ impl Archiver {
         let mut prg = Progress::new(&cfg);
         prg.get_archive_size(&mta.files);
 
-        let mut archive = new_output_file_checked(&cfg.dir_out, cfg.clbr);
+        let mut archive = new_output_file_checked(&cfg.out, cfg.clbr);
         archive.write_all(&PLACEHOLDER).unwrap();
 
         Archiver { 

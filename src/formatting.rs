@@ -43,35 +43,7 @@ impl PathFmt for Path {
 }
 
 
-/// Used for determining archive name.
-#[derive(PartialEq, Eq)]
-enum Format {
-    Archive,
-    Extract,
-}
-
-
-/// Creates a new archive or extracted archive path.
-pub fn fmt_root_output_dir(cfg: &Config) -> FileData {
-    match cfg.mode {
-        Mode::Compress => {
-            FileData::new(
-                PathBuf::from(
-                    fmt_dir_out(Format::Archive, &cfg.user_out, &cfg.inputs[0].path)
-                )
-            )
-        }
-        Mode::Decompress => {
-            FileData::new(
-                PathBuf::from(
-                    fmt_dir_out(Format::Extract, &cfg.user_out, &cfg.inputs[0].path)
-                )
-            )
-        }
-    }
-}
-
-/// Format output directory given a format, an optional user specified output, 
+/// Format output directory given an optional user specified output, 
 /// and the first input file or directory.
 ///
 /// An -out option containing \'s will be treated as an absolute path.
@@ -81,39 +53,62 @@ pub fn fmt_root_output_dir(cfg: &Config) -> FileData {
 ///
 /// i.e. Compressing \foo\bar.txt with option '-out \baz\arch' creates archive 
 /// \baz\arch, while option '-out arch' creates archive \foo\arch.
-fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
-    let mut dir_out = String::new();
-    if user_out.is_empty() {
-        dir_out = match fmt {
-            Format::Archive => format!("{}.prsv", first_input.path_no_ext()),
-            Format::Extract => format!("{}_d",    first_input.path_no_ext()),
-        }    
-    }
-    else if user_out.contains('\\') {
-        dir_out = match fmt {
-            Format::Archive => format!("{}.prsv", user_out),
-            Format::Extract => format!("{}_d",    user_out),
-        }    
-    }
-    else {
-        // Replace final path component with user option
-        let s: Vec<String> = 
-            first_input.path_ext()
-            .split('\\').skip(1)
-            .map(|s| s.to_string())
-            .collect();
-        for cmpnt in s.iter().take(s.len()-1) {
-            dir_out.push_str(format!("\\{}", cmpnt).as_str());
+pub fn fmt_root_output(cfg: &Config) -> FileData {
+    match cfg.mode {
+        Mode::Compress => {
+            FileData::new(
+                PathBuf::from(
+                    if cfg.user_out.is_empty() {
+                        format!("{}.prsv", cfg.inputs[0].path.path_no_ext()) 
+                    }
+                    else if cfg.user_out.contains('\\') {
+                        format!("{}.prsv", cfg.user_out)
+                    }
+                    else {
+                        let mut dir_out = String::new();
+                        // Replace final path component with user option
+                        let s: Vec<String> = 
+                            cfg.inputs[0].path.path_ext()
+                            .split('\\').skip(1)
+                            .map(|s| s.to_string())
+                            .collect();
+                        for cmpnt in s.iter().take(s.len()-1) {
+                            dir_out.push_str(format!("\\{}", cmpnt).as_str());
+                        }
+                        format!("{}\\{}.prsv", dir_out, cfg.user_out)
+                    }
+                )
+            )
         }
-        dir_out = match fmt {
-            Format::Archive => format!("{}\\{}.prsv", dir_out, user_out),
-            Format::Extract => format!("{}\\{}_d",    dir_out, user_out),
-        }    
-    }   
-    dir_out
+        Mode::Decompress => {
+            FileData::new(
+                PathBuf::from(
+                    if cfg.user_out.is_empty() {
+                        format!("{}_d", cfg.inputs[0].path.path_no_ext()) 
+                    }
+                    else if cfg.user_out.contains('\\') {
+                        format!("{}_d", cfg.user_out)
+                    }
+                    else {
+                        let mut dir_out = String::new();
+                        // Replace final path component with user option
+                        let s: Vec<String> = 
+                            cfg.inputs[0].path.path_ext()
+                            .split('\\').skip(1)
+                            .map(|s| s.to_string())
+                            .collect();
+                        for cmpnt in s.iter().take(s.len()-1) {
+                            dir_out.push_str(format!("\\{}", cmpnt).as_str());
+                        }
+                        format!("{}\\{}_d", dir_out, cfg.user_out)
+                    }
+                )
+            )
+        }
+    }
 }
 
-/// Format output file in extracted solid archive
+/// Format output file in extracted archive
 ///
 /// Reconstruct original directory structure based on output directory and 
 /// absolute path of the file being compressed. This is done by chaining 
@@ -123,7 +118,7 @@ fn fmt_dir_out(fmt: Format, user_out: &str, first_input: &Path) -> String {
 ///
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
-pub fn fmt_file_out_s_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
+pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
     let dir_out_path = Path::new(dir_out);
 
     let path = 

@@ -13,10 +13,12 @@ pub struct FileData {
 }
 impl FileData {
     pub fn new(path: PathBuf) -> FileData {
-        FileData {
-            len: path.metadata().unwrap().len(),
-            path,
-        }
+        let len = match path.metadata() {
+            Ok(file) => file.len(),
+            Err(_)   => 0,
+        };
+
+        FileData { len, path }
     }
 }
 impl Default for FileData {
@@ -36,18 +38,14 @@ impl fmt::Display for FileData {
 
 /// # Metadata Structure 
 ///
-/// * A prisirv archive contains a 28 byte header followed by compressed data.
+/// * A prisirv archive contains a 28 byte 
+///   header followed by compressed data.
 ///
 /// * Memory Option
 /// * Magic Number
 /// * Block Size
 /// * Block Count
 /// * Compressed Data
-///     
-/// 
-/// Memory Option: 1<<20..1<<29,
-/// Magic Number:  'PRSV'
-/// Block Size:    10<<20,
 
 #[derive(Debug)]
 pub struct Metadata {
