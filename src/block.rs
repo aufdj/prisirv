@@ -14,9 +14,9 @@ pub struct Block {
     pub chksum: u32,           // Uncompressed block checksum
     pub sizec:  u64,           // Compressed data size
     pub sizeu:  u64,           // Uncompressed data size
-    pub data:   Vec<u8>,       // Compressed data
     pub files:  Vec<FileData>, // Files in this block
     pub crtd:   u64,           // Creation time
+    pub data:   Vec<u8>,       // Compressed data 
 }
 impl Block {
     pub fn new(blk_sz: usize) -> Block {
@@ -25,9 +25,9 @@ impl Block {
             chksum: 0,
             sizec:  0,
             sizeu:  0,
-            data:   Vec::with_capacity(blk_sz),
             files:  Vec::new(),
             crtd:   0,  
+            data:   Vec::with_capacity(blk_sz),
         }
     }
     pub fn next(&mut self) {

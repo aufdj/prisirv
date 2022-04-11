@@ -72,7 +72,7 @@ impl Archiver {
                 }
             }
             // Truncate final block to align with end of file
-            if self.cfg.align == Align::File {
+            if self.cfg.align == Align::File && !blk.data.is_empty() {
                 tp.compress_block(blk.clone());
                 self.mta.blk_c += 1;
                 blk.next();
@@ -98,7 +98,7 @@ impl Archiver {
         self.write_metadata();
     }
 
-    /// Write footer containing file paths and lengths.
+    /// Write header
     fn write_metadata(&mut self) {
         // Return final archive size including footer
         self.prg.print_archive_stats(self.archive.stream_position().unwrap());

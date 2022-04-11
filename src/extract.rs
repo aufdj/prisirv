@@ -13,7 +13,7 @@ use crate::{
     buffered_io::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file, 
-        new_dir_checked, new_output_file_no_trunc,
+        new_dir, new_output_file_no_trunc,
     },
     error,
 };
@@ -102,7 +102,7 @@ impl Extractor {
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
-        new_dir_checked(&self.cfg.out, self.cfg.clbr);
+        new_dir(&self.cfg.out, self.cfg.clbr);
         let mut tp = ThreadPool::new(self.cfg.threads, self.mta.mem, self.prg);
         let mut blk = Block::new(self.mta.blk_sz);
 
