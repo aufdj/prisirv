@@ -136,9 +136,7 @@ impl Extractor {
                 file_data = fw.current();
                 blks_wrtn += 1;
                 
-                // A new file writer is created for each block, meaning 
-                // the current file position will be wiped with each new 
-                // block. To handle files that cross block boundaries, 
+                // To handle files that cross block boundaries, 
                 // save the current file position.
                 pos = fw.file_out_pos; 
             }  

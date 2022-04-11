@@ -63,29 +63,20 @@ impl Archiver {
             blk.files.push(file.clone());
             let mut file_in = new_input_file(blk.data.capacity(), &file.path);
 
-            if self.cfg.align == Align::File {
-                // Align block to end of current file
-                for _ in 0..file.len {
-                    blk.data.push(file_in.read_byte());
-                }
+            for _ in 0..file.len {
+                blk.data.push(file_in.read_byte());
                 if blk.data.len() >= self.cfg.blk_sz {
                     tp.compress_block(blk.clone());
                     self.mta.blk_c += 1;
                     blk.next();
                 }
             }
-            else {
-                // Align block to exact specified size
-                for _ in 0..file.len {
-                    blk.data.push(file_in.read_byte());
-                    if blk.data.len() >= self.cfg.blk_sz {
-                        tp.compress_block(blk.clone());
-                        self.mta.blk_c += 1;
-                        blk.next();
-                    }
-                }
+            // Truncate final block to align with end of file
+            if self.cfg.align == Align::File {
+                tp.compress_block(blk.clone());
+                self.mta.blk_c += 1;
+                blk.next();
             }
-
         }
 
         // Compress final block
