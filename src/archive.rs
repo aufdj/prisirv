@@ -29,7 +29,7 @@ pub struct Archiver {
     pub archive:  BufWriter<File>,
     cfg:          Config,
     mta:          Metadata,
-    prg:          Progress,
+    tp:           ThreadPool,
 }
 impl Archiver {
     /// Create a new Archiver.
@@ -42,20 +42,19 @@ impl Archiver {
             sort_files(&f1.path, &f2.path, cfg.sort)
         );
 
-        let mut prg = Progress::new(&cfg);
-        prg.get_archive_size(&mta.files);
+        let prg = Progress::new(&cfg, &mta.files);
+        let tp = ThreadPool::new(cfg.threads, cfg.mem, prg);
 
         let mut archive = new_output_file_checked(&cfg.out, cfg.clbr);
         archive.write_all(&PLACEHOLDER).unwrap();
 
         Archiver { 
-            archive, cfg, prg, mta
+            archive, cfg, mta, tp, 
         }
     }
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        let mut tp = ThreadPool::new(self.cfg.threads, self.cfg.mem, self.prg);
         let mut blk = Block::new(self.cfg.blk_sz);
 
         // Read files into blocks and compress
@@ -66,14 +65,14 @@ impl Archiver {
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());
                 if blk.data.len() >= self.cfg.blk_sz {
-                    tp.compress_block(blk.clone());
+                    self.tp.compress_block(blk.clone());
                     self.mta.blk_c += 1;
                     blk.next();
                 }
             }
             // Truncate final block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
-                tp.compress_block(blk.clone());
+                self.tp.compress_block(blk.clone());
                 self.mta.blk_c += 1;
                 blk.next();
             }
@@ -81,14 +80,14 @@ impl Archiver {
 
         // Compress final block
         if !blk.data.is_empty() {
-            tp.compress_block(blk.clone());
+            self.tp.compress_block(blk.clone());
             self.mta.blk_c += 1;
         }
         
         // Output blocks
         let mut blks_wrtn: u64 = 0;
         while blks_wrtn != self.mta.blk_c {
-            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+            if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 blk.write_to(&mut self.archive);
                 blks_wrtn += 1;
             }
@@ -100,9 +99,6 @@ impl Archiver {
 
     /// Write header
     fn write_metadata(&mut self) {
-        // Return final archive size including footer
-        self.prg.print_archive_stats(self.archive.stream_position().unwrap());
-
         self.archive.rewind().unwrap();
         self.archive.write_u64(self.mta.mem);     
         self.archive.write_u32(self.mta.mgc);

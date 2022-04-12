@@ -68,8 +68,8 @@ impl ThreadPool {
                         .unwrap().as_secs() as u64;
                     Block {
                         chksum: (&blk_in.data).crc32(),
-                        sizec:  enc.blk_out.len() as u64,
-                        sizeu:  blk_in.data.len() as u64,
+                        sizeo:  enc.blk_out.len() as u64,
+                        sizei:  blk_in.data.len() as u64,
                         files:  blk_in.files,
                         data:   enc.blk_out,
                         id:     blk_in.id,
@@ -89,15 +89,15 @@ impl ThreadPool {
             Message::NewJob(
                 Box::new(move || {
                     let mut dec = Decoder::new(blk_in.data, mem);
-                    let blk_out = dec.decompress_block(blk_in.sizeu as usize);
+                    let blk_out = dec.decompress_block(blk_in.sizei as usize);
                     let chksum = (&blk_out).crc32();
                     if chksum != blk_in.chksum {
                         println!("Incorrect Checksum: Block {}", blk_in.id);
                     }
                     Block {
                         chksum,
-                        sizec:  blk_out.len() as u64,
-                        sizeu:  len as u64,
+                        sizeo:  blk_out.len() as u64,
+                        sizei:  len as u64,
                         files:  blk_in.files,
                         data:   blk_out,
                         id:     blk_in.id,
@@ -141,9 +141,9 @@ impl Thread {
 
             match message {
                 Message::NewJob(job) => { 
-                    let block = job();
-                    { prg.lock().unwrap().update(block.sizeu); }
-                    bq.lock().unwrap().blocks.push(block);
+                    let blk = job();
+                    { prg.lock().unwrap().update(&blk); }
+                    bq.lock().unwrap().blocks.push(blk);
                 }
                 Message::Terminate => { break; }
             }

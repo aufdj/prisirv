@@ -6,25 +6,27 @@ use std::{
 use crate::{
     Mode,
     config::Config,
+    block::Block,
     metadata::FileData,
 };
 
 
 /// Track compression or decompression progress.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Progress {
-    total:    u64,     // Total size of uncompressed data
-    current:  u64,     // Portion of uncompressed data compressed
-    quiet:    bool,    // Suppress output
-    mode:     Mode,    // Archive or extract
-    time:     Instant, // Timer
+    sizei:      u64,     // Input size
+    pub sizeo:  u64,     // Output size
+    current:    u64,     // Portion of input data (de)compressed
+    quiet:      bool,    // Suppress output
+    mode:       Mode,
+    time:       Instant, // Timer
 }
-#[allow(dead_code)]
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
-    pub fn new(cfg: &Config) -> Progress {
+    pub fn new(cfg: &Config, files: &[FileData]) -> Progress {
         Progress {
-            total:    0,
+            sizei:    files.iter().map(|f| f.len).sum(),
+            sizeo:    0,
             current:  0,
             quiet:    cfg.quiet,
             mode:     cfg.mode,
@@ -32,51 +34,43 @@ impl Progress {
         }
     }
 
-    /// Get size of files to be archived.
-    pub fn get_archive_size(&mut self, files: &[FileData]) {
-        for file in files.iter() {
-            self.total += file.len;
+    /// Update and print stats. A compressed block includes extra metadata
+    /// whereas a decompressed block does not, so if mode is compress, track 
+    /// the total size of the block including metadata, rather than just the 
+    /// compressed data.
+    pub fn update(&mut self, blk: &Block) {
+        self.current += blk.sizei;
+        if self.mode == Mode::Compress {
+            self.sizeo += blk.total(); 
         }
-    }
-
-    /// Print final compressed archive size and time elapsed.
-    pub fn print_archive_stats(&self, out_size: u64) {
-        if !self.quiet {
-            print!("\r{} bytes -> {} bytes in {:.2?}                                                   \n", 
-                self.total, out_size, self.time.elapsed());
+        else { 
+            self.sizeo += blk.sizeo; 
         }
-    }
-
-
-    /// Update and print stats.
-    pub fn update(&mut self, size: u64) {
-        self.current += size;
         self.print_stats();
     }
 
     // Print percentage and elapsed time.
     fn print_stats(&self) {
         if !self.quiet {
-            let percent = (self.current as f64 / self.total as f64) * 100.0;
-            match self.mode {
-                Mode::Compress => {
-                    print!("\r{} ({:.2}%) (Time elapsed: {:.2?})  ", 
-                        bar(percent),
-                        percent,
-                        self.time.elapsed()
-                    );
-                    std::io::stdout().flush().unwrap();
-                }
-                Mode::Decompress =>  {
-                    print!("\r{} ({:.2}%) (Time elapsed: {:.2?})  ", 
-                        bar(percent),
-                        percent,
-                        self.time.elapsed()
-                    );
-                    std::io::stdout().flush().unwrap();
-                }
-            } 
+            let percent = (self.current as f64 / self.sizei as f64) * 100.0;
+            print!("\r{} ({:.2}%) (Time elapsed: {:.2?})  ", 
+                bar(percent),
+                percent,
+                self.time.elapsed()
+            );
+            std::io::stdout().flush().unwrap();   
         }
+    }
+}
+impl Drop for Progress {
+    fn drop(&mut self) {
+        // If mode is compress, add the 28 byte header to the total.
+        if self.mode == Mode::Compress { self.sizeo += 28; }
+        if !self.quiet {
+            print!("\r{} bytes -> {} bytes in {:.2?}                                                   \n", 
+                self.sizei, self.sizeo, self.time.elapsed());
+        }
+        
     }
 }
 fn bar(percent: f64) -> &'static str {

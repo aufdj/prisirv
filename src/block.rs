@@ -11,20 +11,20 @@ use crate::{
 #[derive(Clone)]
 pub struct Block {
     pub id:     u32,           // Block id
-    pub chksum: u32,           // Uncompressed block checksum
-    pub sizec:  u64,           // Compressed data size
-    pub sizeu:  u64,           // Uncompressed data size
+    pub chksum: u32,           // Input block checksum
+    pub sizeo:  u64,           // Output data size
+    pub sizei:  u64,           // Input data size
     pub files:  Vec<FileData>, // Files in this block
     pub crtd:   u64,           // Creation time
-    pub data:   Vec<u8>,       // Compressed data 
+    pub data:   Vec<u8>,       // Block data 
 }
 impl Block {
     pub fn new(blk_sz: usize) -> Block {
         Block {
             id:     0,
             chksum: 0,
-            sizec:  0,
-            sizeu:  0,
+            sizeo:  0,
+            sizei:  0,
             files:  Vec::new(),
             crtd:   0,  
             data:   Vec::with_capacity(blk_sz),
@@ -38,8 +38,8 @@ impl Block {
     pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
         archive.write_u32(self.id);
         archive.write_u32(self.chksum);
-        archive.write_u64(self.sizec);
-        archive.write_u64(self.sizeu);
+        archive.write_u64(self.sizeo);
+        archive.write_u64(self.sizei);
         archive.write_u32(self.files.len() as u32);
 
         for file in self.files.iter() {
@@ -56,8 +56,8 @@ impl Block {
     pub fn read_from(&mut self, archive: &mut BufReader<File>) {
         self.id       = archive.read_u32();
         self.chksum   = archive.read_u32();
-        self.sizec    = archive.read_u64();
-        self.sizeu    = archive.read_u64();
+        self.sizeo    = archive.read_u64();
+        self.sizei    = archive.read_u64();
         let num_files = archive.read_u32();
 
         let mut path: Vec<u8> = Vec::with_capacity(64);
@@ -87,18 +87,26 @@ impl Block {
         }
 
         // Read compressed data
-        for _ in 0..self.sizec {
+        for _ in 0..self.sizeo {
             self.data.push(archive.read_byte());
         }
+    }
+    pub fn total(&self) -> u64 {
+        let mut total: u64 = 0;
+        total += self.data.len() as u64;
+        for file in self.files.iter() {
+            total += file.size() + 1;
+        }
+        total + 28
     }
     pub fn print(&self) {
         println!();
         println!("Block {}:", self.id);
         println!("==========================================");
-        println!("Compressed Size:   {}", self.sizec);
-        println!("Uncompressed Size: {}", self.sizeu);
+        println!("Compressed Size:   {}", self.sizeo);
+        println!("Uncompressed Size: {}", self.sizei);
         println!("Checksum:          {:x}", self.chksum);
-        println!("Creation time:     {}", self.chksum);
+        println!("Creation time:     {}", self.crtd);
         println!();
         println!("Files:");
         for file in self.files.iter() {
@@ -114,15 +122,15 @@ impl Block {
 /// which blocks will be compressed/decompressed first, so each block is 
 /// added to a BlockQueue, which handles outputting in the correct order.
 pub struct BlockQueue {
-    pub blocks: Vec<Block>, // Blocks to be output
-    next_out:   u32, // Next block to be output
+    pub blocks:  Vec<Block>, // Blocks to be output
+    next_out:    u32,        // Next block to be output
 }
 impl BlockQueue {
     /// Create a new BlockQueue.
     pub fn new() -> BlockQueue {
         BlockQueue {
-            blocks:   Vec::new(),
-            next_out: 0,
+            blocks:    Vec::new(),
+            next_out:  0,
         }
     }
 

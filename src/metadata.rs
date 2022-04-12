@@ -17,11 +17,14 @@ impl FileData {
             Ok(file) => file.len(),
             Err(_)   => 0,
         };
-
-        FileData { len, path }
+        FileData { path, len }
     }
     pub fn path_str(&self) -> &str {
         self.path.to_str().unwrap()
+    }
+    pub fn size(&self) -> u64 {
+        (self.path.to_str().unwrap()
+        .as_bytes().len() + 8) as u64
     }
 }
 impl Default for FileData {
@@ -52,12 +55,11 @@ impl fmt::Display for FileData {
 
 #[derive(Debug)]
 pub struct Metadata {
-    pub mem:      u64,   // Memory Usage
-    pub mgc:      u32,   // Magic Number
-    pub ext:      u64,   // Extension
-    pub blk_sz:   usize, // Block size
-    pub blk_c:    u64,   // Block count
-    pub files:    Vec<FileData>,
+    pub mem:     u64,   // Memory Usage
+    pub mgc:     u32,   // Magic Number
+    pub blk_sz:  usize, // Block size
+    pub blk_c:   u64,   // Block count
+    pub files:   Vec<FileData>,
 }
 impl Metadata {
     /// Initialize new metadata.
@@ -65,7 +67,6 @@ impl Metadata {
         Metadata {
             mem:      0,
             mgc:      0x5653_5250,
-            ext:      0,
             blk_sz:   10 << 20,
             blk_c:    0,
             files:    Vec::new(),
@@ -75,7 +76,6 @@ impl Metadata {
         Metadata {
             mem:      cfg.mem,
             mgc:      0x5653_5250,
-            ext:      0,
             blk_sz:   cfg.blk_sz,
             blk_c:    0,
             files:    Vec::new(),
