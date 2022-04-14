@@ -41,7 +41,7 @@ impl Progress {
     pub fn update(&mut self, blk: &Block) {
         self.current += blk.sizei;
         if self.mode == Mode::Compress {
-            self.sizeo += blk.total(); 
+            self.sizeo += blk.size(); 
         }
         else { 
             self.sizeo += blk.sizeo; 

@@ -18,10 +18,10 @@ use crate::{
 };
 
 /// Size of header in bytes
-const PLACEHOLDER: [u8; 28] = [0; 28];
+const PLACEHOLDER: [u8; 20] = [0; 20];
 
-/// An archiver creates archives, or an archive containing files 
-/// compressed as one stream. Solid archives take advantage of redundancy 
+/// An archiver by default creates solid archives, or an archive containing 
+/// files compressed as one stream. Solid archives take advantage of redundancy 
 /// across files and therefore achieve better compression ratios than non-
 /// solid archives, but don't allow for extracting individual files like
 /// non-solid archives.
@@ -60,20 +60,18 @@ impl Archiver {
         // Read files into blocks and compress
         for file in self.mta.files.iter() {
             blk.files.push(file.clone());
-            let mut file_in = new_input_file(blk.data.capacity(), &file.path);
+            let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
 
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());
                 if blk.data.len() >= self.cfg.blk_sz {
                     self.tp.compress_block(blk.clone());
-                    self.mta.blk_c += 1;
                     blk.next();
                 }
             }
             // Truncate final block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 self.tp.compress_block(blk.clone());
-                self.mta.blk_c += 1;
                 blk.next();
             }
         }
@@ -81,15 +79,17 @@ impl Archiver {
         // Compress final block
         if !blk.data.is_empty() {
             self.tp.compress_block(blk.clone());
-            self.mta.blk_c += 1;
+            blk.next();
         }
+
+        // Empty sentinel block
+        self.tp.compress_block(blk.clone());
         
         // Output blocks
-        let mut blks_wrtn: u64 = 0;
-        while blks_wrtn != self.mta.blk_c {
+        loop {
             if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 blk.write_to(&mut self.archive);
-                blks_wrtn += 1;
+                if blk.data.is_empty() { break; }
             }
         }
         self.archive.flush_buffer();
@@ -103,7 +103,6 @@ impl Archiver {
         self.archive.write_u64(self.mta.mem);     
         self.archive.write_u32(self.mta.mgc);
         self.archive.write_u64(self.mta.blk_sz as u64);
-        self.archive.write_u64(self.mta.blk_c);
     }
 }
 

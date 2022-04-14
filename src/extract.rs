@@ -105,19 +105,21 @@ impl Extractor {
         
         let mut blk = Block::new(self.mta.blk_sz);
 
-        for _ in 0..self.mta.blk_c {
+        loop {
             blk.read_from(&mut self.archive);
             self.tp.decompress_block(blk.clone());
+            if blk.data.is_empty() { break; }
             blk.next();
         }
 
-        let mut blks_wrtn: u64 = 0;
         let mut pos = 0;
         let mut file_data = FileData::default(); 
 
         // Write blocks to output 
-        while blks_wrtn != self.mta.blk_c {
+        loop {
             if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
+                // Check for sentinel block
+                if blk.data.is_empty() { break; }
 
                 // Add last file of previous block to new block, assuming that
                 // the file crossed a block boundary. If the file did end on a
@@ -130,13 +132,12 @@ impl Extractor {
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
                 }
-
                 fw.file_out.flush_buffer();
-                blks_wrtn += 1;
+
                 // To handle files that cross block boundaries, 
                 // save the current file data and position.
                 (pos, file_data) = fw.current();
-            }  
+            } 
         }
     } 
 }
@@ -146,7 +147,6 @@ pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
     mta.mem     = archive.read_u64();
     mta.mgc     = archive.read_u32();
     mta.blk_sz  = archive.read_u64() as usize;
-    mta.blk_c   = archive.read_u64();
     if mta.mgc != 0x5653_5250 {
         error::no_prisirv_archive();
     }

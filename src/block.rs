@@ -8,14 +8,15 @@ use crate::{
     buffered_io::{BufferedWrite, BufferedRead},
 };
 
+
 #[derive(Clone)]
 pub struct Block {
     pub id:     u32,           // Block id
     pub chksum: u32,           // Input block checksum
     pub sizeo:  u64,           // Output data size
     pub sizei:  u64,           // Input data size
-    pub files:  Vec<FileData>, // Files in this block
     pub crtd:   u64,           // Creation time
+    pub files:  Vec<FileData>, // Files in this block
     pub data:   Vec<u8>,       // Block data 
 }
 impl Block {
@@ -25,8 +26,8 @@ impl Block {
             chksum: 0,
             sizeo:  0,
             sizei:  0,
-            files:  Vec::new(),
             crtd:   0,  
+            files:  Vec::new(),
             data:   Vec::with_capacity(blk_sz),
         }
     }
@@ -91,11 +92,11 @@ impl Block {
             self.data.push(archive.read_byte());
         }
     }
-    pub fn total(&self) -> u64 {
+    pub fn size(&self) -> u64 {
         let mut total: u64 = 0;
         total += self.data.len() as u64;
         for file in self.files.iter() {
-            total += file.size() + 1;
+            total += file.size() + 1; // Add 1 for null byte
         }
         total + 28
     }

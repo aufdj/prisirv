@@ -91,7 +91,7 @@ impl ThreadPool {
                     let mut dec = Decoder::new(blk_in.data, mem);
                     let blk_out = dec.decompress_block(blk_in.sizei as usize);
                     let chksum = (&blk_out).crc32();
-                    if chksum != blk_in.chksum {
+                    if chksum != blk_in.chksum { 
                         println!("Incorrect Checksum: Block {}", blk_in.id);
                     }
                     Block {

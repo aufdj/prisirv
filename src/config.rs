@@ -269,8 +269,9 @@ impl Config {
     fn list_archive(self) -> ! {
         let mut blk = Block::new(self.blk_sz);
         let mut extr = Extractor::new(self); 
-        for _ in 0..extr.mta.blk_c {
+        loop {
             blk.read_from(&mut extr.archive);
+            if blk.data.is_empty() { break; }
             blk.print();
             blk.next();
         }

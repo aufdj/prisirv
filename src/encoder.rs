@@ -61,6 +61,8 @@ impl Encoder {
             self.high = (self.high << 8) + 255;
             self.low <<= 8;
         }
-        self.blk_out.push((self.high >> 24) as u8);
+        if !self.blk_out.is_empty() {
+            self.blk_out.push((self.high >> 24) as u8);
+        }
     }
 }
