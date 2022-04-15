@@ -1,18 +1,8 @@
-mod encoder; 
-mod decoder;      
-mod predictor; 
-mod match_model;  
-mod statemap;
-mod apm;   
-mod mixer;  
-mod hash_table; 
-mod logistic;      
 mod filedata;
 mod archive;       
 mod extract;
-mod tables;  
 mod sort;
-mod buffered_io;   
+mod buffered_io;  
 mod formatting;    
 mod threads;
 mod progress; 
@@ -20,9 +10,8 @@ pub mod config;
 pub mod crc32;
 mod error;
 mod fv;
-mod word_model;
-mod context_model;
 mod block;
+mod cm;
 
 use std::path::PathBuf;
 

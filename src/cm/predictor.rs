@@ -4,20 +4,20 @@ use std::{
 };
 
 use crate::{
-    logistic::stretch, 
-    tables::STATE_TABLE,
-    word_model::WordModel,
-    match_model::MatchModel, 
-    context_model::{
+    cm::logistic::stretch, 
+    cm::tables::STATE_TABLE,
+    cm::word_model::WordModel,
+    cm::match_model::MatchModel, 
+    cm::context_model::{
         ContextModelO1,
         ContextModelO2,
         ContextModelO3,
         ContextModelO4,
         ContextModelO6,
     },
-    hash_table::HashTable, 
-    mixer::Mixer, 
-    apm::Apm, 
+    cm::hash_table::HashTable, 
+    cm::mixer::Mixer, 
+    cm::apm::Apm, 
 };
 
 

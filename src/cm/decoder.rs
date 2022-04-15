@@ -1,4 +1,4 @@
-use crate::predictor::Predictor;
+use crate::cm::predictor::Predictor;
 
 /// A block based arithmetic decoder. Accepts a compressed block and 
 /// returns a decompressed block.

@@ -1,4 +1,4 @@
-use crate::tables::STRETCH_TABLE;
+use crate::cm::tables::STRETCH_TABLE;
 
 // Logistic Functions
 

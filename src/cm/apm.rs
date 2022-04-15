@@ -1,6 +1,6 @@
 use std::iter::repeat;
 
-use crate::logistic::{stretch, squash};
+use crate::cm::logistic::{stretch, squash};
 
 /// An APM takes an existing prediction and a context, and interpolates a 
 /// new, refined prediction. Also known as Secondary Symbol Estimation (SSE).

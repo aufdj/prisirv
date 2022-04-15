@@ -1,4 +1,4 @@
-use crate::logistic::squash;
+use crate::cm::logistic::squash;
 
 /// Predictions are combined using a neural network (Mixer). The inputs p_i, 
 /// i=0..6 are first stretched: t_i = log(p_i/(1 - p_i)), then the output is 

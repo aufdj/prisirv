@@ -7,8 +7,8 @@ use std::{
     time::SystemTime,
 };
 use crate::{
-    encoder::Encoder,
-    decoder::Decoder,
+    cm::encoder::Encoder,
+    cm::decoder::Decoder,
     progress::Progress,
     crc32::Crc32,
     block::{Block, BlockQueue},

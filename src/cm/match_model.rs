@@ -1,4 +1,4 @@
-use crate::statemap::StateMap;
+use crate::cm::statemap::StateMap;
 
 /// Maximum match length, up to 62
 const MAX_LEN: usize = 62; 

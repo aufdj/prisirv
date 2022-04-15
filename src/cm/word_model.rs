@@ -4,9 +4,9 @@ use std::{
 };
 
 use crate::{
-    statemap::StateMap,
-    predictor::next_state,
-    hash_table::HashTable,
+    cm::statemap::StateMap,
+    cm::predictor::next_state,
+    cm::hash_table::HashTable,
 };
 
 
