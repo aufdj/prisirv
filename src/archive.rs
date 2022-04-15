@@ -1,12 +1,12 @@
 use std::{
     path::Path,
-    io::{Write, Seek, BufWriter},
+    io::BufWriter,
     fs::File,
 };
 
 use crate::{
     sort::sort_files,
-    metadata::{Metadata, FileData},
+    filedata::FileData,
     threads::ThreadPool,
     progress::Progress,
     config::{Config, Align},
@@ -17,9 +17,6 @@ use crate::{
     block::Block,
 };
 
-/// Size of header in bytes
-const PLACEHOLDER: [u8; 20] = [0; 20];
-
 /// An archiver by default creates solid archives, or an archive containing 
 /// files compressed as one stream. Solid archives take advantage of redundancy 
 /// across files and therefore achieve better compression ratios than non-
@@ -28,37 +25,35 @@ const PLACEHOLDER: [u8; 20] = [0; 20];
 pub struct Archiver {
     pub archive:  BufWriter<File>,
     cfg:          Config,
-    mta:          Metadata,
+    files:        Vec<FileData>,
     tp:           ThreadPool,
 }
 impl Archiver {
     /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
-        let mut mta = Metadata::new_with_cfg(&cfg);
-        
+        let mut files = Vec::new();
         // Collect and sort files.
-        collect_files(&cfg.inputs, &mut mta);
-        mta.files.sort_by(|f1, f2| 
+        collect_files(&cfg.inputs, &mut files);
+        files.sort_by(|f1, f2| 
             sort_files(&f1.path, &f2.path, cfg.sort)
         );
 
-        let prg = Progress::new(&cfg, &mta.files);
-        let tp = ThreadPool::new(cfg.threads, cfg.mem, prg);
+        let prg = Progress::new(&cfg, &files);
+        let tp = ThreadPool::new(cfg.threads, prg);
 
-        let mut archive = new_output_file_checked(&cfg.out, cfg.clbr);
-        archive.write_all(&PLACEHOLDER).unwrap();
+        let archive = new_output_file_checked(&cfg.out, cfg.clbr);
 
         Archiver { 
-            archive, cfg, mta, tp, 
+            archive, cfg, files, tp, 
         }
     }
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        let mut blk = Block::new(self.cfg.blk_sz);
+        let mut blk = Block::new(self.cfg.blk_sz, self.cfg.mem);
 
         // Read files into blocks and compress
-        for file in self.mta.files.iter() {
+        for file in self.files.iter() {
             blk.files.push(file.clone());
             let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
 
@@ -93,44 +88,34 @@ impl Archiver {
             }
         }
         self.archive.flush_buffer();
-
-        self.write_metadata();
-    }
-
-    /// Write header
-    fn write_metadata(&mut self) {
-        self.archive.rewind().unwrap();
-        self.archive.write_u64(self.mta.mem);     
-        self.archive.write_u32(self.mta.mgc);
-        self.archive.write_u64(self.mta.blk_sz as u64);
     }
 }
 
 /// Recursively collect all files into a vector for sorting before compression.
-fn collect_files(inputs: &[FileData], mta: &mut Metadata) {
+fn collect_files(inputs: &[FileData], files: &mut Vec<FileData>) {
     // Group files and directories 
-    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
+    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
         inputs.iter().cloned()
         .partition(|f| f.path.is_file());
 
     // Walk through directories and collect all files
-    for file in files.into_iter() {
-        mta.files.push(file);
+    for file in fi.into_iter() {
+        files.push(file);
     }
     for dir in dirs.iter() {
-        collect(&dir.path, mta);
+        collect(&dir.path, files);
     }
 }
-fn collect(dir_in: &Path, mta: &mut Metadata) {
-    let (files, dirs): (Vec<FileData>, Vec<FileData>) =
+fn collect(dir_in: &Path, files: &mut Vec<FileData>) {
+    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
         dir_in.read_dir().unwrap()
         .map(|d| FileData::new(d.unwrap().path()))
         .partition(|f| f.path.is_file());
 
-    for file in files.into_iter() {
-        mta.files.push(file);
+    for file in fi.into_iter() {
+        files.push(file);
     }
     for dir in dirs.iter() {
-        collect(&dir.path, mta);
+        collect(&dir.path, files);
     }
 }

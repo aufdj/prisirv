@@ -1,4 +1,4 @@
-/// State Table =====================================================================================
+/// State Table
 /// 
 ///   next_state(state, 0) = next state if bit y is 0, 0 <= state < 256
 ///   next_state(state, 1) = next state if bit y is 1
@@ -14,8 +14,6 @@
 /// pair, so another state with about the same ratio of n0/n1 is substituted.
 /// Also, when a bit is observed and the count of the opposite bit is large,
 /// then part of this count is discarded to favor newer data over old.
-///
-/// =====================================================================================
 
 pub const STATE_TABLE: [[u8; 2]; 256] = [
 [  1,  2],[  3,  5],[  4,  6],[  7, 10],[  8, 12],[  9, 13],[ 11, 14], // 0

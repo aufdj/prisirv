@@ -31,12 +31,11 @@ type SharedProgress   = Arc<Mutex<Progress>>;
 pub struct ThreadPool {
     threads:  Vec<Thread>,
     sndr:     Sender<Message>,
-    mem:      u64,
     pub bq:   SharedBlockQueue,
 }
 impl ThreadPool {
     /// Create a new ThreadPool.
-    pub fn new(size: usize, mem: u64, prg: Progress) -> ThreadPool {
+    pub fn new(size: usize, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
         let mut threads = Vec::with_capacity(size);
 
@@ -51,22 +50,23 @@ impl ThreadPool {
                 )
             );
         }
-        ThreadPool { threads, sndr, mem, bq }
+        ThreadPool { threads, sndr, bq }
     }
     
     /// Create a new message containing a job consisting of compressing an
     /// input block and returning the compressed block.
     pub fn compress_block(&mut self, blk_in: Block) {
-        let mem = self.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut enc = Encoder::new(mem, blk_in.data.len());
+                    let mut enc = Encoder::new(blk_in.mem as usize, blk_in.data.len());
                     enc.compress_block(&blk_in.data);
                     let crtd = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap().as_secs() as u64;
                     Block {
+                        mem:    blk_in.mem,
+                        blk_sz: blk_in.blk_sz,
                         chksum: (&blk_in.data).crc32(),
                         sizeo:  enc.blk_out.len() as u64,
                         sizei:  blk_in.data.len() as u64,
@@ -77,24 +77,25 @@ impl ThreadPool {
                     }
                 })
             )
-        ).unwrap();   
+        ).unwrap();
     }
 
     /// Create a new message containing a job consisting of decompressing
     /// an input block and returning the decompressed block.
     pub fn decompress_block(&mut self, blk_in: Block) {
-        let mem = self.mem as usize;
         let len = blk_in.data.len();
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut dec = Decoder::new(blk_in.data, mem);
+                    let mut dec = Decoder::new(blk_in.data, blk_in.mem as usize);
                     let blk_out = dec.decompress_block(blk_in.sizei as usize);
                     let chksum = (&blk_out).crc32();
-                    if chksum != blk_in.chksum { 
+                    if chksum != blk_in.chksum {
                         println!("Incorrect Checksum: Block {}", blk_in.id);
                     }
                     Block {
+                        mem:    blk_in.mem,
+                        blk_sz: blk_in.blk_sz,
                         chksum,
                         sizeo:  blk_out.len() as u64,
                         sizei:  len as u64,

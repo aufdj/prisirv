@@ -7,7 +7,7 @@ mod apm;
 mod mixer;  
 mod hash_table; 
 mod logistic;      
-mod metadata;
+mod filedata;
 mod archive;       
 mod extract;
 mod tables;  
@@ -29,7 +29,7 @@ use std::path::PathBuf;
 use crate::{
     archive::Archiver,
     extract::Extractor,
-    metadata::FileData,
+    filedata::FileData,
     config::Config,
     sort::Sort,
     formatting::fmt_root_output,

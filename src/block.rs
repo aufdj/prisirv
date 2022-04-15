@@ -4,13 +4,17 @@ use std::{
     path::PathBuf,
 };
 use crate::{
-    metadata::FileData,
+    filedata::FileData,
     buffered_io::{BufferedWrite, BufferedRead},
+    error,
 };
 
+const MGC: u32 = 0x5653_5250;
 
 #[derive(Clone)]
 pub struct Block {
+    pub mem:    u64,           // Memory usage
+    pub blk_sz: usize,         // Block size
     pub id:     u32,           // Block id
     pub chksum: u32,           // Input block checksum
     pub sizeo:  u64,           // Output data size
@@ -20,8 +24,10 @@ pub struct Block {
     pub data:   Vec<u8>,       // Block data 
 }
 impl Block {
-    pub fn new(blk_sz: usize) -> Block {
+    pub fn new(blk_sz: usize, mem: u64) -> Block {
         Block {
+            mem,
+            blk_sz,
             id:     0,
             chksum: 0,
             sizeo:  0,
@@ -37,6 +43,9 @@ impl Block {
         self.id += 1;
     }
     pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
+        archive.write_u32(MGC);
+        archive.write_u64(self.mem);
+        archive.write_u64(self.blk_sz as u64);
         archive.write_u32(self.id);
         archive.write_u32(self.chksum);
         archive.write_u64(self.sizeo);
@@ -55,6 +64,9 @@ impl Block {
         }
     }
     pub fn read_from(&mut self, archive: &mut BufReader<File>) {
+        if archive.read_u32() != MGC { error::no_prisirv_archive(); }
+        self.mem      = archive.read_u64();
+        self.blk_sz   = archive.read_u64() as usize;
         self.id       = archive.read_u32();
         self.chksum   = archive.read_u32();
         self.sizeo    = archive.read_u64();
@@ -87,6 +99,8 @@ impl Block {
             }
         }
 
+        self.data.reserve(self.blk_sz);
+        
         // Read compressed data
         for _ in 0..self.sizeo {
             self.data.push(archive.read_byte());

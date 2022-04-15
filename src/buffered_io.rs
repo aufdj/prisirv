@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     error,
-    metadata::FileData,
+    filedata::FileData,
 };
 
 // Indicates an empty or non-empty buffer. 

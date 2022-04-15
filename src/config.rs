@@ -6,7 +6,7 @@ use crate::{
     extract::Extractor,
     error,
     block::Block,
-    metadata::FileData,
+    filedata::FileData,
 };
 
 
@@ -267,7 +267,7 @@ impl Config {
     }
 
     fn list_archive(self) -> ! {
-        let mut blk = Block::new(self.blk_sz);
+        let mut blk = Block::new(self.blk_sz, self.mem);
         let mut extr = Extractor::new(self); 
         loop {
             blk.read_from(&mut extr.archive);

@@ -4,18 +4,16 @@ use std::{
 };
 
 use crate::{
-    metadata::{Metadata, FileData},
+    filedata::FileData,
     threads::ThreadPool,
     progress::Progress,
     block::Block,
     formatting::fmt_file_out_extract,
     config::Config,
     buffered_io::{
-        BufferedRead, BufferedWrite,
-        new_input_file, new_output_file, 
+        BufferedWrite, new_input_file, new_output_file, 
         new_dir, new_output_file_no_trunc,
     },
-    error,
 };
 
 
@@ -82,19 +80,17 @@ fn next_file(file_in: &FileData, dir_out: &str) -> BufWriter<File> {
 pub struct Extractor {
     pub archive:  BufReader<File>,
     pub cfg:      Config,
-    pub mta:      Metadata,
     tp:           ThreadPool,
 }
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Extractor {
-        let mut archive = new_input_file(4096, &cfg.inputs[0].path);
-        let mta = read_metadata(&mut archive);
+        let archive = new_input_file(4096, &cfg.inputs[0].path);
         let prg = Progress::new(&cfg, &cfg.inputs);
-        let tp = ThreadPool::new(cfg.threads, mta.mem, prg);
+        let tp = ThreadPool::new(cfg.threads, prg);
         
         Extractor { 
-            archive, mta, cfg, tp, 
+            archive, cfg, tp, 
         }
     }
 
@@ -103,8 +99,9 @@ impl Extractor {
     pub fn extract_archive(&mut self) {
         new_dir(&self.cfg.out, self.cfg.clbr);
         
-        let mut blk = Block::new(self.mta.blk_sz);
+        let mut blk = Block::new(0, 0);
 
+        // Read and decompress blocks
         loop {
             blk.read_from(&mut self.archive);
             self.tp.decompress_block(blk.clone());
@@ -113,7 +110,7 @@ impl Extractor {
         }
 
         let mut pos = 0;
-        let mut file_data = FileData::default(); 
+        let mut file_data = FileData::default();
 
         // Write blocks to output 
         loop {
@@ -125,9 +122,9 @@ impl Extractor {
                 // the file crossed a block boundary. If the file did end on a
                 // block boundary, it will be immediately skipped.
                 if file_data.path.exists() { 
-                    blk.files.insert(0, file_data); 
+                    blk.files.insert(0, file_data);
                 }
-                let mut fw = FileWriter::new(blk.files.clone(), &self.cfg.out.path_str(), pos);
+                let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str(), pos);
 
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
@@ -140,16 +137,5 @@ impl Extractor {
             } 
         }
     } 
-}
-
-pub fn read_metadata(archive: &mut BufReader<File>) -> Metadata {
-    let mut mta: Metadata = Metadata::new();
-    mta.mem     = archive.read_u64();
-    mta.mgc     = archive.read_u32();
-    mta.blk_sz  = archive.read_u64() as usize;
-    if mta.mgc != 0x5653_5250 {
-        error::no_prisirv_archive();
-    }
-    mta
 }
 

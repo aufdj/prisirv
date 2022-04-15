@@ -5,7 +5,7 @@ use std::{
 use crate::{
     Mode, 
     config::Config,
-    metadata::FileData,
+    filedata::FileData,
 };
 
 

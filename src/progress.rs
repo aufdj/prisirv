@@ -7,7 +7,7 @@ use crate::{
     Mode,
     config::Config,
     block::Block,
-    metadata::FileData,
+    filedata::FileData,
 };
 
 
@@ -67,7 +67,7 @@ impl Drop for Progress {
         // If mode is compress, add the 28 byte header to the total.
         if self.mode == Mode::Compress { self.sizeo += 28; }
         if !self.quiet {
-            print!("\r{} bytes -> {} bytes in {:.2?}                                                   \n", 
+            println!("\r{} bytes -> {} bytes in {:.2?}                                                   ", 
                 self.sizei, self.sizeo, self.time.elapsed());
         }
         

@@ -9,7 +9,7 @@ use crate::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file,
     },
-    metadata::FileData,
+    filedata::FileData,
 };
 
 
