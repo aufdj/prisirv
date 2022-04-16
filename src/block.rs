@@ -22,12 +22,14 @@ pub struct Block {
     pub crtd:   u64,           // Creation time
     pub files:  Vec<FileData>, // Files in this block
     pub data:   Vec<u8>,       // Block data 
+    pub method: u8,
 }
 impl Block {
-    pub fn new(blk_sz: usize, mem: u64) -> Block {
+    pub fn new(blk_sz: usize, mem: u64, method: u8) -> Block {
         Block {
             mem,
             blk_sz,
+            method,
             id:     0,
             chksum: 0,
             sizeo:  0,
@@ -46,6 +48,7 @@ impl Block {
         archive.write_u32(MGC);
         archive.write_u64(self.mem);
         archive.write_u64(self.blk_sz as u64);
+        archive.write_byte(self.method);
         archive.write_u32(self.id);
         archive.write_u32(self.chksum);
         archive.write_u64(self.sizeo);
@@ -67,6 +70,7 @@ impl Block {
         if archive.read_u32() != MGC { error::no_prisirv_archive(); }
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
+        self.method   = archive.read_byte();
         self.id       = archive.read_u32();
         self.chksum   = archive.read_u32();
         self.sizeo    = archive.read_u64();

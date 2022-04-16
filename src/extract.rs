@@ -17,7 +17,6 @@ use crate::{
 };
 
 
-
 /// A decompressed block can span multiple files, so a FileWriter is used 
 /// to handle swapping files when needed while writing a block.
 struct FileWriter {
@@ -99,7 +98,7 @@ impl Extractor {
     pub fn extract_archive(&mut self) {
         new_dir(&self.cfg.out, self.cfg.clbr);
         
-        let mut blk = Block::new(0, 0);
+        let mut blk = Block::new(0, 0, 0);
 
         // Read and decompress blocks
         loop {

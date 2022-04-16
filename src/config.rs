@@ -27,6 +27,7 @@ enum Parse {
     List,
     Fv,
     Align,
+    Method,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +50,7 @@ pub struct Config {
     pub blk_sz:    usize,         // Block size
     pub threads:   usize,         // Maximum number of threads
     pub align:     Align,         // Block size exactly as specified or extended to next file boundary
+    pub method:    u8,            // Compression method, Context Mixing or LZW
 }
 impl Config {
     /// Create a new default Config.
@@ -65,6 +67,7 @@ impl Config {
             inputs:    Vec::new(),
             out:       FileData::default(),
             align:     Align::Exact,
+            method:    0,
         }
     }
     /// Create a new Config with the specified command line arguments.
@@ -107,6 +110,7 @@ impl Config {
                     parser = Parse::Fv;
                     continue;
                 }
+                "-lzw"              => parser = Parse::Method,
                 "create"            => parser = Parse::Compress,
                 "extract"           => parser = Parse::Decompress,
                 "-q"   | "-quiet"   => parser = Parse::Quiet,
@@ -186,6 +190,7 @@ impl Config {
                         Err(_) => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
                     }
                 }
+                Parse::Method     => cfg.method = 1,
                 Parse::Compress   => cfg.mode = Mode::Compress,
                 Parse::Decompress => cfg.mode = Mode::Decompress,
                 Parse::DirOut     => cfg.user_out = arg.to_string(),
@@ -234,6 +239,10 @@ impl Config {
             }
             println!();
 
+            println!(" Method: {}", 
+                if self.method == 0 { "Context Mixing" }
+                else { "LZW" }
+            );
             println!(" Output Path: {}", self.out);
             if self.mode == Mode::Compress {
                 println!(" Sorting by: {}", 
@@ -267,7 +276,7 @@ impl Config {
     }
 
     fn list_archive(self) -> ! {
-        let mut blk = Block::new(self.blk_sz, self.mem);
+        let mut blk = Block::new(self.blk_sz, self.mem, self.method);
         let mut extr = Extractor::new(self); 
         loop {
             blk.read_from(&mut extr.archive);

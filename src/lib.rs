@@ -12,6 +12,7 @@ mod error;
 mod fv;
 mod block;
 mod cm;
+mod lzw;
 
 use std::path::PathBuf;
 

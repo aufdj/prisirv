@@ -12,6 +12,7 @@ use crate::{
     progress::Progress,
     crc32::Crc32,
     block::{Block, BlockQueue},
+    lzw,
 };
 
 pub enum Message {
@@ -59,19 +60,28 @@ impl ThreadPool {
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut enc = Encoder::new(blk_in.mem as usize, blk_in.data.len());
-                    enc.compress_block(&blk_in.data);
+                    let blk_out = 
+                    if blk_in.method == 0 {
+                        let mut enc = Encoder::new(blk_in.mem as usize, blk_in.data.len());
+                        enc.compress_block(&blk_in.data);
+                        enc.blk_out
+                    }
+                    else {
+                        lzw::encoder::compress(&blk_in.data)
+                    };
+                    
                     let crtd = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap().as_secs() as u64;
                     Block {
+                        method: blk_in.method,
                         mem:    blk_in.mem,
                         blk_sz: blk_in.blk_sz,
                         chksum: (&blk_in.data).crc32(),
-                        sizeo:  enc.blk_out.len() as u64,
+                        sizeo:  blk_out.len() as u64,
                         sizei:  blk_in.data.len() as u64,
                         files:  blk_in.files,
-                        data:   enc.blk_out,
+                        data:   blk_out,
                         id:     blk_in.id,
                         crtd,
                     }
@@ -87,13 +97,21 @@ impl ThreadPool {
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
-                    let mut dec = Decoder::new(blk_in.data, blk_in.mem as usize);
-                    let blk_out = dec.decompress_block(blk_in.sizei as usize);
+                    let blk_out = 
+                    if blk_in.method == 0 {
+                        let mut dec = Decoder::new(blk_in.data, blk_in.mem as usize);
+                        dec.decompress_block(blk_in.sizei as usize)
+                    }
+                    else {
+                        lzw::decoder::decompress(&blk_in.data)
+                    };
+                    
                     let chksum = (&blk_out).crc32();
                     if chksum != blk_in.chksum {
                         println!("Incorrect Checksum: Block {}", blk_in.id);
                     }
                     Block {
+                        method: blk_in.method,
                         mem:    blk_in.mem,
                         blk_sz: blk_in.blk_sz,
                         chksum,

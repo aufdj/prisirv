@@ -50,7 +50,7 @@ impl Archiver {
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        let mut blk = Block::new(self.cfg.blk_sz, self.cfg.mem);
+        let mut blk = Block::new(self.cfg.blk_sz, self.cfg.mem, self.cfg.method);
 
         // Read files into blocks and compress
         for file in self.files.iter() {
