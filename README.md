@@ -3,7 +3,7 @@
 Prisirv is a context mixing archiver based on [lpaq1 by Matt Mahoney.](http://mattmahoney.net/dc/#lpaq)
 
 <pre>
-USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]
+USAGE: PROG_NAME [create|extract] [-i [..]] [OPTIONS|FLAGS]
 
 REQUIRED: 
     create               Create archive
@@ -12,15 +12,16 @@ REQUIRED:
 
 OPTIONS:
    -out,  -output-path   Specify output path
-   -mem,  -memory        Specify memory usage   (Default - 15 MiB)
-   -blk,  -blocksize     Specify block size     (Default - 10 MiB)
+   -mem,  -memory        Specify memory usage   (Default - 2 (15 MiB))
+   -blk,  -block-size    Specify block size     (Default - 10 MiB)
    -threads              Specify thread count   (Default - 4)
-   -sort                 Sort files             (Default - none)
+   -sort                 Sort files             (Default - None)
 
 FLAGS:
-   -sld,  -solid         Create solid archive
    -q,    -quiet         Suppress output other than errors
    -clb,  -clobber       Allow file clobbering
+   -file-align           Truncate blocks to align with files
+   -lzw                  Use LZW compression method
 
 Sorting Methods:
    -sort ext      Sort by extension
@@ -30,24 +31,28 @@ Sorting Methods:
    -sort crtd     Sort by creation time
    -sort accd     Sort by last access time
    -sort mod      Sort by last modification time
+
+Any sorting option specified for extraction will be ignored.
   
 Memory Options:
-   -mem 0  6 MB   -mem 5  99 MB
-   -mem 1  9 MB   -mem 6  195 MB
-   -mem 2  15 MB  -mem 7  387 MB
-   -mem 3  27 MB  -mem 8  771 MB
-   -mem 4  51 MB  -mem 9  1539 MB
+   -mem 0  6 MiB   -mem 5  99 MiB
+   -mem 1  9 MiB   -mem 6  195 MiB
+   -mem 2  15 MiB  -mem 7  387 MiB
+   -mem 3  27 MiB  -mem 8  771 MiB
+   -mem 4  51 MiB  -mem 9  1539 MiB
     
-Decompression requires same memory option used for compression.
-Any memory option specified for decompression will be ignored.
+Memory option only applies if context mixing method is used.
+
+Extraction requires same memory option used for archiving.
+Any memory option specified for extraction will be ignored.
   
 EXAMPLE:
-  Compress file [\foo\bar.txt] and directory [\baz] into solid archive [\foo\arch],
+  Compress file [\foo\bar.txt] and directory [\baz] into archive [\foo\arch],
   sorting files by creation time:
 
-    prisirv c -i \foo\bar.txt \baz -out arch -sld -sort crtd 
+    prisirv create -inputs \foo\bar.txt \baz -output-path arch -sort crtd
 
   Decompress the archive:
 
-    prisirv d -i \foo\arch.prsv -sld
+    prisirv extract -inputs \foo\arch.prsv
 </pre>
