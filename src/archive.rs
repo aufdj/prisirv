@@ -62,12 +62,18 @@ impl Archiver {
                 if blk.data.len() >= self.cfg.blk_sz {
                     self.tp.compress_block(blk.clone());
                     blk.next();
+                    if !blk.files.contains(file) {
+                        blk.files.push(file.clone());
+                    }
                 }
             }
             // Truncate final block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 self.tp.compress_block(blk.clone());
                 blk.next();
+                if !blk.files.contains(file) {
+                    blk.files.push(file.clone());
+                }
             }
         }
 

@@ -57,8 +57,8 @@ impl FileWriter {
         self.file_out.write_byte(byte);
         self.file_out_pos += 1;
     }
-    fn current(&self) -> (u64, FileData) {
-        (self.file_out_pos, self.file_in.clone())
+    fn current_pos(&self) -> u64 {
+        self.file_out_pos
     }
 }
 
@@ -109,20 +109,13 @@ impl Extractor {
         }
 
         let mut pos = 0;
-        let mut file_data = FileData::default();
 
         // Write blocks to output 
         loop {
-            if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
+            if let Some(blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 // Check for sentinel block
                 if blk.data.is_empty() { break; }
 
-                // Add last file of previous block to new block, assuming that
-                // the file crossed a block boundary. If the file did end on a
-                // block boundary, it will be immediately skipped.
-                if file_data.path.exists() { 
-                    blk.files.insert(0, file_data);
-                }
                 let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str(), pos);
 
                 for byte in blk.data.iter() {
@@ -131,8 +124,8 @@ impl Extractor {
                 fw.file_out.flush_buffer();
 
                 // To handle files that cross block boundaries, 
-                // save the current file data and position.
-                (pos, file_data) = fw.current();
+                // save the current file position.
+                pos = fw.current_pos();
             } 
         }
     } 

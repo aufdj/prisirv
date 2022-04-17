@@ -4,7 +4,7 @@ use std::{
 };
 
 /// Input file data
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileData {
     pub path:  PathBuf,
     pub len:   u64,

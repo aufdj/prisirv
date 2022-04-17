@@ -116,15 +116,15 @@ impl Block {
         for file in self.files.iter() {
             total += file.size() + 1; // Add 1 for null byte
         }
-        total + 28
+        total + 49
     }
     pub fn print(&self) {
         println!();
         println!("Block {}:", self.id);
         println!("==========================================");
-        println!("Compressed Size:   {}", self.sizeo);
         println!("Uncompressed Size: {}", self.sizei);
-        println!("Checksum:          {:x}", self.chksum);
+        println!("Compressed Size:   {}", self.sizeo);
+        println!("CRC32 Checksum:    {:x}", self.chksum);
         println!("Creation time:     {}", self.crtd);
         println!();
         println!("Files:");

@@ -223,7 +223,7 @@ impl Config {
     pub fn print(&self) {
         if !self.quiet {
             println!();
-            println!("=======================================================================");
+            println!("=============================================================");
 
             println!(" {} Archive of Inputs:", 
                 if self.mode == Mode::Compress { "Creating" } else { "Extracting" },
@@ -239,13 +239,13 @@ impl Config {
             }
             println!();
 
-            println!(" Method: {}", 
+            println!(" Method:          {}", 
                 if self.method == 0 { "Context Mixing" }
                 else { "LZW" }
             );
-            println!(" Output Path: {}", self.out);
+            println!(" Output Path:     {}", self.out);
             if self.mode == Mode::Compress {
-                println!(" Sorting by: {}", 
+                println!(" Sorting by:      {}", 
                 match self.sort {
                     Sort::None     => "None",
                     Sort::Ext      => "Extension",
@@ -257,10 +257,10 @@ impl Config {
                     Sort::PrtDir(_) => "Parent Directory",
                 });
 
-                println!(" Memory Usage: {} MiB", 3 + (self.mem >> 20) * 3);
+                println!(" Memory Usage:    {} MiB", 3 + (self.mem >> 20) * 3);
 
                 let (size, suffix) = format(self.blk_sz);
-                println!(" Block Size: {} {}", size, suffix); 
+                println!(" Block Size:      {} {}", size, suffix); 
 
                 println!(" Block Alignment: {}", 
                     if self.align == Align::File { "File" } 
@@ -268,9 +268,9 @@ impl Config {
                 );
             }
 
-            println!(" Threads: Up to {}", self.threads);
+            println!(" Threads:         Up to {}", self.threads);
 
-            println!("=======================================================================");
+            println!("=============================================================");
             println!();
         }
     }
@@ -329,16 +329,16 @@ fn print_program_info() {
     println!();
     println!("  OPTIONS:");
     println!("    -out,   -output-path   Specify output path");
-    println!("    -mem,   -memory        Specify memory usage             (Default - 15 MiB)");
-    println!("    -blk,   -block-size    Specify block size               (Default - 10 MiB)");
-    println!("    -threads               Specify thread count             (Default - 4)");
-    println!("    -sort                  Sort files (solid archives only) (Default - none)");
+    println!("    -mem,   -memory        Specify memory usage     (Default - 2 (15 MiB))");
+    println!("    -blk,   -block-size    Specify block size       (Default - 10 MiB)");
+    println!("    -threads               Specify thread count     (Default - 4)");
+    println!("    -sort                  Sort files               (Default - none)");
     println!();
     println!("  FLAGS:");
-    println!("    -sld,   -solid         Create solid archive");
     println!("    -q,     -quiet         Suppresses output other than errors");
-    println!("    -clb,   -clobber       Allows clobbering files");
-    println!("    -file-align            Extends blocks to end of current file");
+    println!("    -clb,   -clobber       Allow file clobbering");
+    println!("    -file-align            Truncate blocks to align with file boundaries");
+    println!("    -lzw                   Use LZW compression method");
     println!();
     println!("  Sorting Methods:");
     println!("      -sort ext      Sort by extension");
@@ -349,6 +349,8 @@ fn print_program_info() {
     println!("      -sort accd     Sort by last access time");
     println!("      -sort mod      Sort by last modification time");
     println!();
+    println!("  Any sorting option specified for extraction will be ignored.");
+    println!();
     println!("  Memory Options:");
     println!("      -mem 0  6 MB   -mem 5  99 MB");
     println!("      -mem 1  9 MB   -mem 6  195 MB");
@@ -356,17 +358,18 @@ fn print_program_info() {
     println!("      -mem 3  27 MB  -mem 8  771 MB");
     println!("      -mem 4  51 MB  -mem 9  1539 MB");
     println!();
-    println!("  Decompression requires same memory option used for compression.");
-    println!("  Any memory option specified for decompression will be ignored.");
+    println!("  Extraction requires same memory option used for archiving.");
+    println!("  Any memory option specified for extraction will be ignored.");
     println!();
     println!("  EXAMPLE:");
-    println!("      Compress file [\\foo\\bar.txt] and directory [\\baz] into solid archive [\\foo\\arch], \n      sorting files by creation time:");
     println!();
-    println!("          prisirv c -i \\foo\\bar.txt \\baz -out arch -sld -sort crtd ");
+    println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into archive [\\foo\\arch], \n  sorting files by creation time:");
     println!();
-    println!("      Decompress the archive:");
+    println!("      prisirv create -inputs \\foo\\bar.txt \\baz -output-path arch -sort crtd ");
     println!();
-    println!("          prisirv d -i \\foo\\arch.prsv -sld ");
+    println!("  Extract the archive:");
+    println!();
+    println!("      prisirv extract -inputs \\foo\\arch.prsv ");
     std::process::exit(0);
 }
 

@@ -64,8 +64,6 @@ impl Progress {
 }
 impl Drop for Progress {
     fn drop(&mut self) {
-        // If mode is compress, add the 28 byte header to the total.
-        if self.mode == Mode::Compress { self.sizeo += 28; }
         if !self.quiet {
             println!("\r{} bytes -> {} bytes in {:.2?}                                                   ", 
                 self.sizei, self.sizeo, self.time.elapsed());
