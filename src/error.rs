@@ -96,13 +96,6 @@ pub fn no_prisirv_archive() -> ! {
     exit(0);
 }
 
-#[allow(dead_code)]
-pub fn not_solid_archive(input: &Path) -> ! {
-    println!("Input {} is not a solid archive.", input.display());
-    println!("To extract a non-solid archive, omit option '-sld'.");
-    exit(0);
-}
-
 
 
 pub fn metadata_not_supported() -> ! {

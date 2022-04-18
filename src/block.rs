@@ -11,7 +11,7 @@ use crate::{
 
 const MGC: u32 = 0x5653_5250;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Block {
     pub mem:    u64,           // Memory usage
     pub blk_sz: usize,         // Block size
@@ -135,6 +135,7 @@ impl Block {
         println!("==========================================");
     }
 }
+
 
 /// Stores compressed or decompressed blocks. Blocks need to be written in
 /// the same order that they were read, but no guarantee can be made about

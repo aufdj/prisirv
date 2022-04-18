@@ -11,7 +11,7 @@ impl Dictionary {
         let mut d = Dictionary {
             map: HashMap::new(),
             max_code: 65535,
-            code: 257,
+            code: 256,
             string: vec![],
         };
         for i in 0..256 { 

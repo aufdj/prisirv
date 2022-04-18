@@ -39,7 +39,7 @@ pub enum Align {
 /// A list of all user defined configuration settings.
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub sort:      Sort,          // Sorting method (solid archives only)
+    pub sort:      Sort,          // Sorting method
     pub user_out:  String,        // User specified output directory (optional)
     pub out:       FileData,      // Output
     pub inputs:    Vec<FileData>, // Inputs to be archived or extracted
@@ -243,7 +243,9 @@ impl Config {
                 if self.method == 0 { "Context Mixing" }
                 else { "LZW" }
             );
+
             println!(" Output Path:     {}", self.out);
+            
             if self.mode == Mode::Compress {
                 println!(" Sorting by:      {}", 
                 match self.sort {

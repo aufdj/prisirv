@@ -98,7 +98,7 @@ impl Extractor {
     pub fn extract_archive(&mut self) {
         new_dir(&self.cfg.out, self.cfg.clbr);
         
-        let mut blk = Block::new(0, 0, 0);
+        let mut blk = Block::default();
 
         // Read and decompress blocks
         loop {

@@ -11,7 +11,7 @@ impl Dictionary {
         let mut d = Dictionary {
             map: HashMap::new(),
             max_code: 65535,
-            code: 257,
+            code: 256,
             string: vec![byte],
         };
         for i in 0..256 { 
@@ -55,7 +55,7 @@ impl Dictionary {
     fn update_string(&mut self, byte: u8) {
         self.string.push(byte);
     }
-    fn contains_key(&self) -> bool {
+    fn contains_string(&self) -> bool {
         self.map.contains_key(&self.string)
     }
 }
@@ -70,7 +70,7 @@ pub fn compress(blk_in: &[u8]) -> Vec<u8> {
     let mut dict = Dictionary::new(*byte.unwrap());
 
     'c: loop {
-        while dict.contains_key() {
+        while dict.contains_string() {
             match blk.next() {
                 Some(byte) => {
                     dict.update_string(*byte);
