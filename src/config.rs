@@ -239,14 +239,13 @@ impl Config {
             }
             println!();
 
-            println!(" Method:          {}", 
-                if self.method == 0 { "Context Mixing" }
-                else { "LZW" }
-            );
-
             println!(" Output Path:     {}", self.out);
             
             if self.mode == Mode::Compress {
+                println!(" Method:          {}", 
+                if self.method == 0 { "Context Mixing" }
+                else { "LZW" }
+                );
                 println!(" Sorting by:      {}", 
                 match self.sort {
                     Sort::None     => "None",
