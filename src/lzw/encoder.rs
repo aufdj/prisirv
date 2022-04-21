@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::cmp::min;
 
+const DATA_END: u32 = 256;
+const CODE_LEN_UP: u32 = 257;
+const CODE_LEN_RESET: u32 = 258;
+
 struct BitStream {
     pck:      u32,
     pck_len:  u32,
@@ -13,15 +17,15 @@ impl BitStream {
             pck:      0,
             pck_len:  0,
             out:      Vec::new(),
-            code_len: 18,
+            code_len: 9,
         }
     }
     fn write(&mut self, code: u32) {
         // Split code in two, assuming it crosses a packed code boundary.
         // If the entire code fits in the current packed code, codeu will
-        // simply be 0. Otherwise, add the first part of the code to the
-        // current packed code, output the packed code, reset it, and add
-        // the remaining part of the code (codeu).
+        // simply be 0. Otherwise, add the first part of the code (codel) 
+        // to the current packed code, output the packed code, reset it, 
+        // and add the remaining part of the code (codeu).
         
         let rem_len = 32 - self.pck_len;
 
@@ -49,7 +53,10 @@ impl BitStream {
             self.pck_len = 0;
         }
 
-        if code == 256 {
+        if code == CODE_LEN_UP    { self.code_len += 1; }
+        if code == CODE_LEN_RESET { self.code_len = 9;  }
+
+        if code == DATA_END {
             self.write_code(self.pck);
         }
     }
@@ -65,7 +72,6 @@ struct Dictionary {
     pub map:       HashMap<Vec<u8>, u32>,
     pub max_code:  u32,
     pub code:      u32,
-    pub code_len:  u32,
     pub string:    Vec<u8>,
     pub stream:    BitStream,
 }
@@ -74,8 +80,7 @@ impl Dictionary {
         let mut d = Dictionary {
             map:       HashMap::new(),
             max_code:  0x40000,
-            code:      258,
-            code_len:  18,
+            code:      259,
             string:    vec![byte],
             stream:    BitStream::new(),
         };
@@ -85,8 +90,7 @@ impl Dictionary {
         d
     }
     fn reset(&mut self) {
-        self.code = 258;
-        self.code_len = 18;
+        self.code = 259;
         self.map.clear(); 
         for i in 0..256 {
             self.map.insert(vec![i as u8], i);
@@ -94,7 +98,7 @@ impl Dictionary {
     }
     fn output_code(&mut self) {
         if self.code <= self.max_code {
-            self.map.insert(self.string.clone(), self.code); 
+            self.map.insert(self.string.clone(), self.code);
             self.code += 1;  
         }
         
@@ -106,13 +110,12 @@ impl Dictionary {
         self.string.clear();
         self.string.push(last_char); 
 
-        if self.code & ((1 << self.code_len) - 1) == 0 {
-            //self.stream.write(257);
-            //self.code_len += 1;
-            //self.stream.code_len += 1;
+        if self.code == 1 << self.stream.code_len {
+            self.stream.write(CODE_LEN_UP);
         }
 
         if self.code >= self.max_code {
+            self.stream.write(CODE_LEN_RESET);
             self.reset();
         }
     }
@@ -121,8 +124,7 @@ impl Dictionary {
             let code = *self.map.get(&self.string).unwrap();
             self.stream.write(code);
         } 
-        self.stream.write(256);
-
+        self.stream.write(DATA_END);
     }
     fn update_string(&mut self, byte: u8) {
         self.string.push(byte);
