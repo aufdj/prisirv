@@ -32,7 +32,7 @@ impl BitStream {
                     let codel_len = min(8, rem_len);
 
                     let codeu = byte as u32 >> (codel_len);
-                    let codeu_len = 8_u32.saturating_sub(codel_len);
+                    let codeu_len = 8 - codel_len;
 
                     if self.count == self.code_len {
                         if self.code == CODE_LEN_UP    { self.code_len += 1; }
@@ -76,17 +76,15 @@ struct Dictionary {
     pub code:      u32,
     pub string:    Vec<u8>,
     pub blk:       Vec<u8>,
-    pub stream:    BitStream,
 }
 impl Dictionary {
-    fn new(stream: BitStream) -> Dictionary {
+    fn new() -> Dictionary {
         let mut d = Dictionary {
             map:       HashMap::new(),
             max_code:  0x40000,
             code:      259,
             string:    Vec::new(),
             blk:       Vec::new(),
-            stream,
         };
         for i in 0..256 {
             d.map.insert(i, vec![i as u8]);
@@ -101,17 +99,19 @@ impl Dictionary {
         }
     }
     fn output_string(&mut self, code: u32) {
-        if !self.map.contains_key(&code) && self.code < self.max_code { // Didn't recognize code
-            self.string.push(self.string[0]);
-            self.map.insert(code, self.string.clone());
-            self.code += 1;
+        if self.code < self.max_code {
+            if !self.map.contains_key(&code) { // Didn't recognize code
+                self.string.push(self.string[0]);
+                self.map.insert(code, self.string.clone());
+                self.code += 1;
+            }
+            else if !self.string.is_empty() {
+                self.string.push((self.map.get(&code).unwrap())[0]);
+                self.map.insert(self.code, self.string.clone());
+                self.code += 1;
+            }
         }
-        else if !self.string.is_empty() && self.code < self.max_code {
-            self.string.push((self.map.get(&code).unwrap())[0]);
-            self.map.insert(self.code, self.string.clone());
-            self.code += 1;
-        }
-
+        
         let string = self.map.get(&code).unwrap();
         for byte in string.iter() {
             self.blk.push(*byte);
@@ -127,16 +127,16 @@ impl Dictionary {
 
 pub fn decompress(blk_in: &[u8]) -> Vec<u8> {
     if blk_in.is_empty() { return Vec::new(); }
-    let stream = BitStream::new(Box::new(blk_in.to_vec().into_iter()));
-    let mut dict = Dictionary::new(stream);
+    let mut stream = BitStream::new(Box::new(blk_in.to_vec().into_iter()));
+    let mut dict = Dictionary::new();
 
     loop { 
-        if let Some(code) = dict.stream.get_code() {
+        if let Some(code) = stream.get_code() {
             if code == DATA_END { break; }
             if code != 257 && code != 258 {
                 dict.output_string(code);
             }
         }
     }  
-    dict.blk  
+    dict.blk
 }

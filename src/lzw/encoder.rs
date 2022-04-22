@@ -33,7 +33,7 @@ impl BitStream {
         let codel_len = min(self.code_len, rem_len);
 
         let codeu = code >> (codel_len % 32);
-        let codeu_len = self.code_len.saturating_sub(codel_len);
+        let codeu_len = self.code_len - codel_len;
 
         self.pck |= codel << self.pck_len;
         self.pck_len += codel_len;
