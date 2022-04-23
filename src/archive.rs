@@ -17,7 +17,7 @@ use crate::{
     block::Block,
 };
 
-/// An archiver by default creates solid archives, or an archive containing 
+/// An archiver by default creates solid archives, or an archive containing
 /// files compressed as one stream. Solid archives take advantage of redundancy 
 /// across files and therefore achieve better compression ratios than non-
 /// solid archives, but don't allow for extracting individual files like
@@ -50,7 +50,7 @@ impl Archiver {
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) {
-        let mut blk = Block::new(self.cfg.blk_sz, self.cfg.mem, self.cfg.method);
+        let mut blk = Block::new(&self.cfg);
 
         // Read files into blocks and compress
         for file in self.files.iter() {

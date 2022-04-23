@@ -79,17 +79,18 @@ struct Dictionary {
 }
 impl Dictionary {
     fn new() -> Dictionary {
-        let mut d = Dictionary {
-            map:       HashMap::new(),
+        let mut map = HashMap::new();
+        for i in 0..256 {
+            map.insert(i, vec![i as u8]);
+        }
+
+        Dictionary {
+            map,
             max_code:  0x40000,
             code:      259,
             string:    Vec::new(),
             blk:       Vec::new(),
-        };
-        for i in 0..256 {
-            d.map.insert(i, vec![i as u8]);
         }
-        d
     }
     fn reset(&mut self) {
         self.code = 259;

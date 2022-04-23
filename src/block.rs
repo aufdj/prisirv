@@ -5,6 +5,7 @@ use std::{
 };
 use crate::{
     filedata::FileData,
+    config::Config,
     buffered_io::{BufferedWrite, BufferedRead},
     error,
 };
@@ -22,21 +23,21 @@ pub struct Block {
     pub crtd:   u64,           // Creation time
     pub files:  Vec<FileData>, // Files in this block
     pub data:   Vec<u8>,       // Block data 
-    pub method: u8,
+    pub method: u8,            // Context Mixing or LZW
 }
 impl Block {
-    pub fn new(blk_sz: usize, mem: u64, method: u8) -> Block {
+    pub fn new(cfg: &Config) -> Block {
         Block {
-            mem,
-            blk_sz,
-            method,
+            mem:    cfg.mem,
+            blk_sz: cfg.blk_sz,
+            method: cfg.method,
             id:     0,
             chksum: 0,
             sizeo:  0,
             sizei:  0,
             crtd:   0,  
             files:  Vec::new(),
-            data:   Vec::with_capacity(blk_sz),
+            data:   Vec::with_capacity(cfg.blk_sz),
         }
     }
     pub fn next(&mut self) {
