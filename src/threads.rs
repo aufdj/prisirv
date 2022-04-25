@@ -12,6 +12,7 @@ use crate::{
     progress::Progress,
     crc32::Crc32,
     block::{Block, BlockQueue},
+    config::Method,
     lzw,
 };
 
@@ -47,11 +48,15 @@ impl ThreadPool {
         for _ in 0..size {
             threads.push(
                 Thread::new(
-                    Arc::clone(&rcvr), Arc::clone(&bq), Arc::clone(&prg)
+                    Arc::clone(&rcvr), 
+                    Arc::clone(&bq), 
+                    Arc::clone(&prg)
                 )
             );
         }
-        ThreadPool { threads, sndr, bq }
+        ThreadPool { 
+            threads, sndr, bq 
+        }
     }
     
     /// Create a new message containing a job consisting of compressing an
@@ -64,12 +69,12 @@ impl ThreadPool {
                     let sizei = blk_in.data.len() as u64;
 
                     let blk_out = 
-                    if blk_in.method == 0 {
+                    if blk_in.method == Method::Cm {
                         let mut enc = Encoder::new(blk_in.mem as usize, blk_in.data.len());
                         enc.compress_block(&blk_in.data);
                         enc.blk_out
                     }
-                    else if blk_in.method == 1 {
+                    else if blk_in.method == Method::Lzw {
                         lzw::encoder::compress(&blk_in.data)
                     }
                     else { blk_in.data };
@@ -103,11 +108,11 @@ impl ThreadPool {
             Message::NewJob(
                 Box::new(move || {
                     let blk_out = 
-                    if blk_in.method == 0 {
+                    if blk_in.method == Method::Cm {
                         let mut dec = Decoder::new(blk_in.data, blk_in.mem as usize);
                         dec.decompress_block(blk_in.sizei as usize)
                     }
-                    else if blk_in.method == 1 {
+                    else if blk_in.method == Method::Lzw {
                         lzw::decoder::decompress(&blk_in.data)
                     }
                     else { blk_in.data };

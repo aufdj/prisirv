@@ -34,8 +34,30 @@ enum Parse {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Align {
     File,
-    Exact,
+    Fixed,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Method {
+    Cm    = 0,
+    Lzw   = 1,
+    Store = 2,
+    None  = 3,
+}
+impl Default for Method {
+    fn default() -> Method { Method::Cm }
+}
+impl From<u8> for Method {
+    fn from(num: u8) -> Method {
+        match num {
+            0 => Method::Cm,
+            1 => Method::Lzw,
+            2 => Method::Store,
+            _ => Method::None,
+        }
+    }
+}
+
 
 /// A list of all user defined configuration settings.
 #[derive(Clone, Debug)]
@@ -50,8 +72,8 @@ pub struct Config {
     pub clbr:      bool,          // Allow clobbering files
     pub blk_sz:    usize,         // Block size
     pub threads:   usize,         // Maximum number of threads
-    pub align:     Align,         // Block size exactly as specified or extended to next file boundary
-    pub method:    u8,            // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
+    pub align:     Align,         // Block size exactly as specified or truncated to file boundary
+    pub method:    Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
 }
 impl Config {
     /// Create a new default Config.
@@ -67,8 +89,8 @@ impl Config {
             threads:   4,
             inputs:    Vec::new(),
             out:       FileData::default(),
-            align:     Align::Exact,
-            method:    0,
+            align:     Align::Fixed,
+            method:    Method::Cm,
         }
     }
     /// Create a new Config with the specified command line arguments.
@@ -192,8 +214,8 @@ impl Config {
                         Err(_) => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
                     }
                 }
-                Parse::Lzw        => cfg.method = 1,
-                Parse::Store      => cfg.method = 2,
+                Parse::Lzw        => cfg.method = Method::Lzw,
+                Parse::Store      => cfg.method = Method::Store,
                 Parse::Compress   => cfg.mode = Mode::Compress,
                 Parse::Decompress => cfg.mode = Mode::Decompress,
                 Parse::DirOut     => cfg.user_out = arg.to_string(),
@@ -242,12 +264,13 @@ impl Config {
             }
             println!();
 
-            println!(" Output Path:     {}", self.out);
+            println!(" Output Path:     {}", self.out.path.display());
             
             if self.mode == Mode::Compress {
                 println!(" Method:          {}", 
-                if self.method == 0 { "Context Mixing" }
-                else { "LZW" }
+                if self.method == Method::Cm { "Context Mixing" }
+                else if self.method == Method::Lzw { "LZW" }
+                else { "No Compression"}
                 );
                 println!(" Sorting by:      {}", 
                 match self.sort {

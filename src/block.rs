@@ -5,7 +5,7 @@ use std::{
 };
 use crate::{
     filedata::FileData,
-    config::Config,
+    config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
     error,
 };
@@ -23,7 +23,7 @@ pub struct Block {
     pub crtd:   u64,           // Creation time
     pub files:  Vec<FileData>, // Files in this block
     pub data:   Vec<u8>,       // Block data 
-    pub method: u8,            // Context Mixing or LZW
+    pub method: Method,        // Context Mixing or LZW
 }
 impl Block {
     pub fn new(cfg: &Config) -> Block {
@@ -49,7 +49,7 @@ impl Block {
         archive.write_u32(MGC);
         archive.write_u64(self.mem);
         archive.write_u64(self.blk_sz as u64);
-        archive.write_byte(self.method);
+        archive.write_byte(self.method as u8);
         archive.write_u32(self.id);
         archive.write_u32(self.chksum);
         archive.write_u64(self.sizeo);
@@ -61,6 +61,8 @@ impl Block {
             archive.write_all(path).unwrap();
             archive.write_byte(0);
             archive.write_u64(file.len);
+            archive.write_u64(file.seg_beg);
+            archive.write_u64(file.seg_end);
         }
 
         for byte in self.data.iter() {
@@ -71,7 +73,7 @@ impl Block {
         if archive.read_u32() != MGC { error::no_prisirv_archive(); }
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
-        self.method   = archive.read_byte();
+        self.method   = Method::from(archive.read_byte());
         self.id       = archive.read_u32();
         self.chksum   = archive.read_u32();
         self.sizeo    = archive.read_u64();
@@ -89,11 +91,15 @@ impl Block {
                             .map(|b| *b as char)
                             .collect::<String>();
                         let file_len = archive.read_u64();
+                        let seg_beg  = archive.read_u64();
+                        let seg_end  = archive.read_u64();
     
                         self.files.push(
                             FileData {
                                 path: PathBuf::from(&path_string),
                                 len:  file_len,
+                                seg_beg,
+                                seg_end,
                             }
                         );
                         path.clear();
@@ -130,8 +136,13 @@ impl Block {
         println!();
         println!("Files:");
         for file in self.files.iter() {
-            println!("  {}", file.path.display());
-            println!("  {}", file.len)
+            if file.seg_beg != file.seg_end {
+                println!("Path:   {}", file.path.display());
+                println!("Length: {}", file.len);
+                println!("Segment Begin: {}", file.seg_beg);
+                println!("Segment End:   {}", file.seg_end);
+                println!();
+            }
         }
         println!("==========================================");
     }

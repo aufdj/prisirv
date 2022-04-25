@@ -27,17 +27,17 @@ struct FileWriter {
     dir_out:       String,                             // Output directory
 }
 impl FileWriter {
-    fn new(files: Vec<FileData>, dir_out: &str, pos: u64) -> FileWriter {
+    fn new(files: Vec<FileData>, dir_out: &str) -> FileWriter {
         let mut files = files.into_iter();
 
         let file_in = files.next().unwrap();                  
         let mut file_out = next_file(&file_in, dir_out);  
-        file_out.seek(SeekFrom::Start(pos)).unwrap();         
+        file_out.seek(SeekFrom::Start(file_in.seg_beg)).unwrap();        
 
         FileWriter {
             dir_out:      dir_out.to_string(),
             files:        Box::new(files),
-            file_out_pos: pos,
+            file_out_pos: file_in.seg_beg,
             file_out,
             file_in,
         }
@@ -46,19 +46,16 @@ impl FileWriter {
     fn update(&mut self) {
         let file_in = self.files.next().unwrap();
         self.file_out = next_file(&file_in, &self.dir_out);
+        self.file_out_pos = file_in.seg_beg;
         self.file_in = file_in;
-        self.file_out_pos = 0;
     }
     fn write_byte(&mut self, byte: u8) {
-        if self.file_out_pos == self.file_in.len {
+        if self.file_out_pos == self.file_in.seg_end {
             self.file_out.flush_buffer();
             self.update();
         }
         self.file_out.write_byte(byte);
         self.file_out_pos += 1;
-    }
-    fn current_pos(&self) -> u64 {
-        self.file_out_pos
     }
 }
 
@@ -108,23 +105,18 @@ impl Extractor {
             blk.next();
         }
 
-        let mut pos = 0;
         // Write blocks to output 
         loop {
             if let Some(blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 // Check for sentinel block
                 if blk.data.is_empty() { break; }
-
-                let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str(), pos);
+                
+                let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str());
 
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
                 }
                 fw.file_out.flush_buffer();
-
-                // To handle files that cross block boundaries, 
-                // save the current file position.
-                pos = fw.current_pos();
             } 
         }
     } 

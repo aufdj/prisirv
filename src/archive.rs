@@ -1,6 +1,6 @@
 use std::{
     path::Path,
-    io::BufWriter,
+    io::{Seek, BufWriter},
     fs::File,
 };
 
@@ -40,7 +40,6 @@ impl Archiver {
 
         let prg = Progress::new(&cfg, &files);
         let tp = ThreadPool::new(cfg.threads, prg);
-
         let archive = new_output_file_checked(&cfg.out, cfg.clbr);
 
         Archiver { 
@@ -53,27 +52,31 @@ impl Archiver {
         let mut blk = Block::new(&self.cfg);
 
         // Read files into blocks and compress
-        for file in self.files.iter() {
-            blk.files.push(file.clone());
+        for file in self.files.iter_mut() {
             let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
 
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());
                 if blk.data.len() >= self.cfg.blk_sz {
+                    file.seg_end = file_in.stream_position().unwrap();
+                    blk.files.push(file.clone());
                     self.tp.compress_block(blk.clone());
+
                     blk.next();
-                    if !blk.files.contains(file) {
-                        blk.files.push(file.clone());
-                    }
-                }
+                    file.seg_beg = file_in.stream_position().unwrap();
+                }    
             }
+            file.seg_end = file_in.stream_position().unwrap();
+
             // Truncate final block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
+                blk.files.push(file.clone());
                 self.tp.compress_block(blk.clone());
                 blk.next();
-                if !blk.files.contains(file) {
-                    blk.files.push(file.clone());
-                }
+                file.seg_beg = file_in.stream_position().unwrap();
+            }
+            if !blk.files.contains(file) {
+                blk.files.push(file.clone());
             }
         }
 
