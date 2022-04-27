@@ -29,6 +29,8 @@ enum Parse {
     Align,
     Lzw,
     Store,
+    Add,
+    InsertAt,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,7 +61,7 @@ impl From<u8> for Method {
 }
 
 
-/// A list of all user defined configuration settings.
+/// User defined configuration settings.
 #[derive(Clone, Debug)]
 pub struct Config {
     pub sort:      Sort,          // Sorting method
@@ -74,6 +76,8 @@ pub struct Config {
     pub threads:   usize,         // Maximum number of threads
     pub align:     Align,         // Block size exactly as specified or truncated to file boundary
     pub method:    Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
+    pub ex_arch:   FileData,      // Existing archive to add to or remove from
+    pub insert_id: usize,         // Where to insert new blocks to an existing archive
 }
 impl Config {
     /// Create a new default Config.
@@ -91,6 +95,8 @@ impl Config {
             out:       FileData::default(),
             align:     Align::Fixed,
             method:    Method::Cm,
+            ex_arch:   FileData::default(),
+            insert_id: 0,
         }
     }
     /// Create a new Config with the specified command line arguments.
@@ -131,6 +137,14 @@ impl Config {
                 }
                 "fv" => {
                     parser = Parse::Fv;
+                    continue;
+                }
+                "add" => {
+                    parser = Parse::Add;
+                    continue;
+                }
+                "-insert-at" => {
+                    parser = Parse::InsertAt;
                     continue;
                 }
                 "-lzw"              => parser = Parse::Lzw,
@@ -214,6 +228,11 @@ impl Config {
                         Err(_) => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
                     }
                 }
+                Parse::Add => {
+                    cfg.mode = Mode::Add; 
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                }
+                Parse::InsertAt   => cfg.insert_id = arg.parse::<usize>().unwrap(),
                 Parse::Lzw        => cfg.method = Method::Lzw,
                 Parse::Store      => cfg.method = Method::Store,
                 Parse::Compress   => cfg.mode = Mode::Compress,
@@ -240,12 +259,18 @@ impl Config {
         cfg.out = fmt_root_output(&cfg);
 
         if list { cfg.list_archive(); }
-        cfg.print();
+        if cfg.mode == Mode::Add {
+            cfg.print_add();
+        }
+        else {  
+            cfg.print_new();
+        }
+        
         cfg
     }
 
-    /// Print information about the current Config.
-    pub fn print(&self) {
+    /// Print information about new archive.
+    pub fn print_new(&self) {
         if !self.quiet {
             println!();
             println!("=============================================================");
@@ -299,6 +324,21 @@ impl Config {
 
             println!("=============================================================");
             println!();
+        }
+    }
+    /// Print information about modified archive.
+    pub fn print_add(&self) {
+        if !self.quiet {
+            println!("Adding to archive {}", self.ex_arch.path.display());
+            println!("Inputs: ");
+            for input in self.inputs.iter() {
+                println!("    {} ({})", 
+                    input.path.display(),
+                    if input.path.is_file() { "File" }
+                    else if input.path.is_dir() { "Directory" }
+                    else { "" }
+                );
+            }
         }
     }
 

@@ -105,6 +105,31 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
                 )
             )
         }
+        Mode::Add => {
+            FileData::new(
+                PathBuf::from(
+                    if cfg.user_out.is_empty() {
+                        format!("{}_add.prsv", cfg.inputs[0].path.path_no_ext()) 
+                    }
+                    else if cfg.user_out.contains('\\') {
+                        format!("{}_add.prsv", cfg.user_out)
+                    }
+                    else {
+                        let mut dir_out = String::new();
+                        // Replace final path component with user option
+                        let s: Vec<String> = 
+                            cfg.inputs[0].path.path_ext()
+                            .split('\\').skip(1)
+                            .map(|s| s.to_string())
+                            .collect();
+                        for cmpnt in s.iter().take(s.len()-1) {
+                            dir_out.push_str(format!("\\{}", cmpnt).as_str());
+                        }
+                        format!("{}\\{}_add.prsv", dir_out, cfg.user_out)
+                    }
+                )
+            )
+        }
     }
 }
 

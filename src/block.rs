@@ -23,7 +23,7 @@ pub struct Block {
     pub crtd:   u64,           // Creation time
     pub files:  Vec<FileData>, // Files in this block
     pub data:   Vec<u8>,       // Block data 
-    pub method: Method,        // Context Mixing or LZW
+    pub method: Method,        // Context Mixing, LZW, or Uncompressed
 }
 impl Block {
     pub fn new(cfg: &Config) -> Block {

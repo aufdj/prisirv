@@ -1,56 +1,55 @@
 use std::{
-    path::Path,
-    io::{Seek, BufWriter},
+    io::{Seek, BufWriter, BufReader},
     fs::File,
 };
 
 use crate::{
     sort::sort_files,
+    archive::collect_files,
     filedata::FileData,
     threads::ThreadPool,
     progress::Progress,
     config::{Config, Align},
     buffered_io::{
         BufferedRead, BufferedWrite,
-        new_input_file, new_output_file_checked,
+        new_input_file, new_output_file,
     },
     block::Block,
 };
 
-/// An archiver by default creates solid archives, or an archive containing
-/// files compressed as one stream. Solid archives take advantage of redundancy 
-/// across files and therefore achieve better compression ratios than non-
-/// solid archives, but don't allow for extracting individual files like
-/// non-solid archives.
-pub struct Archiver {
-    pub archive:  BufWriter<File>,
-    cfg:          Config,
-    files:        Vec<FileData>,
-    tp:           ThreadPool,
+
+pub struct ArchiveModifier {
+    old:    BufReader<File>,
+    new:    BufWriter<File>,
+    files:  Vec<FileData>,
+    cfg:    Config,
+    tp:     ThreadPool,
 }
-impl Archiver {
-    /// Create a new Archiver.
-    pub fn new(cfg: Config) -> Archiver {
+impl ArchiveModifier {
+    pub fn new(cfg: Config) -> ArchiveModifier {
         let mut files = Vec::new();
         // Collect and sort files.
         collect_files(&cfg.inputs, &mut files);
         files.sort_by(|f1, f2| 
             sort_files(&f1.path, &f2.path, cfg.sort)
         );
-
+        let old = new_input_file(4096, &cfg.ex_arch.path);
+        let new = new_output_file(4096, &cfg.out.path);
         let prg = Progress::new(&cfg, &files);
-        let tp = ThreadPool::new(cfg.threads, prg);
-        let archive = new_output_file_checked(&cfg.out, cfg.clbr);
+        let tp  = ThreadPool::new(cfg.threads, prg);
 
-        Archiver { 
-            archive, cfg, files, tp, 
+        ArchiveModifier {
+            old, new, files, cfg, tp,
         }
     }
-
-    /// Parse files into blocks and compress blocks.
-    pub fn create_archive(&mut self) {
+    pub fn add(&mut self) {
+        let mut blks_added = 0;
         let mut blk = Block::new(&self.cfg);
-
+        for _ in 0..self.cfg.insert_id {
+            blk.read_from(&mut self.old);
+            self.tp.store_block(blk.clone());
+            blk.next();
+        }
         // Read files into blocks and compress
         for file in self.files.iter_mut() {
             let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
@@ -61,6 +60,7 @@ impl Archiver {
                     file.seg_end = file_in.stream_position().unwrap();
                     blk.files.push(file.clone());
                     self.tp.compress_block(blk.clone());
+                    blks_added += 1;
                     blk.next();
                     file.seg_beg = file_in.stream_position().unwrap();
                 }    
@@ -71,6 +71,7 @@ impl Archiver {
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 blk.files.push(file.clone());
                 self.tp.compress_block(blk.clone());
+                blks_added += 1;
                 blk.next();
                 file.seg_beg = file_in.stream_position().unwrap();
             }
@@ -82,48 +83,25 @@ impl Archiver {
         // Compress final block
         if !blk.data.is_empty() {
             self.tp.compress_block(blk.clone());
+            blks_added += 1;
             blk.next();
         }
 
-        // Empty sentinel block
-        self.tp.compress_block(blk.clone());
-        
+        loop {
+            blk.read_from(&mut self.old);
+            blk.id += blks_added;
+            self.tp.store_block(blk.clone());
+            if blk.data.is_empty() { break; }
+            blk.next();
+        }
+
         // Output blocks
         loop {
             if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
-                blk.write_to(&mut self.archive);
+                blk.write_to(&mut self.new);
                 if blk.data.is_empty() { break; }
             }
         }
-        self.archive.flush_buffer();
-    }
-}
-
-/// Recursively collect all files into a vector for sorting before compression.
-pub fn collect_files(inputs: &[FileData], files: &mut Vec<FileData>) {
-    // Group files and directories 
-    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-        inputs.iter().cloned()
-        .partition(|f| f.path.is_file());
-
-    // Walk through directories and collect all files
-    for file in fi.into_iter() {
-        files.push(file);
-    }
-    for dir in dirs.iter() {
-        collect(&dir.path, files);
-    }
-}
-fn collect(dir_in: &Path, files: &mut Vec<FileData>) {
-    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| FileData::new(d.unwrap().path()))
-        .partition(|f| f.path.is_file());
-
-    for file in fi.into_iter() {
-        files.push(file);
-    }
-    for dir in dirs.iter() {
-        collect(&dir.path, files);
+        self.new.flush_buffer();
     }
 }

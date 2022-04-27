@@ -13,12 +13,14 @@ mod fv;
 mod block;
 mod cm;
 mod lzw;
+mod archivemod;
 
 use std::path::PathBuf;
 
 use crate::{
     archive::Archiver,
     extract::Extractor,
+    archivemod::ArchiveModifier,
     filedata::FileData,
     config::Config,
     sort::Sort,
@@ -30,6 +32,7 @@ use crate::{
 pub enum Mode {
     Compress,
     Decompress,
+    Add,
 }
 
 /// Prisirv API. Allows for creating or extracting a Prisirv archive
@@ -97,7 +100,7 @@ impl Prisirv {
 
         self.cfg.out = fmt_root_output(&self.cfg);
 
-        self.cfg.print();
+        self.cfg.print_new();
 
         Archiver::new(self.cfg.clone()).create_archive();  
     }
@@ -110,7 +113,7 @@ impl Prisirv {
 
         self.cfg.out = fmt_root_output(&self.cfg);
 
-        self.cfg.print();
+        self.cfg.print_new();
 
         Extractor::new(self.cfg.clone()).extract_archive(); 
     }
@@ -129,6 +132,10 @@ impl Prisirv {
     /// Extract inputs specified in Config.
     pub fn extract_archive(self) {
         Extractor::new(self.cfg).extract_archive(); 
+    }
+
+    pub fn add_archive(self) {
+        ArchiveModifier::new(self.cfg).add();
     }
 }
 impl Default for Prisirv {

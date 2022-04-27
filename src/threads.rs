@@ -58,6 +58,31 @@ impl ThreadPool {
             threads, sndr, bq 
         }
     }
+
+    pub fn store_block(&mut self, blk_in: Block) {
+        self.sndr.send(
+            Message::NewJob(
+                Box::new(move || {
+                    let crtd = SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap().as_secs() as u64;
+
+                    Block {
+                        method: blk_in.method,
+                        mem:    blk_in.mem,
+                        blk_sz: blk_in.blk_sz,
+                        chksum: blk_in.chksum,
+                        sizeo:  blk_in.sizeo,
+                        sizei:  blk_in.sizei,
+                        files:  blk_in.files,
+                        data:   blk_in.data,
+                        id:     blk_in.id,
+                        crtd,
+                    }
+                })
+            )
+        ).unwrap();
+    }
     
     /// Create a new message containing a job consisting of compressing an
     /// input block and returning the compressed block.

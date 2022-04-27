@@ -9,5 +9,6 @@ fn main() {
     match cfg.mode {
         Mode::Compress   => { Prisirv::new_with_cfg(cfg).create_archive();  }
         Mode::Decompress => { Prisirv::new_with_cfg(cfg).extract_archive(); }
+        Mode::Add        => { Prisirv::new_with_cfg(cfg).add_archive();     }
     }
 }
