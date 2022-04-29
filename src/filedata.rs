@@ -27,7 +27,7 @@ impl FileData {
     pub fn path_str(&self) -> &str {
         self.path.to_str().unwrap()
     }
-    // Total size of FileData (length of path + 8 byte file length)
+    // Total size of FileData
     pub fn size(&self) -> u64 {
         (self.path_str().as_bytes().len() + 24) as u64
     }

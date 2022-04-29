@@ -421,8 +421,8 @@ impl Config {
         let mut blk = Block::new(&self);
         let mut extr = Extractor::new(self); 
         loop {
-            blk.read_from(&mut extr.archive);
-            if blk.data.is_empty() { break; }
+            blk.read_header_from(&mut extr.archive);
+            if blk.sizeo == 0 { break; }
             blk.print();
             blk.next();
         }

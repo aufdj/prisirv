@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufWriter, BufReader, Write},
+    io::{BufWriter, BufReader, Write, Seek, SeekFrom},
     path::PathBuf,
 };
 use crate::{
@@ -116,6 +116,48 @@ impl Block {
         for _ in 0..self.sizeo {
             self.data.push(archive.read_byte());
         }
+    }
+    pub fn read_header_from(&mut self, archive: &mut BufReader<File>) {
+        if archive.read_u32() != MGC { error::no_prisirv_archive(); }
+        self.mem      = archive.read_u64();
+        self.blk_sz   = archive.read_u64() as usize;
+        self.method   = Method::from(archive.read_byte());
+        self.id       = archive.read_u32();
+        self.chksum   = archive.read_u32();
+        self.sizeo    = archive.read_u64();
+        self.sizei    = archive.read_u64();
+        let num_files = archive.read_u32();
+
+        let mut path: Vec<u8> = Vec::with_capacity(64);
+
+        // Read null terminated path strings and lengths
+        for _ in 0..num_files {
+            loop {
+                match archive.read_byte() {
+                    0 => {
+                        let path_string = path.iter()
+                            .map(|b| *b as char)
+                            .collect::<String>();
+                        let file_len = archive.read_u64();
+                        let seg_beg  = archive.read_u64();
+                        let seg_end  = archive.read_u64();
+    
+                        self.files.push(
+                            FileData {
+                                path: PathBuf::from(&path_string),
+                                len:  file_len,
+                                seg_beg,
+                                seg_end,
+                            }
+                        );
+                        path.clear();
+                        break;
+                    }
+                    byte => path.push(byte),
+                }
+            }
+        }
+        archive.seek(SeekFrom::Current(self.sizeo as i64)).unwrap();
     }
     pub fn size(&self) -> u64 {
         let mut total: u64 = 0;
