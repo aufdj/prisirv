@@ -6,12 +6,12 @@ mod tests {
     use std::{fs, path::Path};
 
     #[test]
-    fn solid_archive_calgary_tar() {
+    fn calgary_tar() {
         let inputs: Vec<&str> = vec!["tests\\data\\calgary.tar"];
-        Prisirv::new().clobber().create_archive_of(&inputs);
+        Prisirv::default().clobber().create_archive_of(&inputs);
 
         let inputs: Vec<&str> = vec!["tests\\data\\calgary.prsv"];
-        Prisirv::new().clobber().extract_archive_of(&inputs);
+        Prisirv::default().clobber().extract_archive_of(&inputs);
         
         let crc1 = Path::new("tests\\data\\calgary.tar").crc32();
         let crc2 = Path::new("tests\\data\\calgary_d\\tests\\data\\calgary.tar").crc32();

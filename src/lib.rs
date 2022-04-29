@@ -42,8 +42,8 @@ pub struct Prisirv {
     cfg: Config,
 }
 impl Prisirv {
-    /// Create a new Prisirv archiver or extractor with an empty Config.
-    pub fn new() -> Prisirv {
+    /// Create a new Prisirv archiver or extractor with a default Config.
+    pub fn default() -> Prisirv {
         Prisirv { cfg: Config::default() }
     }
 
@@ -120,7 +120,7 @@ impl Prisirv {
 
 
     /// Create a Prisirv archiver or extractor with an existing Config.
-    pub fn new_with_cfg(cfg: Config) -> Prisirv {
+    pub fn new(cfg: Config) -> Prisirv {
         Prisirv { cfg }
     }
 
@@ -136,10 +136,5 @@ impl Prisirv {
 
     pub fn add_archive(self) {
         ArchiveModifier::new(self.cfg).add();
-    }
-}
-impl Default for Prisirv {
-    fn default() -> Self {
-        Self::new()
     }
 }

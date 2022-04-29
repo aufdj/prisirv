@@ -7,8 +7,8 @@ use prisirv::{
 fn main() {
     let cfg = Config::new(&std::env::args().skip(1).collect::<Vec<String>>());
     match cfg.mode {
-        Mode::Compress   => { Prisirv::new_with_cfg(cfg).create_archive();  }
-        Mode::Decompress => { Prisirv::new_with_cfg(cfg).extract_archive(); }
-        Mode::Add        => { Prisirv::new_with_cfg(cfg).add_archive();     }
+        Mode::Compress   => { Prisirv::new(cfg).create_archive();  }
+        Mode::Decompress => { Prisirv::new(cfg).extract_archive(); }
+        Mode::Add        => { Prisirv::new(cfg).add_archive();     }
     }
 }

@@ -10,7 +10,7 @@ use crate::{
 };
 
 
-/// An enum containing each possible parsing state.
+/// AParsing states.
 enum Parse {
     None,
     Compress,
@@ -30,7 +30,7 @@ enum Parse {
     Lzw,
     Store,
     Add,
-    InsertAt,
+    Insert,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,18 +144,34 @@ impl Config {
                     continue;
                 }
                 "-insert-at" => {
-                    parser = Parse::InsertAt;
+                    parser = Parse::Insert;
                     continue;
                 }
-                "-lzw"              => parser = Parse::Lzw,
-                "-store"            => parser = Parse::Store,
-                "create"            => parser = Parse::Compress,
-                "extract"           => parser = Parse::Decompress,
-                "-q"   | "-quiet"   => parser = Parse::Quiet,
-                "-clb" | "-clobber" => parser = Parse::Clobber,
-                "-file-align"       => parser = Parse::Align,
-                "ls" | "list"       => parser = Parse::List,
-                "help"              => print_program_info(),
+                "-lzw" => {
+                    parser = Parse::Lzw;
+                }
+                "-store" => {
+                    parser = Parse::Store;
+                }
+                "create" => {
+                    parser = Parse::Compress;
+                }
+                "extract" => {
+                    parser = Parse::Decompress;
+                }
+                "-q" | "-quiet"   => {
+                    parser = Parse::Quiet;
+                }
+                "-clb" | "-clobber" => {
+                    parser = Parse::Clobber;
+                }
+                "-file-align" => {
+                    parser = Parse::Align;
+                }
+                "ls" | "list" => {
+                    parser = Parse::List;
+                }
+                "help" => print_program_info(),
                 _ => {},
             }
             match parser {
@@ -232,16 +248,36 @@ impl Config {
                     cfg.mode = Mode::Add; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                 }
-                Parse::InsertAt   => cfg.insert_id = arg.parse::<usize>().unwrap(),
-                Parse::Lzw        => cfg.method = Method::Lzw,
-                Parse::Store      => cfg.method = Method::Store,
-                Parse::Compress   => cfg.mode = Mode::Compress,
-                Parse::Decompress => cfg.mode = Mode::Decompress,
-                Parse::DirOut     => cfg.user_out = arg.to_string(),
-                Parse::Inputs     => cfg.inputs.push(FileData::new(PathBuf::from(arg))),
-                Parse::Quiet      => cfg.quiet = true,
-                Parse::Clobber    => cfg.clbr = true,
-                Parse::Align      => cfg.align = Align::File,
+                Parse::Insert => {
+                    cfg.insert_id = arg.parse::<usize>().unwrap();
+                }
+                Parse::Lzw => {
+                    cfg.method = Method::Lzw;
+                }
+                Parse::Store => {
+                    cfg.method = Method::Store;
+                }
+                Parse::Compress => {
+                    cfg.mode = Mode::Compress;
+                }
+                Parse::Decompress => {
+                    cfg.mode = Mode::Decompress;
+                }
+                Parse::DirOut => {
+                    cfg.user_out = arg.to_string();
+                }
+                Parse::Inputs => {
+                    cfg.inputs.push(FileData::new(PathBuf::from(arg)));
+                }
+                Parse::Quiet => {
+                    cfg.quiet = true;
+                }
+                Parse::Clobber => {
+                    cfg.clbr = true;
+                }
+                Parse::Align => {
+                    cfg.align = Align::File;
+                }
                 Parse::None => {},
             }
         }
@@ -253,19 +289,19 @@ impl Config {
                 error::invalid_input(&input.path);
             }
         }
-
+        
         if fv { fv::fv(&cfg.inputs[0], cs); }
 
         cfg.out = fmt_root_output(&cfg);
 
         if list { cfg.list_archive(); }
+        
         if cfg.mode == Mode::Add {
             cfg.print_add();
         }
         else {  
             cfg.print_new();
         }
-        
         cfg
     }
 
@@ -329,8 +365,12 @@ impl Config {
     /// Print information about modified archive.
     pub fn print_add(&self) {
         if !self.quiet {
-            println!("Adding to archive {}", self.ex_arch.path.display());
-            println!("Inputs: ");
+            println!();
+            println!("=============================================================");
+            println!(" Adding to archive {}", self.ex_arch.path.display());
+            println!();
+
+            println!(" Inputs: ");
             for input in self.inputs.iter() {
                 println!("    {} ({})", 
                     input.path.display(),
@@ -339,6 +379,41 @@ impl Config {
                     else { "" }
                 );
             }
+            println!();
+
+            println!(" Output Path:     {}", self.out.path.display());
+
+            println!(" Method:          {}", 
+                if self.method == Method::Cm { "Context Mixing" }
+                else if self.method == Method::Lzw { "LZW" }
+                else { "No Compression"}
+                );
+            println!(" Sorting by:      {}", 
+                match self.sort {
+                    Sort::None     => "None",
+                    Sort::Ext      => "Extension",
+                    Sort::Name     => "Name",
+                    Sort::Len      => "Length",
+                    Sort::Created  => "Creation time",
+                    Sort::Accessed => "Last accessed time",
+                    Sort::Modified => "Last modified time",
+                    Sort::PrtDir(_) => "Parent Directory",
+                });
+
+            println!(" Memory Usage:    {} MiB", 3 + (self.mem >> 20) * 3);
+
+            let (size, suffix) = format(self.blk_sz);
+            println!(" Block Size:      {} {}", size, suffix); 
+
+            println!(" Block Alignment: {}", 
+                    if self.align == Align::File { "File" } 
+                    else { "Exact" }
+            );
+
+            println!(" Threads:         Up to {}", self.threads);
+
+            println!("=============================================================");
+            println!();
         }
     }
 

@@ -18,14 +18,21 @@ pub struct Progress {
     pub sizeo:  u64,     // Output size
     current:    u64,     // Portion of input data (de)compressed
     quiet:      bool,    // Suppress output
-    mode:       Mode,
+    mode:       Mode,    
     time:       Instant, // Timer
 }
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
     pub fn new(cfg: &Config, files: &[FileData]) -> Progress {
+        let sizei: u64 = 
+        if cfg.mode == Mode::Add {
+            cfg.ex_arch.len
+        }
+        else {
+            files.iter().map(|f| f.len).sum()
+        };
         Progress {
-            sizei:    files.iter().map(|f| f.len).sum(),
+            sizei,
             sizeo:    0,
             current:  0,
             quiet:    cfg.quiet,
