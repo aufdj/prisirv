@@ -7,6 +7,7 @@ use crate::{
     error,
     block::Block,
     filedata::FileData,
+    buffered_io::new_input_file,
 };
 
 
@@ -247,6 +248,7 @@ impl Config {
                 Parse::Add => {
                     cfg.mode = Mode::Add; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.insert_id = cfg.block_count();
                 }
                 Parse::Insert => {
                     cfg.insert_id = arg.parse::<usize>().unwrap();
@@ -414,6 +416,17 @@ impl Config {
 
             println!("=============================================================");
             println!();
+        }
+    }
+    fn block_count(&self) -> usize {
+        let mut count = 0;
+        let mut blk = Block::new(&self);
+        let mut archive = new_input_file(4096, &self.ex_arch.path);
+        loop {
+            blk.read_header_from(&mut archive);
+            if blk.sizeo == 0 { return count; }
+            count += 1;
+            blk.next();
         }
     }
 
