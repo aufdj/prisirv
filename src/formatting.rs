@@ -9,7 +9,7 @@ use crate::{
 };
 
 
-trait PathFmt {
+pub trait PathFmt {
     fn name_no_ext(&self) -> &str;
     fn path_no_ext(&self) -> &str;
     fn name_ext(&self) -> &str;

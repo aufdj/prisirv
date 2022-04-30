@@ -9,6 +9,7 @@ use crate::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file,
     },
+    formatting::PathFmt,
     filedata::FileData,
 };
 
@@ -21,7 +22,7 @@ See http://www.gnu.org/licenses/gpl.txt
 
 Usage: fv file (Requires 512 MB memory)
 
-The output is fv.bmp with the given size in pixels, which visually
+The output is a .bmp with the given size in pixels, which visually
 displays where matching substrings of various lengths and offests are
 found.  A pixel at x, y is (black, red, green, blue) if the last matching
 substring of length (1, 2, 4, 8) at x occurred y bytes ago.  x and y
@@ -158,6 +159,7 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
     let time        = Instant::now();
     let size        = file.len;
     let mut file_in = new_input_file(4096, &file.path);
+    let file_name   = file.path.name_no_ext();
 
     let width: i32 = 512;
     let height: i32 = 256;
@@ -165,8 +167,8 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
     let fheight = height as f64;
     let fsize   = size   as f64;
 
-    println!("Drawing fv.bmp {} by {} from {}",
-        width, height, file);
+    println!("Drawing {}.bmp {} by {}",
+        file_name, width, height);
     
     // Create blank white image
     let mut img = Image::new(width, height);
@@ -233,7 +235,7 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
 
             xd += xscale; // Move to next x position
 
-            let prev_loc = &mut ht[((h ^ (h >> 16)) as usize) & (HSIZE-1)]; 
+            let prev_loc = &mut ht[((h ^ (h >> 16)) as usize) & (HSIZE-1)];
             let chksum   = (h & 0xC0000000) as u32;
             let new_loc  = chksum as u64 + j;
             
@@ -256,8 +258,10 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
         println!("Drew part {} of 4 in {:.2?}",
             i + 1, start_pass.elapsed());
     }
-    img.save_bmp("fv.bmp");
-    println!("Created fv.bmp in {:.2?}", 
-        time.elapsed());
+    img.save_bmp(&format!("{}.bmp", file_name));
+    println!("Created {}.bmp in {:.2?}", 
+        file_name,
+        time.elapsed()
+    );
     std::process::exit(0);
 }
