@@ -100,7 +100,7 @@ impl ThreadPool {
                         enc.blk_out
                     }
                     else if blk_in.method == Method::Lzw {
-                        lzw::encoder::compress(&blk_in.data)
+                        lzw::encoder::compress(&blk_in.data, blk_in.mem as usize)
                     }
                     else { blk_in.data };
                     
@@ -138,7 +138,7 @@ impl ThreadPool {
                         dec.decompress_block(blk_in.sizei as usize)
                     }
                     else if blk_in.method == Method::Lzw {
-                        lzw::decoder::decompress(&blk_in.data)
+                        lzw::decoder::decompress(&blk_in.data, blk_in.mem as usize)
                     }
                     else { blk_in.data };
                     

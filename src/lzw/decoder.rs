@@ -78,15 +78,15 @@ struct Dictionary {
     pub blk:       Vec<u8>,
 }
 impl Dictionary {
-    fn new() -> Dictionary {
-        let mut map = HashMap::new();
+    fn new(mem: usize) -> Dictionary {
+        let mut map = HashMap::with_capacity(mem/4);
         for i in 0..256 {
             map.insert(i, vec![i as u8]);
         }
 
         Dictionary {
             map,
-            max_code:  0x40000,
+            max_code:  (mem/4) as u32,
             code:      259,
             string:    Vec::new(),
             blk:       Vec::new(),
@@ -126,10 +126,10 @@ impl Dictionary {
     }
 }
 
-pub fn decompress(blk_in: &[u8]) -> Vec<u8> {
+pub fn decompress(blk_in: &[u8], mem: usize) -> Vec<u8> {
     if blk_in.is_empty() { return Vec::new(); }
     let mut stream = BitStream::new(Box::new(blk_in.to_vec().into_iter()));
-    let mut dict = Dictionary::new();
+    let mut dict = Dictionary::new(mem);
 
     loop { 
         if let Some(code) = stream.get_code() {
