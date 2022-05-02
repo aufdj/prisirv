@@ -3,11 +3,12 @@ use std::path::PathBuf;
 use crate::{
     sort::Sort, Mode, fv,
     formatting::fmt_root_output,
-    extract::Extractor,
     error,
-    block::Block,
     filedata::FileData,
-    buffered_io::new_input_file,
+    archivescan::{
+        block_count, 
+        list_archive,
+    },
 };
 
 
@@ -106,7 +107,6 @@ impl Config {
 
         let mut parser = Parse::None;
         let mut cfg    = Config::default();
-        let mut list   = false;
         let mut fv     = false;
         let mut cs     = 10.0;
         
@@ -171,6 +171,7 @@ impl Config {
                 }
                 "ls" | "list" => {
                     parser = Parse::List;
+                    continue;
                 }
                 "help" => print_program_info(),
                 _ => {},
@@ -232,8 +233,8 @@ impl Config {
                     };
                 }
                 Parse::List => {
-                    list = true; 
-                    parser = Parse::Inputs;
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    list_archive(&cfg);
                 }
                 Parse::Fv => {
                     fv = true;
@@ -248,7 +249,7 @@ impl Config {
                 Parse::Add => {
                     cfg.mode = Mode::Add; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    cfg.insert_id = cfg.block_count();
+                    cfg.insert_id = block_count(&cfg);
                 }
                 Parse::Insert => {
                     cfg.insert_id = arg.parse::<usize>().unwrap();
@@ -284,19 +285,11 @@ impl Config {
             }
         }
 
-        if cfg.inputs.is_empty() { error::no_inputs(); }
-
-        for input in cfg.inputs.iter() {
-            if !(input.path.is_file() || input.path.is_dir()) {
-                error::invalid_input(&input.path);
-            }
-        }
+        cfg.validate_inputs();
         
         if fv { fv::fv(&cfg.inputs[0], cs); }
 
         cfg.out = fmt_root_output(&cfg);
-
-        if list { cfg.list_archive(); }
         
         if cfg.mode == Mode::Add {
             cfg.print_add();
@@ -305,6 +298,16 @@ impl Config {
             cfg.print_new();
         }
         cfg
+    }
+
+    pub fn validate_inputs(&self) {
+        if self.inputs.is_empty() { error::no_inputs(); }
+
+        for input in self.inputs.iter() {
+            if !(input.path.is_file() || input.path.is_dir()) {
+                error::invalid_input(&input.path);
+            }
+        }
     }
 
     /// Print information about new archive.
@@ -418,29 +421,7 @@ impl Config {
             println!();
         }
     }
-    fn block_count(&self) -> usize {
-        let mut count = 0;
-        let mut blk = Block::new(&self);
-        let mut archive = new_input_file(4096, &self.ex_arch.path);
-        loop {
-            blk.read_header_from(&mut archive);
-            if blk.sizeo == 0 { return count; }
-            count += 1;
-            blk.next();
-        }
-    }
-
-    fn list_archive(self) -> ! {
-        let mut blk = Block::new(&self);
-        let mut extr = Extractor::new(self); 
-        loop {
-            blk.read_header_from(&mut extr.archive);
-            if blk.sizeo == 0 { break; }
-            blk.print();
-            blk.next();
-        }
-        std::process::exit(0);
-    }
+    
 }
 
 

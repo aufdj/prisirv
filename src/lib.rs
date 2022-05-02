@@ -14,6 +14,7 @@ mod block;
 mod cm;
 mod lzw;
 mod archivemod;
+mod archivescan;
 
 use std::path::PathBuf;
 
