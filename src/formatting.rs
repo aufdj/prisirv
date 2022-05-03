@@ -2,9 +2,8 @@ use std::{
     path::{Path, PathBuf},
     fs::create_dir_all,
 };
-use crate::{
-    Mode, 
-    config::Config,
+use crate::{ 
+    config::{Config, Mode},
     filedata::FileData,
 };
 

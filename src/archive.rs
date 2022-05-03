@@ -32,6 +32,7 @@ impl Archiver {
     /// Create a new Archiver.
     pub fn new(cfg: Config) -> Archiver {
         let mut files = Vec::new();
+        
         // Collect and sort files.
         collect_files(&cfg.inputs, &mut files);
         files.sort_by(|f1, f2| 
@@ -92,7 +93,9 @@ impl Archiver {
         loop {
             if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 blk.write_to(&mut self.archive);
-                if blk.data.is_empty() { break; }
+                if blk.data.is_empty() { 
+                    break; 
+                }
             }
         }
         self.archive.flush_buffer();

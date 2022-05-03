@@ -23,18 +23,12 @@ use crate::{
     extract::Extractor,
     archivemod::ArchiveModifier,
     filedata::FileData,
-    config::Config,
+    config::{Config, Mode},
     sort::Sort,
     formatting::fmt_root_output,
 };
 
-/// Mode (Compress | Decompress)
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub enum Mode {
-    Compress,
-    Decompress,
-    Add,
-}
+
 
 /// Prisirv API. Allows for creating or extracting a Prisirv archive
 /// using method chaining syntax or by supplying an existing Config.
@@ -45,7 +39,9 @@ pub struct Prisirv {
 impl Prisirv {
     /// Create a new Prisirv archiver or extractor with a default Config.
     pub fn default() -> Prisirv {
-        Prisirv { cfg: Config::default() }
+        Prisirv { 
+            cfg: Config::default() 
+        }
     }
 
     /// Choose number of threads to use.
@@ -77,7 +73,9 @@ impl Prisirv {
         if mem <= 9 {
             self.cfg.mem = 1 << (20 + mem);
         }
-        else { error::invalid_memory_option(); } 
+        else { 
+            error::invalid_memory_option(); 
+        } 
         &mut *self
     }
 
@@ -96,12 +94,16 @@ impl Prisirv {
     /// Create archive of supplied paths.
     pub fn create_archive_of(&mut self, paths: &[&str]) {
         self.cfg.mode = Mode::Compress;
-        let paths = paths.iter().map(PathBuf::from).map(FileData::new).collect::<Vec<FileData>>();
+        let paths = paths.iter()
+            .map(PathBuf::from)
+            .map(FileData::new)
+            .collect::<Vec<FileData>>();
+
         self.cfg.inputs.extend_from_slice(&paths);
 
         self.cfg.out = fmt_root_output(&self.cfg);
 
-        self.cfg.print_new();
+        self.cfg.print();
 
         Archiver::new(self.cfg.clone()).create_archive();  
     }
@@ -109,12 +111,16 @@ impl Prisirv {
     /// Extract supplied paths.
     pub fn extract_archive_of(&mut self, paths: &[&str]) {
         self.cfg.mode = Mode::Decompress;
-        let paths = paths.iter().map(PathBuf::from).map(FileData::new).collect::<Vec<FileData>>();
+        let paths = paths.iter()
+            .map(PathBuf::from)
+            .map(FileData::new)
+            .collect::<Vec<FileData>>();
+
         self.cfg.inputs.extend_from_slice(&paths);
 
         self.cfg.out = fmt_root_output(&self.cfg);
 
-        self.cfg.print_new();
+        self.cfg.print();
 
         Extractor::new(self.cfg.clone()).extract_archive(); 
     }
@@ -122,7 +128,9 @@ impl Prisirv {
 
     /// Create a Prisirv archiver or extractor with an existing Config.
     pub fn new(cfg: Config) -> Prisirv {
-        Prisirv { cfg }
+        Prisirv { 
+            cfg 
+        }
     }
 
     /// Create an archive from inputs specified in Config.

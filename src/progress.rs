@@ -4,8 +4,7 @@ use std::{
 };
 
 use crate::{
-    Mode,
-    config::Config,
+    config::{Config, Mode},
     block::Block,
     filedata::FileData,
 };
@@ -18,7 +17,7 @@ pub struct Progress {
     pub sizeo:  u64,     // Output size
     current:    u64,     // Portion of input data (de)compressed
     quiet:      bool,    // Suppress output
-    mode:       Mode,    
+    mode:       Mode,    // (De)compress or add
     time:       Instant, // Timer
 }
 impl Progress {

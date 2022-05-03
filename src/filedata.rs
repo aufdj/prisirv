@@ -4,12 +4,12 @@ use std::{
 };
 
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FileData {
-    pub path:    PathBuf,
-    pub len:     u64,
-    pub seg_beg: u64,
-    pub seg_end: u64,
+    pub path:     PathBuf,
+    pub len:      u64,
+    pub seg_beg:  u64,
+    pub seg_end:  u64,
 }
 impl FileData {
     pub fn new(path: PathBuf) -> FileData {
@@ -30,16 +30,6 @@ impl FileData {
     // Total size of FileData
     pub fn size(&self) -> u64 {
         (self.path_str().as_bytes().len() + 24) as u64
-    }
-}
-impl Default for FileData {
-    fn default() -> FileData {
-        FileData { 
-            path: PathBuf::from(""), 
-            len: 0,
-            seg_beg: 0,
-            seg_end: 0,
-        }
     }
 }
 impl fmt::Display for FileData {

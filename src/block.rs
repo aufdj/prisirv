@@ -14,30 +14,30 @@ const MGC: u32 = 0x5653_5250;
 
 #[derive(Clone, Default)]
 pub struct Block {
-    pub mem:    u64,           // Memory usage
-    pub blk_sz: usize,         // Block size
-    pub id:     u32,           // Block id
-    pub chksum: u32,           // Input block checksum
-    pub sizeo:  u64,           // Output data size
-    pub sizei:  u64,           // Input data size
-    pub crtd:   u64,           // Creation time
-    pub files:  Vec<FileData>, // Files in this block
-    pub data:   Vec<u8>,       // Block data 
-    pub method: Method,        // Context Mixing, LZW, or Uncompressed
+    pub mem:     u64,           // Memory usage
+    pub blk_sz:  usize,         // Block size
+    pub id:      u32,           // Block id
+    pub chksum:  u32,           // Input block checksum
+    pub sizeo:   u64,           // Output data size
+    pub sizei:   u64,           // Input data size
+    pub crtd:    u64,           // Creation time
+    pub files:   Vec<FileData>, // Files in this block
+    pub data:    Vec<u8>,       // Block data 
+    pub method:  Method,        // Context Mixing, LZW, or Uncompressed
 }
 impl Block {
     pub fn new(cfg: &Config) -> Block {
         Block {
-            mem:    cfg.mem,
-            blk_sz: cfg.blk_sz,
-            method: cfg.method,
-            id:     0,
-            chksum: 0,
-            sizeo:  0,
-            sizei:  0,
-            crtd:   0,  
-            files:  Vec::new(),
-            data:   Vec::with_capacity(cfg.blk_sz),
+            mem:     cfg.mem,
+            blk_sz:  cfg.blk_sz,
+            method:  cfg.method,
+            id:      0,
+            chksum:  0,
+            sizeo:   0,
+            sizei:   0,
+            crtd:    0,  
+            files:   Vec::new(),
+            data:    Vec::with_capacity(cfg.blk_sz),
         }
     }
     pub fn next(&mut self) {
@@ -70,7 +70,9 @@ impl Block {
         }
     }
     pub fn read_from(&mut self, archive: &mut BufReader<File>) {
-        if archive.read_u32() != MGC { error::no_prisirv_archive(); }
+        if archive.read_u32() != MGC { 
+            error::no_prisirv_archive(); 
+        }
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
         self.method   = Method::from(archive.read_byte());
@@ -90,14 +92,15 @@ impl Block {
                         let path_string = path.iter()
                             .map(|b| *b as char)
                             .collect::<String>();
+
                         let file_len = archive.read_u64();
                         let seg_beg  = archive.read_u64();
                         let seg_end  = archive.read_u64();
     
                         self.files.push(
                             FileData {
-                                path: PathBuf::from(&path_string),
-                                len:  file_len,
+                                path:  PathBuf::from(&path_string),
+                                len:   file_len,
                                 seg_beg,
                                 seg_end,
                             }
@@ -118,7 +121,9 @@ impl Block {
         }
     }
     pub fn read_header_from(&mut self, archive: &mut BufReader<File>) {
-        if archive.read_u32() != MGC { error::no_prisirv_archive(); }
+        if archive.read_u32() != MGC { 
+            error::no_prisirv_archive(); 
+        }
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
         self.method   = Method::from(archive.read_byte());
@@ -138,14 +143,15 @@ impl Block {
                         let path_string = path.iter()
                             .map(|b| *b as char)
                             .collect::<String>();
+
                         let file_len = archive.read_u64();
                         let seg_beg  = archive.read_u64();
                         let seg_end  = archive.read_u64();
     
                         self.files.push(
                             FileData {
-                                path: PathBuf::from(&path_string),
-                                len:  file_len,
+                                path:  PathBuf::from(&path_string),
+                                len:   file_len,
                                 seg_beg,
                                 seg_end,
                             }

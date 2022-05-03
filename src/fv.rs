@@ -88,6 +88,17 @@ impl Ilog {
         i as i32
     }
 }
+fn clamp(c: i32) -> u8 {
+    if c > 255 { 
+        255 
+    } 
+    else if c < 0 { 
+        0 
+    }
+    else { 
+        c as u8 
+    }
+}
 
 struct Image {
     pixels:  Vec<u8>,
@@ -112,22 +123,13 @@ impl Image {
         let i = ((row + x) * 3) as usize;
 
         let mut c = self.pixels[i] as i32 + blue;
-        self.pixels[i] = 
-        if c > 255 { 255 } 
-        else if c < 0 { 0 }
-        else { c as u8 };
+        self.pixels[i] = clamp(c);
 
         c = self.pixels[i+1] as i32 + green;
-        self.pixels[i+1] =
-        if c > 255 { 255 } 
-        else if c < 0 { 0 }
-        else { c as u8 };
+        self.pixels[i+1] = clamp(c);
 
         c = self.pixels[i+2] as i32 + red;
-        self.pixels[i+2] =
-        if c > 255 { 255 } 
-        else if c < 0 { 0 }
-        else { c as u8 };
+        self.pixels[i+2] = clamp(c);
     }
     fn save_bmp(&mut self, file_name: &str) {
         let mut file_out = new_output_file(4096, Path::new(file_name));
@@ -203,14 +205,14 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
     }
     
     // Darken x,y where there are matching strings at x and y (scaled) in s
-    let csd     = col_opt * fwidth * fheight / (fsize + 0.5); // Color scale
-    let cs      = csd as i32 + 1; // Rounded color scale
-    let l2      = fheight / (2.0 + fsize).ln();
-    let ilog    = Ilog::new(l2);
-    let xscale  = fwidth * 0.98 / fsize; // Scale x axis so file fits within image width
-    let mut ht  = vec![0u32; HSIZE]; // Hash -> checksum (high 2 bits), location (low 30 bits)
-    let csd_max = csd * 32767.0;
-    let rec_max = 1.0 / 32767.0;
+    let csd      = col_opt * fwidth * fheight / (fsize + 0.5); // Color scale
+    let cs       = csd as i32 + 1; // Rounded color scale
+    let l2       = fheight / (2.0 + fsize).ln();
+    let ilog     = Ilog::new(l2);
+    let xscale   = fwidth * 0.98 / fsize; // Scale x axis so file fits within image width
+    let mut ht   = vec![0u32; HSIZE]; // Hash -> checksum (high 2 bits), location (low 30 bits)
+    let csd_max  = csd * 32767.0;
+    let rec_max  = 1.0 / 32767.0;
     let mut rand = Rand::seed(1);
 
     // Do 4 passes through file, first finding 1 byte matches (black),
@@ -219,7 +221,9 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
         let start_pass = Instant::now();
         file_in.seek(SeekFrom::Start(0)).unwrap();
         if i >= 2 {
-            for i in ht.iter_mut() { *i = 0; }
+            for i in ht.iter_mut() { 
+                *i = 0; 
+            }
         }
         let mut h: u32 = 0; // Hash
         let mut xd: f64 = y_label_width as f64 - xscale; // Starting x position
@@ -259,6 +263,7 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
             i + 1, start_pass.elapsed());
     }
     img.save_bmp(&format!("{}.bmp", file_name));
+    
     println!("Created {}.bmp in {:.2?}", 
         file_name,
         time.elapsed()

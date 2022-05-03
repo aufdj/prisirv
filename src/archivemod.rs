@@ -28,6 +28,7 @@ pub struct ArchiveModifier {
 impl ArchiveModifier {
     pub fn new(cfg: Config) -> ArchiveModifier {
         let mut files = Vec::new();
+        
         // Collect and sort files.
         collect_files(&cfg.inputs, &mut files);
         files.sort_by(|f1, f2| 

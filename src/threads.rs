@@ -102,7 +102,9 @@ impl ThreadPool {
                     else if blk_in.method == Method::Lzw {
                         lzw::encoder::compress(&blk_in.data, blk_in.mem as usize)
                     }
-                    else { blk_in.data };
+                    else { 
+                        blk_in.data 
+                    };
                     
                     let crtd = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
@@ -140,7 +142,9 @@ impl ThreadPool {
                     else if blk_in.method == Method::Lzw {
                         lzw::decoder::decompress(&blk_in.data, blk_in.mem as usize)
                     }
-                    else { blk_in.data };
+                    else { 
+                        blk_in.data 
+                    };
                     
                     let chksum = (&blk_out).crc32();
                     if chksum != blk_in.chksum {
@@ -201,10 +205,15 @@ impl Thread {
                     { prg.lock().unwrap().update(&blk); }
                     bq.lock().unwrap().blocks.push(blk);
                 }
-                Message::Terminate => { break; }
+                Message::Terminate => { 
+                    break; 
+                }
             }
         });
-        Thread { handle: Some(handle) }
+        
+        Thread { 
+            handle: Some(handle) 
+        }
     }
 }
 
