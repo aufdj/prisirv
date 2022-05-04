@@ -26,7 +26,9 @@ impl Decoder {
     /// Decompress one bit.
     fn decompress_bit(&mut self) -> i32 {
         let mut p = self.predictor.p() as u32;
-        if p < 2048 { p += 1; }
+        if p < 2048 { 
+            p += 1; 
+        }
 
         let range = self.high - self.low;
         let mid: u32 = self.low + (range >> 12) * p
@@ -54,7 +56,7 @@ impl Decoder {
     pub fn decompress_block(&mut self, size: usize) -> Vec<u8> {
         let mut block: Vec<u8> = Vec::with_capacity(size);
         for _ in 0..size {
-            let mut byte: i32 = 1;
+            let mut byte = 1;
             while byte < 256 {
                 byte = (byte << 1) + self.decompress_bit();
             }

@@ -69,11 +69,6 @@ pub fn invalid_block_size() -> ! {
     exit(0);
 }
 
-pub fn max_thread_count(option: usize) -> ! {
-    println!("{} exceeds the maximum number of threads (128).", option);
-    exit(0);
-}
-
 pub fn invalid_thread_count() -> ! {
     println!("Invalid threads option.");
     exit(0);

@@ -22,7 +22,9 @@ impl Encoder {
     /// Compress one bit with the latest prediction.
     pub fn compress_bit(&mut self, bit: i32) {
         let mut p = self.predictor.p() as u32;
-        if p < 2048 { p += 1; }
+        if p < 2048 { 
+            p += 1; 
+        }
         
         let range = self.high - self.low;
         let mid: u32 = self.low + (range >> 12) * p

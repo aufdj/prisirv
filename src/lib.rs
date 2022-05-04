@@ -32,18 +32,11 @@ use crate::{
 
 /// Prisirv API. Allows for creating or extracting a Prisirv archive
 /// using method chaining syntax or by supplying an existing Config.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Prisirv {
     cfg: Config,
 }
 impl Prisirv {
-    /// Create a new Prisirv archiver or extractor with a default Config.
-    pub fn default() -> Prisirv {
-        Prisirv { 
-            cfg: Config::default() 
-        }
-    }
-
     /// Choose number of threads to use.
     pub fn threads(&mut self, count: usize) -> &mut Self {
         self.cfg.threads = count;

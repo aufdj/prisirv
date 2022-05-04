@@ -51,13 +51,13 @@ pub enum Align {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
-    Cm    = 0,
-    Lzw   = 1,
-    Store = 2,
-    None  = 3,
+    Cm,
+    Lzw,
+    Store,
+    None,
 }
 impl Default for Method {
-    fn default() -> Method { 
+    fn default() -> Method {
         Method::Cm 
     }
 }
@@ -89,28 +89,9 @@ pub struct Config {
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
     pub ex_arch:    FileData,      // Existing archive to add to or remove from
-    pub insert_id:  usize,         // Where to insert new blocks to an existing archive
+    pub insert_id:  usize,         // Where to insert new blocks into an existing archive
 }
 impl Config {
-    /// Create a new default Config.
-    pub fn default() -> Config {
-        Config {
-            sort:       Sort::None,
-            user_out:   String::new(),
-            blk_sz:     10 << 20,
-            mem:        1 << 22,
-            mode:       Mode::Compress,
-            quiet:      false,
-            clbr:       false,
-            threads:    4,
-            inputs:     Vec::new(),
-            out:        FileData::default(),
-            align:      Align::Fixed,
-            method:     Method::Cm,
-            ex_arch:    FileData::default(),
-            insert_id:  0,
-        }
-    }
     /// Create a new Config with the specified command line arguments.
     pub fn new(args: &[String]) -> Config {
         if args.is_empty() { 
@@ -239,9 +220,11 @@ impl Config {
                         error::invalid_scale(); 
                     };
 
-                    match arg.chars()
-                    .filter(|s| s.is_numeric())
-                    .collect::<String>().parse::<usize>() {
+                    let size = arg.chars()
+                        .filter(|s| s.is_numeric())
+                        .collect::<String>();
+
+                    match size.parse::<usize>() {
                         Ok(size) => {
                             cfg.blk_sz = size * scale;
                         }
@@ -252,11 +235,11 @@ impl Config {
                 }
                 Parse::Threads => {
                     if let Ok(count) = arg.parse::<usize>() {
-                        if count <= 128 {
+                        if count > 0 {
                             cfg.threads = count;
                         }
                         else {
-                            error::max_thread_count(count);
+                            error::invalid_thread_count();
                         }
                     }
                     else {
@@ -426,6 +409,26 @@ impl Config {
 
             println!("=============================================================");
             println!();
+        }
+    }
+}
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            sort:       Sort::None,
+            user_out:   String::new(),
+            blk_sz:     10 << 20,
+            mem:        1 << 22,
+            mode:       Mode::Compress,
+            quiet:      false,
+            clbr:       false,
+            threads:    4,
+            inputs:     Vec::new(),
+            out:        FileData::default(),
+            align:      Align::Fixed,
+            method:     Method::Cm,
+            ex_arch:    FileData::default(),
+            insert_id:  0,
         }
     }
 }

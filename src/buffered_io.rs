@@ -2,7 +2,7 @@ use std::{
     fs::{File, create_dir, OpenOptions},
     path::Path,
     io::{
-        Read, Write, BufReader, BufWriter, 
+        Read, Write, BufReader, BufWriter,
         BufRead, ErrorKind
     },
 };
@@ -40,6 +40,9 @@ impl BufferedRead for BufReader<File> {
                     println!("Error: {}", e);
                 }
             }
+        }
+        else {
+            println!("Function read_byte failed.");
         }
         u8::from_le_bytes(byte)
     }
@@ -127,26 +130,26 @@ impl BufferedWrite for BufWriter<File> {
     }
     fn write_u16(&mut self, output: u16) {
         if let Err(e) = self.write(&output.to_le_bytes()[..]) {
-            println!("Function write_byte failed.");
+            println!("Function write_u16 failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_byte failed.");
+                println!("Function write_u16 failed.");
                 println!("Error: {}", e);
             }
         }
     }
     fn write_u32(&mut self, output: u32) {
         if let Err(e) = self.write(&output.to_le_bytes()[..]) {
-            println!("Function write_byte failed.");
+            println!("Function write_32 failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_byte failed.");
+                println!("Function write_32 failed.");
                 println!("Error: {}", e);
             }
         }
@@ -154,13 +157,13 @@ impl BufferedWrite for BufWriter<File> {
     /// Write 8 bytes to an output file.
     fn write_u64(&mut self, output: u64) {
         if let Err(e) = self.write(&output.to_le_bytes()[..]) {
-            println!("Function write_byte failed.");
+            println!("Function write_u64 failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_byte failed.");
+                println!("Function write_u64 failed.");
                 println!("Error: {}", e);
             }
         }
