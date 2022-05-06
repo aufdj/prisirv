@@ -12,7 +12,7 @@ use crate::{
 };
 
 
-/// AParsing states.
+/// Parsing states.
 enum Parse {
     None,
     Compress,
@@ -33,6 +33,8 @@ enum Parse {
     Store,
     Add,
     Insert,
+    ExtractFile,
+    From,
 }
 
 /// Mode (Compress | Decompress)
@@ -41,6 +43,7 @@ pub enum Mode {
     Compress,
     Decompress,
     Add,
+    ExtractFile,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,6 +169,13 @@ impl Config {
                     parser = Parse::List;
                     continue;
                 }
+                "extract-file" => {
+                    parser = Parse::ExtractFile;
+                }
+                "from" => {
+                    parser = Parse::From;
+                    continue;
+                }
                 "help" => {
                     print_program_info();
                 }
@@ -266,6 +276,13 @@ impl Config {
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                     cfg.insert_id = block_count(&cfg.ex_arch);
                 }
+                Parse::ExtractFile => {
+                    cfg.mode = Mode::ExtractFile;
+                    parser = Parse::Inputs;
+                }
+                Parse::From => {
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                }
                 Parse::Insert => {
                     cfg.insert_id = arg.parse::<usize>().unwrap();
                 }
@@ -328,86 +345,92 @@ impl Config {
     pub fn print(&self) {
         if !self.quiet {
             println!();
-            println!("=============================================================");
-
-            if self.mode == Mode::Add {
-                println!(" Adding to archive {}", self.ex_arch.path.display());
+            
+            if self.mode == Mode::ExtractFile {
+                println!(" Extracting file {} from archive {}", 
+                    self.inputs[0].path.display(), self.ex_arch.path.display());
             }
             else {
-                println!(" {} Archive of Inputs:", 
-                    if self.mode == Mode::Compress { 
-                        "Creating" 
-                    } 
-                    else { 
-                        "Extracting" 
-                    },
-                );
+                println!("=============================================================");
+                if self.mode == Mode::Add {
+                    println!(" Adding to archive {}", self.ex_arch.path.display());
+                }
+                else {
+                    println!(" {} Archive of Inputs:", 
+                        if self.mode == Mode::Compress { 
+                            "Creating" 
+                        } 
+                        else { 
+                            "Extracting" 
+                        },
+                    );
+                }
+                println!();
+    
+                println!(" Inputs: ");
+                for input in self.inputs.iter() {
+                    println!("    {} ({})", 
+                        input.path.display(),
+                        if input.path.is_file() { 
+                            "File" 
+                        }
+                        else if input.path.is_dir() { 
+                            "Directory" 
+                        }
+                        else { 
+                            "" 
+                        }
+                    );
+                }
+                println!();
+    
+                println!(" Output Path:     {}", self.out.path.display());
+    
+                if self.mode == Mode::Compress || self.mode == Mode::Add {
+                    println!(" Method:          {}", 
+                        if self.method == Method::Cm { 
+                            "Context Mixing" 
+                        }
+                        else if self.method == Method::Lzw { 
+                            "LZW" 
+                        }
+                        else { 
+                            "No Compression"
+                        }
+                    );
+    
+                    println!(" Sorting by:      {}", 
+                        match self.sort {
+                            Sort::None      => "None",
+                            Sort::Ext       => "Extension",
+                            Sort::Name      => "Name",
+                            Sort::Len       => "Length",
+                            Sort::Created   => "Creation time",
+                            Sort::Accessed  => "Last accessed time",
+                            Sort::Modified  => "Last modified time",
+                            Sort::PrtDir(_) => "Parent Directory",
+                        }
+                    );
+    
+                    println!(" Memory Usage:    {} MiB", 3 + (self.mem >> 20) * 3);
+    
+                    let (size, suffix) = format(self.blk_sz);
+                    println!(" Block Size:      {} {}", size, suffix); 
+    
+                    println!(" Block Alignment: {}", 
+                        if self.align == Align::File { 
+                            "File" 
+                        } 
+                        else { 
+                            "Fixed" 
+                        }
+                    );
+                }
+    
+                println!(" Threads:         Up to {}", self.threads);
+                println!("=============================================================");
             }
-            println!();
-
-            println!(" Inputs: ");
-            for input in self.inputs.iter() {
-                println!("    {} ({})", 
-                    input.path.display(),
-                    if input.path.is_file() { 
-                        "File" 
-                    }
-                    else if input.path.is_dir() { 
-                        "Directory" 
-                    }
-                    else { 
-                        "" 
-                    }
-                );
-            }
-            println!();
-
-            println!(" Output Path:     {}", self.out.path.display());
-
-            if self.mode == Mode::Compress || self.mode == Mode::Add {
-                println!(" Method:          {}", 
-                    if self.method == Method::Cm { 
-                        "Context Mixing" 
-                    }
-                    else if self.method == Method::Lzw { 
-                        "LZW" 
-                    }
-                    else { 
-                        "No Compression"
-                    }
-                );
-
-                println!(" Sorting by:      {}", 
-                    match self.sort {
-                        Sort::None      => "None",
-                        Sort::Ext       => "Extension",
-                        Sort::Name      => "Name",
-                        Sort::Len       => "Length",
-                        Sort::Created   => "Creation time",
-                        Sort::Accessed  => "Last accessed time",
-                        Sort::Modified  => "Last modified time",
-                        Sort::PrtDir(_) => "Parent Directory",
-                    }
-                );
-
-                println!(" Memory Usage:    {} MiB", 3 + (self.mem >> 20) * 3);
-
-                let (size, suffix) = format(self.blk_sz);
-                println!(" Block Size:      {} {}", size, suffix); 
-
-                println!(" Block Alignment: {}", 
-                    if self.align == Align::File { 
-                        "File" 
-                    } 
-                    else { 
-                        "Fixed" 
-                    }
-                );
-            }
-
-            println!(" Threads:         Up to {}", self.threads);
-
-            println!("=============================================================");
+            
             println!();
         }
     }

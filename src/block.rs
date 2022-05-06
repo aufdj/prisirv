@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufWriter, BufReader, Write, Seek, SeekFrom},
+    io::{BufWriter, BufReader, Write},
     path::PathBuf,
 };
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
 
 const MGC: u32 = 0x5653_5250;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Block {
     pub mem:     u64,           // Memory usage
     pub blk_sz:  usize,         // Block size
@@ -63,55 +63,16 @@ impl Block {
             archive.write_u64(file.len);
             archive.write_u64(file.seg_beg);
             archive.write_u64(file.seg_end);
+            archive.write_u64(file.blk_pos);
         }
 
         for byte in self.data.iter() {
             archive.write_byte(*byte);
         }
     }
+    /// Read entire block
     pub fn read_from(&mut self, archive: &mut BufReader<File>) {
-        if archive.read_u32() != MGC { 
-            error::no_prisirv_archive(); 
-        }
-        self.mem      = archive.read_u64();
-        self.blk_sz   = archive.read_u64() as usize;
-        self.method   = Method::from(archive.read_byte());
-        self.id       = archive.read_u32();
-        self.chksum   = archive.read_u32();
-        self.sizeo    = archive.read_u64();
-        self.sizei    = archive.read_u64();
-        let num_files = archive.read_u32();
-
-        let mut path: Vec<u8> = Vec::with_capacity(64);
-
-        // Read null terminated path strings and lengths
-        for _ in 0..num_files {
-            loop {
-                match archive.read_byte() {
-                    0 => {
-                        let path_string = path.iter()
-                            .map(|b| *b as char)
-                            .collect::<String>();
-
-                        let file_len = archive.read_u64();
-                        let seg_beg  = archive.read_u64();
-                        let seg_end  = archive.read_u64();
-    
-                        self.files.push(
-                            FileData {
-                                path:  PathBuf::from(&path_string),
-                                len:   file_len,
-                                seg_beg,
-                                seg_end,
-                            }
-                        );
-                        path.clear();
-                        break;
-                    }
-                    byte => path.push(byte),
-                }
-            }
-        }
+        self.read_header_from(archive);
 
         self.data.reserve(self.blk_sz);
         
@@ -120,6 +81,7 @@ impl Block {
             self.data.push(archive.read_byte());
         }
     }
+    /// Read block header
     pub fn read_header_from(&mut self, archive: &mut BufReader<File>) {
         if archive.read_u32() != MGC { 
             error::no_prisirv_archive(); 
@@ -147,6 +109,7 @@ impl Block {
                         let file_len = archive.read_u64();
                         let seg_beg  = archive.read_u64();
                         let seg_end  = archive.read_u64();
+                        let blk_pos  = archive.read_u64();
     
                         self.files.push(
                             FileData {
@@ -154,6 +117,7 @@ impl Block {
                                 len:   file_len,
                                 seg_beg,
                                 seg_end,
+                                blk_pos,
                             }
                         );
                         path.clear();
@@ -163,7 +127,6 @@ impl Block {
                 }
             }
         }
-        archive.seek(SeekFrom::Current(self.sizeo as i64)).unwrap();
     }
     pub fn size(&self) -> u64 {
         let mut total: u64 = 0;
@@ -189,6 +152,7 @@ impl Block {
                 println!("Length: {}", file.len);
                 println!("Segment Begin: {}", file.seg_beg);
                 println!("Segment End:   {}", file.seg_end);
+                println!("Block Position: {}", file.blk_pos);
                 println!();
             }
         }
@@ -218,6 +182,8 @@ impl BlockQueue {
     /// added to the queue yet, do nothing.
     pub fn try_get_block(&mut self) -> Option<Block> {
         let mut i: usize = 0;
+        //println!("looking for block {}", self.next_out);
+        //println!("blocks: {:#?}", self.blocks);
         while i < self.blocks.len() {
             if self.blocks[i].id == self.next_out {
                 let blk = self.blocks[i].clone();

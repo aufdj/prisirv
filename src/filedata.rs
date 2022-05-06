@@ -10,6 +10,7 @@ pub struct FileData {
     pub len:      u64,
     pub seg_beg:  u64,
     pub seg_end:  u64,
+    pub blk_pos:  u64,
 }
 impl FileData {
     pub fn new(path: PathBuf) -> FileData {
@@ -22,6 +23,7 @@ impl FileData {
             len,
             seg_beg: 0,
             seg_end: len,
+            blk_pos: 0,
         }
     }
     pub fn path_str(&self) -> &str {

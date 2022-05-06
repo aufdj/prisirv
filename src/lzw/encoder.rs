@@ -26,7 +26,6 @@ impl BitStream {
         // simply be 0. Otherwise, add the first part of the code (codel) 
         // to the current packed code, output the packed code, reset it, 
         // and add the remaining part of the code (codeu).
-        
         let rem_len = 32 - self.pck_len;
 
         let codel = code & (0xFFFFFFFF >> self.pck_len);
@@ -53,8 +52,12 @@ impl BitStream {
             self.pck_len = 0;
         }
 
-        if code == CODE_LEN_UP    { self.code_len += 1; }
-        if code == CODE_LEN_RESET { self.code_len = 9;  }
+        if code == CODE_LEN_UP { 
+            self.code_len += 1; 
+        }
+        if code == CODE_LEN_RESET { 
+            self.code_len = 9;  
+        }
 
         if code == DATA_END {
             self.write_code(self.pck);
@@ -137,10 +140,12 @@ impl Dictionary {
 
 
 pub fn compress(blk_in: &[u8], mem: usize) -> Vec<u8> {
-    if blk_in.is_empty() { return Vec::new(); }
+    if blk_in.is_empty() { 
+        return Vec::new(); 
+    }
     let mut blk = blk_in.iter();
-
-    let mut dict = Dictionary::new(*blk.next().unwrap(), mem);
+    let byte = blk.next().unwrap();
+    let mut dict = Dictionary::new(*byte, mem);
 
     'c: loop {
         while dict.contains_string() {

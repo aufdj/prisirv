@@ -6,20 +6,20 @@ const CODE_LEN_UP: u32 = 257;
 const CODE_LEN_RESET: u32 = 258;
 
 struct BitStream {
-    stream: Box<dyn Iterator<Item = u8>>,
-    pub code_len: u32,
-    code: u32,
-    count: u32,
-    out: u32,
+    stream:        Box<dyn Iterator<Item = u8>>,
+    pub code_len:  u32,
+    code:          u32,
+    count:         u32,
+    out:           u32,
 }
 impl BitStream {
     fn new(stream: Box<dyn Iterator<Item = u8>>) -> BitStream {
         BitStream {
             stream,
-            code_len: 9,
-            code: 0,
-            count: 0,
-            out: 0,
+            code_len:  9,
+            code:      0,
+            count:     0,
+            out:       0,
         }
     }
     fn get_code(&mut self) -> Option<u32> {
@@ -35,8 +35,12 @@ impl BitStream {
                     let codeu_len = 8 - codel_len;
 
                     if self.count == self.code_len {
-                        if self.code == CODE_LEN_UP    { self.code_len += 1; }
-                        if self.code == CODE_LEN_RESET { self.code_len = 9;  }
+                        if self.code == CODE_LEN_UP { 
+                            self.code_len += 1; 
+                        }
+                        if self.code == CODE_LEN_RESET { 
+                            self.code_len = 9;  
+                        }
                         self.out = self.code;
                         self.code = 0;
                         self.count = 0;
@@ -50,8 +54,12 @@ impl BitStream {
                     }
 
                     if self.count == self.code_len {
-                        if self.code == CODE_LEN_UP    { self.code_len += 1; }
-                        if self.code == CODE_LEN_RESET { self.code_len = 9;  }
+                        if self.code == CODE_LEN_UP { 
+                            self.code_len += 1; 
+                        }
+                        if self.code == CODE_LEN_RESET { 
+                            self.code_len = 9;  
+                        }
                         self.out = self.code;
                         self.code = 0;
                         self.count = 0;
@@ -74,7 +82,7 @@ struct Dictionary {
     pub map:       HashMap<u32, Vec<u8>>,
     pub max_code:  u32,
     pub code:      u32,
-    pub string:    Vec<u8>,
+    pub string:    Vec<u8>, // Current string
     pub blk:       Vec<u8>,
 }
 impl Dictionary {
@@ -101,7 +109,7 @@ impl Dictionary {
     }
     fn output_string(&mut self, code: u32) {
         if self.code < self.max_code {
-            if !self.map.contains_key(&code) { // Didn't recognize code
+            if !self.map.contains_key(&code) {
                 self.string.push(self.string[0]);
                 self.map.insert(code, self.string.clone());
                 self.code += 1;

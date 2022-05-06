@@ -9,11 +9,12 @@ use crate::{
     progress::Progress,
     block::Block,
     formatting::fmt_file_out_extract,
-    config::Config,
+    config::{Config, Mode},
     buffered_io::{
         BufferedWrite, new_input_file, new_output_file, 
         new_dir, new_output_file_no_trunc,
     },
+    archivescan::find_file,
 };
 
 
@@ -30,7 +31,7 @@ impl FileWriter {
     fn new(files: Vec<FileData>, dir_out: &str) -> FileWriter {
         let mut files = files.into_iter();
 
-        let file_in = files.next().unwrap();                  
+        let file_in = files.next().unwrap();
         let mut file_out = next_file(&file_in, dir_out);  
         file_out.seek(SeekFrom::Start(file_in.seg_beg)).unwrap();        
 
@@ -81,7 +82,14 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Extractor {
-        let archive = new_input_file(4096, &cfg.inputs[0].path);
+        let archive = 
+        if cfg.mode == Mode::Decompress {
+            new_input_file(4096, &cfg.inputs[0].path)
+        }
+        else {
+            new_input_file(4096, &cfg.ex_arch.path)
+        };
+
         let prg = Progress::new(&cfg, &cfg.inputs);
         let tp = ThreadPool::new(cfg.threads, prg);
         
@@ -101,7 +109,9 @@ impl Extractor {
         loop {
             blk.read_from(&mut self.archive);
             self.tp.decompress_block(blk.clone());
-            if blk.data.is_empty() { break; }
+            if blk.data.is_empty() { 
+                break; 
+            }
             blk.next();
         }
 
@@ -109,7 +119,9 @@ impl Extractor {
         loop {
             if let Some(blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 // Check for sentinel block
-                if blk.data.is_empty() { break; }
+                if blk.data.is_empty() { 
+                    break; 
+                }
                 
                 let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str());
 
@@ -120,5 +132,67 @@ impl Extractor {
             } 
         }
     } 
+
+    pub fn extract_file(&mut self) {
+        let mut blk = Block::default();
+        let file = &self.cfg.inputs[0];
+
+        let blk_id = find_file(file, &self.cfg.ex_arch);
+        if blk_id == None {
+            println!("File not in archive.");
+            std::process::exit(0);
+        }
+
+        // Skip over blocks preceding block containing target file.
+        for _ in 0..blk_id.unwrap() {
+            blk.read_header_from(&mut self.archive);
+
+            self.archive.seek(
+                SeekFrom::Current(blk.sizeo as i64)
+            ).unwrap();
+        }
+
+        let mut id = 0;
+
+        // Read all blocks that contain a segment of the target file.
+        loop {
+            blk.read_from(&mut self.archive);
+            if !blk.files.iter().any(|f| f.path == file.path) {
+                break;
+            }
+            blk.id = id;
+            id += 1;
+            self.tp.decompress_block(blk.clone());
+            blk.next();
+        }
+        let mut blk = Block::default();
+        blk.id = id;
+        self.tp.store_block(blk);
+        
+        // Write blocks to output 
+        loop {
+            if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
+                // Check for sentinel block
+                if blk.data.is_empty() {
+                    break; 
+                }
+
+                blk.files.retain(|blk_file| blk_file.path == file.path);
+                
+                let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str());
+
+                let file = &blk.files[0];
+
+                // Get segment of block containing target file's data.
+                let beg = file.blk_pos as usize;
+                let end = (file.blk_pos + (file.seg_end - file.seg_beg)) as usize;
+                
+                for byte in blk.data[beg..end].iter() {
+                    fw.write_byte(*byte);
+                }
+                fw.file_out.flush_buffer();
+            } 
+        }
+    }
 }
 

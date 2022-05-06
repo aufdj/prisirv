@@ -55,6 +55,7 @@ impl Archiver {
         // Read files into blocks and compress
         for file in self.files.iter_mut() {
             let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
+            file.blk_pos = blk.data.len() as u64;
 
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());
@@ -63,11 +64,12 @@ impl Archiver {
                     blk.files.push(file.clone());
                     self.tp.compress_block(blk.clone());
                     blk.next();
+                    file.blk_pos = 0;
                     file.seg_beg = file_in.stream_position().unwrap();
                 }    
             }
             file.seg_end = file_in.stream_position().unwrap();
-
+            
             // Truncate final block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 blk.files.push(file.clone());

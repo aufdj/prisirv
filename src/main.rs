@@ -16,5 +16,8 @@ fn main() {
         Mode::Add => { 
             Prisirv::new(cfg).add_archive(); 
         }
+        Mode::ExtractFile => { 
+            Prisirv::new(cfg).extract_file(); 
+        }
     }
 }

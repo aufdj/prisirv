@@ -139,4 +139,8 @@ impl Prisirv {
     pub fn add_archive(self) {
         ArchiveModifier::new(self.cfg).add();
     }
+
+    pub fn extract_file(self) {
+        Extractor::new(self.cfg).extract_file(); 
+    }
 }
