@@ -33,10 +33,14 @@ impl ContextModelO1 {
     }
     pub fn p(&mut self, bit: i32) -> i32 {
         self.update(bit);
-        unsafe { self.sm.p(bit, *self.state as i32) }
+        unsafe { 
+            self.sm.p(bit, *self.state as i32) 
+        }
     }
     pub fn update(&mut self, bit: i32) {
-        unsafe { *self.state = next_state(*self.state, bit); }
+        unsafe { 
+            *self.state = next_state(*self.state, bit); 
+        }
 
         self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
@@ -81,10 +85,14 @@ impl ContextModelO2 {
     }
     pub fn p(&mut self, bit: i32) -> i32 {
         self.update(bit);
-        unsafe { self.sm.p(bit, *self.state as i32) }
+        unsafe { 
+            self.sm.p(bit, *self.state as i32) 
+        }
     }
     pub fn update(&mut self, bit: i32) {
-        unsafe { *self.state = next_state(*self.state, bit); }
+        unsafe { 
+            *self.state = next_state(*self.state, bit); 
+        }
 
         self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
@@ -93,16 +101,22 @@ impl ContextModelO2 {
             self.cxt -= 256;
             self.cxt4 = (self.cxt4 << 8) | self.cxt;
             self.o2cxt = (self.cxt4 & 0xFFFF) << 5 | 0x57000000;
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o2cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o2cxt).add(1); 
+            }
             self.cxt = 1;
             self.bits = 0;
         }
         if self.bits == 4 {
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o2cxt + self.cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o2cxt + self.cxt).add(1); 
+            }
         }
         else if self.bits > 0 {
             let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
-            unsafe { self.state = self.state.add(j); }
+            unsafe { 
+                self.state = self.state.add(j); 
+            }
         }
     }
 }
@@ -130,10 +144,14 @@ impl ContextModelO3 {
     }
     pub fn p(&mut self, bit: i32) -> i32 {
         self.update(bit);
-        unsafe { self.sm.p(bit, *self.state as i32) }
+        unsafe { 
+            self.sm.p(bit, *self.state as i32) 
+        }
     }
     pub fn update(&mut self, bit: i32) {
-        unsafe { *self.state = next_state(*self.state, bit); }
+        unsafe { 
+            *self.state = next_state(*self.state, bit); 
+        }
 
         self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
@@ -142,16 +160,22 @@ impl ContextModelO3 {
             self.cxt -= 256;
             self.cxt4 = (self.cxt4 << 8) | self.cxt;
             self.o3cxt = (self.cxt4 << 8).wrapping_mul(3);
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o3cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o3cxt).add(1); 
+            }
             self.cxt = 1;
             self.bits = 0;
         }
         if self.bits == 4 {
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o3cxt + self.cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o3cxt + self.cxt).add(1); 
+            }
         }
         else if self.bits > 0 {
             let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
-            unsafe { self.state = self.state.add(j); }
+            unsafe { 
+                self.state = self.state.add(j); 
+            }
         }
     }
 }
@@ -179,10 +203,14 @@ impl ContextModelO4 {
     }
     pub fn p(&mut self, bit: i32) -> i32 {
         self.update(bit);
-        unsafe { self.sm.p(bit, *self.state as i32) }
+        unsafe { 
+            self.sm.p(bit, *self.state as i32) 
+        }
     }
     pub fn update(&mut self, bit: i32) {
-        unsafe { *self.state = next_state(*self.state, bit); }
+        unsafe { 
+            *self.state = next_state(*self.state, bit); 
+        }
 
         self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
@@ -191,16 +219,22 @@ impl ContextModelO4 {
             self.cxt -= 256;
             self.cxt4 = (self.cxt4 << 8) | self.cxt;
             self.o4cxt = self.cxt4.wrapping_mul(5); 
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o4cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o4cxt).add(1); 
+            }
             self.cxt = 1;
             self.bits = 0;
         }
         if self.bits == 4 {
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o4cxt + self.cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o4cxt + self.cxt).add(1); 
+            }
         }
         else if self.bits > 0 {
             let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
-            unsafe { self.state = self.state.add(j); }
+            unsafe { 
+                self.state = self.state.add(j); 
+            }
         }
     }
 }
@@ -228,10 +262,14 @@ impl ContextModelO6 {
     }
     pub fn p(&mut self, bit: i32) -> i32 {
         self.update(bit);
-        unsafe { self.sm.p(bit, *self.state as i32) }
+        unsafe { 
+            self.sm.p(bit, *self.state as i32) 
+        }
     }
     pub fn update(&mut self, bit: i32) {
-        unsafe { *self.state = next_state(*self.state, bit); }
+        unsafe { 
+            *self.state = next_state(*self.state, bit); 
+        }
 
         self.cxt = (self.cxt << 1) + bit as u32;
         self.bits += 1;
@@ -240,16 +278,22 @@ impl ContextModelO6 {
             self.cxt -= 256;
             self.cxt4 = (self.cxt4 << 8) | self.cxt;
             self.o6cxt = (self.o6cxt.wrapping_mul(11 << 5) + self.cxt * 13) & 0x3FFFFFFF;
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o6cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o6cxt).add(1); 
+            }
             self.cxt = 1;
             self.bits = 0;
         }
         if self.bits == 4 {
-            unsafe { self.state = self.ht.borrow_mut().hash(self.o6cxt + self.cxt).add(1); }
+            unsafe { 
+                self.state = self.ht.borrow_mut().hash(self.o6cxt + self.cxt).add(1); 
+            }
         }
         else if self.bits > 0 {
             let j = ((bit as usize) + 1) << ((self.bits & 3) - 1);
-            unsafe { self.state = self.state.add(j); }
+            unsafe { 
+                self.state = self.state.add(j); 
+            }
         }
     }
 }

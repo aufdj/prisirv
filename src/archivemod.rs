@@ -17,7 +17,9 @@ use crate::{
     block::Block,
 };
 
-
+/// An archive modifier is used for modifying archives. Currently, the only
+/// modification supported is adding files to an existing archive, but in 
+/// the future removing files or changing metadata may be supported.
 pub struct ArchiveModifier {
     old:    BufReader<File>,
     new:    BufWriter<File>,
@@ -43,6 +45,7 @@ impl ArchiveModifier {
             old, new, files, cfg, tp,
         }
     }
+    /// Add files to existing archive.
     pub fn add(&mut self) {
         let mut blks_added = 0;
         let mut blk = Block::new(&self.cfg);

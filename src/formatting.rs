@@ -42,7 +42,7 @@ impl PathFmt for Path {
 }
 
 
-/// Format output directory given an optional user specified output, 
+/// Format output directory given an optional user specified output,
 /// and the first input file or directory.
 ///
 /// An -out option containing \'s will be treated as an absolute path.
@@ -104,7 +104,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
                 )
             )
         }
-        Mode::Add => {
+        Mode::AddFiles => {
             FileData::new(
                 PathBuf::from(
                     if cfg.user_out.is_empty() {
@@ -129,7 +129,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
                 )
             )
         }
-        Mode::ExtractFile => {
+        Mode::ExtractFiles => {
             FileData::new(
                 PathBuf::from(
                     if cfg.user_out.is_empty() {

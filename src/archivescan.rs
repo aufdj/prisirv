@@ -6,7 +6,10 @@ use crate::{
 
 use std::io::{Seek, SeekFrom};
 
-// Count number of blocks in an archive.
+/// Functions for reading archive metadata, for the purpose of displaying
+/// or modifying an archive.
+
+/// Count number of blocks in an archive.
 pub fn block_count(ex_arch: &FileData) -> usize {
     let mut count = 0;
     let mut blk = Block::default();
@@ -23,12 +26,11 @@ pub fn block_count(ex_arch: &FileData) -> usize {
 
         count += 1;
         blk.next();
-        
     }
 }
 
-/// Return id of the block that contains 'file', or none if the file isn't
-/// in the archive.
+/// Return id of the first block that contains 'file', or none if the file 
+/// isn't in the archive.
 pub fn find_file(file: &FileData, ex_arch: &FileData) -> Option<u32> {
     let mut blk = Block::default();
     let mut archive = new_input_file(4096, &ex_arch.path);
@@ -49,7 +51,7 @@ pub fn find_file(file: &FileData, ex_arch: &FileData) -> Option<u32> {
     }
 }
 
-// Print archive information.
+/// Print archive information.
 pub fn list_archive(ex_arch: &FileData) -> ! {
     let mut blk = Block::default();
     let mut archive = new_input_file(4096, &ex_arch.path);

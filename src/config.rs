@@ -31,10 +31,9 @@ enum Parse {
     Align,
     Lzw,
     Store,
-    Add,
+    AddFiles,
     Insert,
-    ExtractFile,
-    From,
+    ExtractFiles,
 }
 
 /// Mode (Compress | Decompress)
@@ -42,8 +41,8 @@ enum Parse {
 pub enum Mode {
     Compress,
     Decompress,
-    Add,
-    ExtractFile,
+    AddFiles,
+    ExtractFiles,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,8 +135,8 @@ impl Config {
                     parser = Parse::Fv;
                     continue;
                 }
-                "add" => {
-                    parser = Parse::Add;
+                "add-files" => {
+                    parser = Parse::AddFiles;
                     continue;
                 }
                 "-insert-at" => {
@@ -169,11 +168,8 @@ impl Config {
                     parser = Parse::List;
                     continue;
                 }
-                "extract-file" => {
-                    parser = Parse::ExtractFile;
-                }
-                "from" => {
-                    parser = Parse::From;
+                "extract-files" => {
+                    parser = Parse::ExtractFiles;
                     continue;
                 }
                 "help" => {
@@ -271,16 +267,13 @@ impl Config {
                         cfg.inputs.push(FileData::new(PathBuf::from(arg)));
                     }
                 }
-                Parse::Add => {
-                    cfg.mode = Mode::Add; 
+                Parse::AddFiles => {
+                    cfg.mode = Mode::AddFiles; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                     cfg.insert_id = block_count(&cfg.ex_arch);
                 }
-                Parse::ExtractFile => {
-                    cfg.mode = Mode::ExtractFile;
-                    parser = Parse::Inputs;
-                }
-                Parse::From => {
+                Parse::ExtractFiles => {
+                    cfg.mode = Mode::ExtractFiles;
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                 }
                 Parse::Insert => {
@@ -346,13 +339,13 @@ impl Config {
         if !self.quiet {
             println!();
             
-            if self.mode == Mode::ExtractFile {
+            if self.mode == Mode::ExtractFiles {
                 println!(" Extracting file {} from archive {}", 
                     self.inputs[0].path.display(), self.ex_arch.path.display());
             }
             else {
                 println!("=============================================================");
-                if self.mode == Mode::Add {
+                if self.mode == Mode::AddFiles {
                     println!(" Adding to archive {}", self.ex_arch.path.display());
                 }
                 else {
@@ -386,7 +379,7 @@ impl Config {
     
                 println!(" Output Path:     {}", self.out.path.display());
     
-                if self.mode == Mode::Compress || self.mode == Mode::Add {
+                if self.mode == Mode::Compress || self.mode == Mode::AddFiles {
                     println!(" Method:          {}", 
                         if self.method == Method::Cm { 
                             "Context Mixing" 
@@ -488,7 +481,7 @@ fn print_program_info() {
       Source code available at https://github.com/aufdj/prisirv");
     println!();
     println!();
-    println!("  USAGE: PROG_NAME [c|d] [-i [..]] [OPTIONS|FLAGS]");
+    println!("  USAGE: PROG_NAME [create|extract] [-inputs [..]] [OPTIONS|FLAGS]");
     println!();
     println!("  REQUIRED:");
     println!("     create                Create archive");
@@ -501,6 +494,9 @@ fn print_program_info() {
     println!("    -blk,   -block-size    Specify block size       (Default - 10 MiB)");
     println!("    -threads               Specify thread count     (Default - 4)");
     println!("    -sort                  Sort files               (Default - none)");
+    println!("     add-files a           Add files to existing archive 'a'");
+    println!("    -insert-at n           Insert added file as block 'n'");
+    println!("     extract-files a       Extract files from existing archive 'a'");
     println!();
     println!("  FLAGS:");
     println!("    -q,     -quiet         Suppresses output other than errors");
@@ -509,25 +505,39 @@ fn print_program_info() {
     println!("    -lzw                   Use LZW compression method");
     println!();
     println!("  Sorting Methods:");
-    println!("      -sort ext      Sort by extension");
-    println!("      -sort name     Sort by name");
-    println!("      -sort len      Sort by length");
-    println!("      -sort prt n    Sort by nth parent directory");
-    println!("      -sort crtd     Sort by creation time");
-    println!("      -sort accd     Sort by last access time");
-    println!("      -sort mod      Sort by last modification time");
+    println!("    -sort ext      Sort by extension");
+    println!("    -sort name     Sort by name");
+    println!("    -sort len      Sort by length");
+    println!("    -sort prt n    Sort by nth parent directory");
+    println!("    -sort crtd     Sort by creation time");
+    println!("    -sort accd     Sort by last access time");
+    println!("    -sort mod      Sort by last modification time");
     println!();
     println!("  Any sorting option specified for extraction will be ignored.");
     println!();
     println!("  Memory Options:");
-    println!("      -mem 0  6 MB   -mem 5  99 MB");
-    println!("      -mem 1  9 MB   -mem 6  195 MB");
-    println!("      -mem 2  15 MB  -mem 7  387 MB");
-    println!("      -mem 3  27 MB  -mem 8  771 MB");
-    println!("      -mem 4  51 MB  -mem 9  1539 MB");
+    println!("    -mem 0  6 MB   -mem 5  99 MB");
+    println!("    -mem 1  9 MB   -mem 6  195 MB");
+    println!("    -mem 2  15 MB  -mem 7  387 MB");
+    println!("    -mem 3  27 MB  -mem 8  771 MB");
+    println!("    -mem 4  51 MB  -mem 9  1539 MB");
     println!();
     println!("  Extraction requires same memory option used for archiving.");
     println!("  Any memory option specified for extraction will be ignored.");
+    println!();
+    println!("  MORE INFO:");
+    println!("    ");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
+    println!("");
     println!();
     println!("  EXAMPLE:");
     println!();

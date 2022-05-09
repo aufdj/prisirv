@@ -141,7 +141,7 @@ impl Dictionary {
 
 pub fn compress(blk_in: &[u8], mem: usize) -> Vec<u8> {
     if blk_in.is_empty() { 
-        return Vec::new(); 
+        return Vec::new();
     }
     let mut blk = blk_in.iter();
     let byte = blk.next().unwrap();

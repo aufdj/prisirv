@@ -13,10 +13,10 @@ fn main() {
         Mode::Decompress => { 
             Prisirv::new(cfg).extract_archive(); 
         }
-        Mode::Add => { 
-            Prisirv::new(cfg).add_archive(); 
+        Mode::AddFiles => { 
+            Prisirv::new(cfg).add_archive();
         }
-        Mode::ExtractFile => { 
+        Mode::ExtractFiles => { 
             Prisirv::new(cfg).extract_file(); 
         }
     }

@@ -17,11 +17,10 @@ use crate::{
     block::Block,
 };
 
-/// An archiver by default creates solid archives, or an archive containing
-/// files compressed as one stream. Solid archives take advantage of redundancy 
-/// across files and therefore achieve better compression ratios than non-
-/// solid archives, but don't allow for extracting individual files like
-/// non-solid archives.
+/// A Prisirv archive consists of blocks, with each block containing a 
+/// header followed by compressed data. Blocks can either be fixed size,
+/// or truncated to align with the end of the current file. The end of an 
+/// archive is marked by an empty block.
 pub struct Archiver {
     pub archive:  BufWriter<File>,
     cfg:          Config,
@@ -60,12 +59,13 @@ impl Archiver {
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());
                 if blk.data.len() >= self.cfg.blk_sz {
-                    file.seg_end = file_in.stream_position().unwrap();
+                    let pos = file_in.stream_position().unwrap();
+                    file.seg_end = pos;
                     blk.files.push(file.clone());
                     self.tp.compress_block(blk.clone());
                     blk.next();
                     file.blk_pos = 0;
-                    file.seg_beg = file_in.stream_position().unwrap();
+                    file.seg_beg = pos;
                 }    
             }
             file.seg_end = file_in.stream_position().unwrap();
