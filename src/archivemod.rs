@@ -46,7 +46,7 @@ impl ArchiveModifier {
         }
     }
     /// Add files to existing archive.
-    pub fn add(&mut self) {
+    pub fn add_files(&mut self) {
         let mut blks_added = 0;
         let mut blk = Block::new(&self.cfg);
         for _ in 0..self.cfg.insert_id {
@@ -61,12 +61,13 @@ impl ArchiveModifier {
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());
                 if blk.data.len() >= self.cfg.blk_sz {
-                    file.seg_end = file_in.stream_position().unwrap();
+                    let pos = file_in.stream_position().unwrap();
+                    file.seg_end = pos;
                     blk.files.push(file.clone());
                     self.tp.compress_block(blk.clone());
                     blks_added += 1;
                     blk.next();
-                    file.seg_beg = file_in.stream_position().unwrap();
+                    file.seg_beg = pos;
                 }    
             }
             file.seg_end = file_in.stream_position().unwrap();
@@ -95,7 +96,9 @@ impl ArchiveModifier {
             blk.read_from(&mut self.old);
             blk.id += blks_added;
             self.tp.store_block(blk.clone());
-            if blk.data.is_empty() { break; }
+            if blk.data.is_empty() { 
+                break; 
+            }
             blk.next();
         }
 
@@ -103,7 +106,9 @@ impl ArchiveModifier {
         loop {
             if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 blk.write_to(&mut self.new);
-                if blk.data.is_empty() { break; }
+                if blk.data.is_empty() { 
+                    break; 
+                }
             }
         }
         self.new.flush_buffer();

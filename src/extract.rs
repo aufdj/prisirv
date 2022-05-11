@@ -83,7 +83,7 @@ impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Extractor {
         let archive = 
-        if cfg.mode == Mode::Decompress {
+        if cfg.mode == Mode::ExtractArchive {
             new_input_file(4096, &cfg.inputs[0].path)
         }
         else {
@@ -133,7 +133,7 @@ impl Extractor {
         }
     } 
 
-    pub fn extract_file(&mut self) {
+    pub fn extract_files(&mut self) {
         let mut blk = Block::default();
         let file = &self.cfg.inputs[0];
 

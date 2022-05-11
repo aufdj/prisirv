@@ -39,8 +39,8 @@ enum Parse {
 /// Mode (Compress | Decompress)
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Mode {
-    Compress,
-    Decompress,
+    CreateArchive,
+    ExtractArchive,
     AddFiles,
     ExtractFiles,
 }
@@ -286,10 +286,10 @@ impl Config {
                     cfg.method = Method::Store;
                 }
                 Parse::Compress => {
-                    cfg.mode = Mode::Compress;
+                    cfg.mode = Mode::CreateArchive;
                 }
                 Parse::Decompress => {
-                    cfg.mode = Mode::Decompress;
+                    cfg.mode = Mode::ExtractArchive;
                 }
                 Parse::DirOut => {
                     cfg.user_out = arg.to_string();
@@ -350,7 +350,7 @@ impl Config {
                 }
                 else {
                     println!(" {} Archive of Inputs:", 
-                        if self.mode == Mode::Compress { 
+                        if self.mode == Mode::CreateArchive { 
                             "Creating" 
                         } 
                         else { 
@@ -379,7 +379,7 @@ impl Config {
     
                 println!(" Output Path:     {}", self.out.path.display());
     
-                if self.mode == Mode::Compress || self.mode == Mode::AddFiles {
+                if self.mode == Mode::CreateArchive || self.mode == Mode::AddFiles {
                     println!(" Method:          {}", 
                         if self.method == Method::Cm { 
                             "Context Mixing" 
@@ -435,7 +435,7 @@ impl Default for Config {
             user_out:   String::new(),
             blk_sz:     10 << 20,
             mem:        1 << 22,
-            mode:       Mode::Compress,
+            mode:       Mode::CreateArchive,
             quiet:      false,
             clbr:       false,
             threads:    4,
@@ -495,7 +495,7 @@ fn print_program_info() {
     println!("    -threads               Specify thread count     (Default - 4)");
     println!("    -sort                  Sort files               (Default - none)");
     println!("     add-files a           Add files to existing archive 'a'");
-    println!("    -insert-at n           Insert added file as block 'n'");
+    println!("    -insert-at n           Insert added files as block 'n'");
     println!("     extract-files a       Extract files from existing archive 'a'");
     println!();
     println!("  FLAGS:");
@@ -523,21 +523,7 @@ fn print_program_info() {
     println!("    -mem 4  51 MB  -mem 9  1539 MB");
     println!();
     println!("  Extraction requires same memory option used for archiving.");
-    println!("  Any memory option specified for extraction will be ignored.");
-    println!();
-    println!("  MORE INFO:");
-    println!("    ");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
-    println!("");
+    println!("  Any memory option specified for extraction will be ignored."); 
     println!();
     println!("  EXAMPLE:");
     println!();

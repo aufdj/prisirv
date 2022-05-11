@@ -86,7 +86,7 @@ impl Prisirv {
 
     /// Create archive of supplied paths.
     pub fn create_archive_of(&mut self, paths: &[&str]) {
-        self.cfg.mode = Mode::Compress;
+        self.cfg.mode = Mode::CreateArchive;
         let paths = paths.iter()
             .map(PathBuf::from)
             .map(FileData::new)
@@ -103,7 +103,7 @@ impl Prisirv {
 
     /// Extract supplied paths.
     pub fn extract_archive_of(&mut self, paths: &[&str]) {
-        self.cfg.mode = Mode::Decompress;
+        self.cfg.mode = Mode::ExtractArchive;
         let paths = paths.iter()
             .map(PathBuf::from)
             .map(FileData::new)
@@ -136,11 +136,11 @@ impl Prisirv {
         Extractor::new(self.cfg).extract_archive(); 
     }
 
-    pub fn add_archive(self) {
-        ArchiveModifier::new(self.cfg).add();
+    pub fn add_files(self) {
+        ArchiveModifier::new(self.cfg).add_files();
     }
 
-    pub fn extract_file(self) {
-        Extractor::new(self.cfg).extract_file(); 
+    pub fn extract_files(self) {
+        Extractor::new(self.cfg).extract_files(); 
     }
 }

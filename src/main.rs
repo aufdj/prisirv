@@ -7,17 +7,17 @@ use prisirv::{
 fn main() {
     let cfg = Config::new(&std::env::args().skip(1).collect::<Vec<String>>());
     match cfg.mode {
-        Mode::Compress => { 
+        Mode::CreateArchive => { 
             Prisirv::new(cfg).create_archive();  
         }
-        Mode::Decompress => { 
+        Mode::ExtractArchive => { 
             Prisirv::new(cfg).extract_archive(); 
         }
         Mode::AddFiles => { 
-            Prisirv::new(cfg).add_archive();
+            Prisirv::new(cfg).add_files();
         }
         Mode::ExtractFiles => { 
-            Prisirv::new(cfg).extract_file(); 
+            Prisirv::new(cfg).extract_files(); 
         }
     }
 }

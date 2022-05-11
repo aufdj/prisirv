@@ -46,7 +46,7 @@ impl Progress {
     /// compressed data.
     pub fn update(&mut self, blk: &Block) {
         self.current += blk.sizei;
-        if self.mode == Mode::Compress {
+        if self.mode == Mode::CreateArchive {
             self.sizeo += blk.size(); 
         }
         else { 
@@ -59,7 +59,7 @@ impl Progress {
     fn print_stats(&self) {
         if !self.quiet {
             let percent = (self.current as f64 / self.sizei as f64) * 100.0;
-            print!("\r{} ({:.2}%) (Time elapsed: {:.2?})  ", 
+            print!("\r{} ({:.2}%) (Time elapsed: {:.2?})  ",
                 bar(percent),
                 percent,
                 self.time.elapsed()

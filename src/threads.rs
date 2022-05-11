@@ -68,16 +68,8 @@ impl ThreadPool {
                         .unwrap().as_secs() as u64;
 
                     Block {
-                        method: blk_in.method,
-                        mem:    blk_in.mem,
-                        blk_sz: blk_in.blk_sz,
-                        chksum: blk_in.chksum,
-                        sizeo:  blk_in.sizeo,
-                        sizei:  blk_in.sizei,
-                        files:  blk_in.files,
-                        data:   blk_in.data,
-                        id:     blk_in.id,
                         crtd,
+                        ..blk_in
                     }
                 })
             )
@@ -131,16 +123,17 @@ impl ThreadPool {
     /// an input block and returning the decompressed block.
     pub fn decompress_block(&mut self, blk_in: Block) {
         let len = blk_in.data.len();
+        let mem = blk_in.mem as usize;
         self.sndr.send(
             Message::NewJob(
                 Box::new(move || {
                     let blk_out = 
                     if blk_in.method == Method::Cm {
-                        let mut dec = Decoder::new(blk_in.data, blk_in.mem as usize);
+                        let mut dec = Decoder::new(blk_in.data, mem);
                         dec.decompress_block(blk_in.sizei as usize)
                     }
                     else if blk_in.method == Method::Lzw {
-                        lzw::decoder::decompress(&blk_in.data, blk_in.mem as usize)
+                        lzw::decoder::decompress(&blk_in.data, mem)
                     }
                     else { 
                         blk_in.data 
@@ -192,7 +185,7 @@ struct Thread {
     handle: Option<JoinHandle<()>>,
 }
 impl Thread {
-    /// Spawn a thread and enter a loop, waiting to recieve a message 
+    /// Spawn a thread and enter a loop, waiting to recieve a message
     /// containing a new block to compress or decompress, or a message
     /// to terminate the thread.
     fn new(rcvr: SharedReceiver, bq: SharedBlockQueue, prg: SharedProgress) -> Thread {
@@ -200,13 +193,13 @@ impl Thread {
             let message = rcvr.lock().unwrap().recv().unwrap();
 
             match message {
-                Message::NewJob(job) => { 
+                Message::NewJob(job) => {
                     let blk = job();
                     { prg.lock().unwrap().update(&blk); }
                     bq.lock().unwrap().blocks.push(blk);
                 }
-                Message::Terminate => { 
-                    break; 
+                Message::Terminate => {
+                    break;
                 }
             }
         });

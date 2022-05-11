@@ -31,7 +31,7 @@ impl BufferedRead for BufReader<File> {
     fn read_byte(&mut self) -> u8 {
         let mut byte = [0u8; 1];
 
-        if let Ok(_) = self.read(&mut byte) {
+        if self.read(&mut byte).is_ok() {
             if self.buffer().is_empty() {
                 self.consume(self.capacity());
 

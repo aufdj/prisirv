@@ -54,7 +54,7 @@ impl PathFmt for Path {
 /// \baz\arch, while option '-out arch' creates archive \foo\arch.
 pub fn fmt_root_output(cfg: &Config) -> FileData {
     match cfg.mode {
-        Mode::Compress => {
+        Mode::CreateArchive => {
             FileData::new(
                 PathBuf::from(
                     if cfg.user_out.is_empty() {
@@ -79,7 +79,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
                 )
             )
         }
-        Mode::Decompress => {
+        Mode::ExtractArchive => {
             FileData::new(
                 PathBuf::from(
                     if cfg.user_out.is_empty() {
