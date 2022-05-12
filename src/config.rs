@@ -313,7 +313,7 @@ impl Config {
         cfg.validate_inputs();
         
         if fv { 
-            fv::fv(&cfg.inputs[0], cs); 
+            fv::fv(&cfg.inputs[0], cs);
         }
 
         cfg.out = fmt_root_output(&cfg);

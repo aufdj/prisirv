@@ -204,7 +204,20 @@ pub fn new_input_file(capacity: usize, path: &Path) -> BufReader<File> {
 pub fn new_output_file_no_trunc(capacity: usize, path: &Path) -> BufWriter<File> {
     BufWriter::with_capacity(
         capacity, 
-        OpenOptions::new().write(true).open(path).unwrap(),
+        match OpenOptions::new().write(true).open(path) {
+            Ok(file) => file,
+            Err(e) => match e.kind() {
+                ErrorKind::NotFound => {
+                    error::file_not_found(path);
+                }
+                ErrorKind::PermissionDenied => {
+                    error::permission_denied(path);
+                }
+                _ => {
+                    error::file_general(path);
+                }
+            }
+        }
     )
 }
 
@@ -230,24 +243,20 @@ pub fn new_output_file(capacity: usize, path: &Path) -> BufWriter<File> {
     )
 }
 
-/// Create a new file only if the clobber flag is set or the existing file 
-/// is empty.
-pub fn new_output_file_checked(file: &FileData, clbr: bool) -> BufWriter<File> {
-    // If file doesn't exist or is empty, ignore clobber flag.
+/// Create a new file only if the clobber flag is set, the file doesn't 
+/// already exist, or the existing file is empty.
+pub fn new_output_file_checked(file: &FileData, clobber: bool) -> BufWriter<File> {
     if !file.path.exists() || file.len == 0 {}
-    // If file exists or is not empty, abort if user disallowed clobbering (default)
-    else if !clbr { 
+    else if !clobber { 
         error::file_already_exists(&file.path); 
     }
-    // If file exists and is not empty and user allowed clobbering, continue as normal.
     else {}
     new_output_file(4096, &file.path)
 }
 
-/// Create a new directory only if the clobber flag is set or the existing 
-/// directory is empty.
-pub fn new_dir(out: &FileData, clbr: bool) {
-    // Create output directory if it doesn't exist.
+/// Create a new directory only if the clobber flag is set, the directory 
+/// doesn't already exist, or the existing directory is empty.
+pub fn new_dir(out: &FileData, clobber: bool) {
     if !out.path.exists() {
         if let Err(e) = create_dir(&out.path) {
             match e.kind() {
@@ -260,13 +269,10 @@ pub fn new_dir(out: &FileData, clbr: bool) {
             }
         }
     }
-    // If directory exists but is empty, ignore clobber option.
     else if out.path.read_dir().unwrap().count() == 0 {}
-    // If directory exists and is not empty, abort if user disallowed clobbering (default)
-    else if !clbr { 
-        error::dir_already_exists(&out.path); 
+    else if !clobber {
+        error::dir_already_exists(&out.path);
     }
-    // If directory exists and is not empty and user allowed clobbering, continue as normal.
     else {}
 }
 

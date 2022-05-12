@@ -3,6 +3,7 @@ use std::{
     process::exit,
 };
 
+
 pub fn invalid_sort_criteria(method: &str) -> ! {
     println!("{} is not a valid sort criteria.", method);
     println!();
