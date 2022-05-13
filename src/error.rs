@@ -58,7 +58,7 @@ Memory Options:\n
 
             ConfigError::InvalidMemory(mem) => {
                 write!(f, "
-{mem} is outside the valid range of memory options (0..9).\n
+{mem} is not a valid memory option.\n
 Memory Options:\n
 -mem 0  6 MB   -mem 5  99 MB
 -mem 1  9 MB   -mem 6  195 MB

@@ -26,5 +26,4 @@ fn main() {
             println!("{err}");
         }
     }
-    
 }

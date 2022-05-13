@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::{
     sort::Sort, fv,
@@ -82,7 +82,7 @@ pub struct Config {
     pub out:        FileData,      // Output
     pub inputs:     Vec<FileData>, // Inputs to be archived or extracted
     pub quiet:      bool,          // Suppresses output other than errors
-    pub mode:       Mode,          // Compress or decompress
+    pub mode:       Mode,          // Create archive, extract files, add files, extract files
     pub mem:        u64,           // Memory usage 
     pub clbr:       bool,          // Allow clobbering files
     pub blk_sz:     usize,         // Block size
@@ -205,41 +205,35 @@ impl Config {
                     }
                 }
                 Parse::Mem => {
-                    match arg.parse::<u64>() {
-                        Ok(mem) => {
-                            if mem <= 9 {
-                                cfg.mem = 1 << (20 + mem);
-                            }
-                            else {
-                                return Err(ConfigError::OutOfRangeMemory(mem));
-                            }
+                    if let Ok(mem) = arg.parse::<u64>() {
+                        if mem <= 9 {
+                            cfg.mem = 1 << (20 + mem);
                         }
-                        Err(_) => {
-                            return Err(ConfigError::InvalidMemory(arg.to_string()));
+                        else {
+                            return Err(ConfigError::OutOfRangeMemory(mem));
                         }
+                    }
+                    else {
+                        return Err(ConfigError::InvalidMemory(arg.to_string()));
                     }
                 } 
                 Parse::BlkSz => {
-                    let scale = 
-                    if      arg.contains('B') { 1 }
-                    else if arg.contains('K') { 1024 }
-                    else if arg.contains('M') { 1024*1024 }
-                    else if arg.contains('G') { 1024*1024*1024 }
-                    else { 
-                        return Err(ConfigError::InvalidBlockMagnitude(arg.to_string()));
+                    let size  = arg.chars().filter(|c|  c.is_numeric()).collect::<String>();
+                    let scale = arg.chars().filter(|c| !c.is_numeric()).collect::<String>();
+
+                    let scale = match scale.as_str() {
+                        "B" => { 1 },
+                        "K" => { 1024 },
+                        "M" => { 1024*1024 },
+                        "G" => { 1024*1024*1024 },
+                        _ => return Err(ConfigError::InvalidBlockMagnitude(scale)),
                     };
 
-                    let size = arg.chars()
-                        .filter(|s| s.is_numeric())
-                        .collect::<String>();
-
-                    match size.parse::<usize>() {
-                        Ok(size) => {
-                            cfg.blk_sz = size * scale;
-                        }
-                        Err(_) => {
-                            return Err(ConfigError::InvalidBlockSize(arg.to_string()));
-                        }
+                    if let Ok(size) = size.parse::<usize>() {
+                        cfg.blk_sz = size * scale;
+                    }
+                    else {
+                        return Err(ConfigError::InvalidBlockSize(arg.to_string()));
                     }
                 }
                 Parse::Threads => {
@@ -322,12 +316,12 @@ impl Config {
                 return Err(ConfigError::InvalidInput(input.path.clone()));
             }
         }
-        
+
+        cfg.out = fmt_root_output(&cfg);
+
         if fv { 
             fv::fv(&cfg.inputs[0], cs);
         }
-
-        cfg.out = fmt_root_output(&cfg);
         
         cfg.print();
         Ok(cfg)
@@ -445,6 +439,35 @@ impl Default for Config {
             ex_arch:    FileData::default(),
             insert_id:  0,
         }
+    }
+}
+
+/// Recursively collect all files into a vector for sorting before compression.
+pub fn collect_files(inputs: &[FileData], files: &mut Vec<FileData>) {
+    // Group files and directories 
+    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
+        inputs.iter().cloned()
+        .partition(|f| f.path.is_file());
+
+    // Walk through directories and collect all files
+    for file in fi.into_iter() {
+        files.push(file);
+    }
+    for dir in dirs.iter() {
+        collect(&dir.path, files);
+    }
+}
+fn collect(dir_in: &Path, files: &mut Vec<FileData>) {
+    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
+        dir_in.read_dir().unwrap()
+        .map(|d| FileData::new(d.unwrap().path()))
+        .partition(|f| f.path.is_file());
+
+    for file in fi.into_iter() {
+        files.push(file);
+    }
+    for dir in dirs.iter() {
+        collect(&dir.path, files);
     }
 }
 
