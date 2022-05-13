@@ -42,8 +42,8 @@ impl PathFmt for Path {
 }
 
 
-/// Format output directory given an optional user specified output,
-/// and the first input file or directory.
+/// Format output directory given an optional user specified output, and the 
+/// first input file or directory.
 ///
 /// An -output-path option containing \'s will be treated as an absolute path.
 ///

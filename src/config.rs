@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::{
     sort::Sort, fv,
     formatting::fmt_root_output,
-    error,
+    error::ConfigError,
     filedata::FileData,
     archivescan::{
         block_count, 
@@ -36,7 +36,6 @@ enum Parse {
     ExtractFiles,
 }
 
-/// Mode (Compress | Decompress)
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Mode {
     CreateArchive,
@@ -95,7 +94,7 @@ pub struct Config {
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.
-    pub fn new(args: &[String]) -> Config {
+    pub fn new(args: &[String]) -> Result<Config, ConfigError> {
         if args.is_empty() { 
             print_program_info(); 
         }
@@ -179,41 +178,45 @@ impl Config {
             }
             match parser {
                 Parse::Sort => {
-                    cfg.sort = match arg.as_str() {
-                        "ext"  => Sort::Ext,
-                        "name" => Sort::Name,
-                        "len"  => Sort::Len,
-                        "crtd" => Sort::Created,
-                        "accd" => Sort::Accessed,
-                        "mod"  => Sort::Modified,
+                    match arg.as_str() {
+                        "ext"  => cfg.sort = Sort::Ext,
+                        "name" => cfg.sort = Sort::Name,
+                        "len"  => cfg.sort = Sort::Len,
+                        "crtd" => cfg.sort = Sort::Created,
+                        "accd" => cfg.sort = Sort::Accessed,
+                        "mod"  => cfg.sort = Sort::Modified,
                         "prt"  => {
                             parser = Parse::Lvl;
-                            Sort::PrtDir(1)
+                            cfg.sort = Sort::PrtDir(1)
                         },
                         m => { 
-                            error::invalid_sort_criteria(m); 
+                            return Err(ConfigError::InvalidSortCriteria(m.to_string()));
                         }
                     }
                 }
                 Parse::Lvl => {
-                    if let Ok(lvl) = arg.parse::<usize>() {
-                        cfg.sort = Sort::PrtDir(lvl);
-                    }
-                    else {
-                        error::invalid_lvl();
+                    match arg.parse::<usize>() {
+                        Ok(lvl) => {
+                            cfg.sort = Sort::PrtDir(lvl);
+                        }
+                        Err(_) => {
+                            return Err(ConfigError::InvalidLvl(arg.to_string()));
+                        }
                     }
                 }
                 Parse::Mem => {
-                    if let Ok(mem) = arg.parse::<u64>() {
-                        if mem <= 9 {
-                            cfg.mem = 1 << (20 + mem);
+                    match arg.parse::<u64>() {
+                        Ok(mem) => {
+                            if mem <= 9 {
+                                cfg.mem = 1 << (20 + mem);
+                            }
+                            else {
+                                return Err(ConfigError::OutOfRangeMemory(mem));
+                            }
                         }
-                        else {
-                            error::out_of_range_memory_option(mem);
+                        Err(_) => {
+                            return Err(ConfigError::InvalidMemory(arg.to_string()));
                         }
-                    }
-                    else {
-                        error::invalid_memory_option();
                     }
                 } 
                 Parse::BlkSz => {
@@ -223,7 +226,7 @@ impl Config {
                     else if arg.contains('M') { 1024*1024 }
                     else if arg.contains('G') { 1024*1024*1024 }
                     else { 
-                        error::invalid_scale(); 
+                        return Err(ConfigError::InvalidBlockMagnitude(arg.to_string()));
                     };
 
                     let size = arg.chars()
@@ -235,21 +238,21 @@ impl Config {
                             cfg.blk_sz = size * scale;
                         }
                         Err(_) => {
-                            error::invalid_block_size();
+                            return Err(ConfigError::InvalidBlockSize(arg.to_string()));
                         }
                     }
                 }
                 Parse::Threads => {
                     if let Ok(count) = arg.parse::<usize>() {
-                        if count > 0 {
+                        if count > 0 || count < 128 {
                             cfg.threads = count;
                         }
                         else {
-                            error::invalid_thread_count();
+                            return Err(ConfigError::OutOfRangeThreadCount(count));
                         }
                     }
                     else {
-                        error::invalid_thread_count();
+                        return Err(ConfigError::InvalidThreadCount(arg.to_string()));
                     }
                 }
                 Parse::List => {
@@ -310,7 +313,15 @@ impl Config {
             }
         }
 
-        cfg.validate_inputs();
+        if cfg.inputs.is_empty() {
+            return Err(ConfigError::InputsEmpty);
+        }
+
+        for input in cfg.inputs.iter() {
+            if !(input.path.is_file() || input.path.is_dir()) {
+                return Err(ConfigError::InvalidInput(input.path.clone()));
+            }
+        }
         
         if fv { 
             fv::fv(&cfg.inputs[0], cs);
@@ -319,19 +330,7 @@ impl Config {
         cfg.out = fmt_root_output(&cfg);
         
         cfg.print();
-        cfg
-    }
-
-    pub fn validate_inputs(&self) {
-        if self.inputs.is_empty() { 
-            error::no_inputs(); 
-        }
-
-        for input in self.inputs.iter() {
-            if !(input.path.is_file() || input.path.is_dir()) {
-                error::invalid_input(&input.path);
-            }
-        }
+        Ok(cfg)
     }
 
     /// Print information about new archive.
@@ -392,7 +391,7 @@ impl Config {
                         }
                     );
     
-                    println!(" Sorting by:      {}", 
+                    println!(" Sorting by:      {}",
                         match self.sort {
                             Sort::None      => "None",
                             Sort::Ext       => "Extension",
@@ -411,7 +410,7 @@ impl Config {
                     println!(" Block Size:      {} {}", size, suffix); 
     
                     println!(" Block Alignment: {}", 
-                        if self.align == Align::File { 
+                        if self.align == Align::File {
                             "File" 
                         } 
                         else { 

@@ -25,6 +25,7 @@ use crate::{
     filedata::FileData,
     config::{Config, Mode},
     sort::Sort,
+    error::ConfigError,
     formatting::fmt_root_output,
 };
 
@@ -62,14 +63,14 @@ impl Prisirv {
     }
 
     /// Choose memory option (0..9)
-    pub fn memory(&mut self, mem: u64) -> &mut Self {
+    pub fn memory(&mut self, mem: u64) -> Result<&mut Self, ConfigError> {
         if mem <= 9 {
             self.cfg.mem = 1 << (20 + mem);
         }
         else { 
-            error::invalid_memory_option(); 
+            return Err(ConfigError::InvalidMemory(mem.to_string()));
         } 
-        &mut *self
+        Ok(&mut *self)
     }
 
     /// Sort files before solid archiving.

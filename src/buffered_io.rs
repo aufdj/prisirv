@@ -243,7 +243,7 @@ pub fn new_output_file(capacity: usize, path: &Path) -> BufWriter<File> {
     )
 }
 
-/// Create a new file only if the clobber flag is set, the file doesn't 
+/// Create a new file only if the clobber flag is set, the file doesn't
 /// already exist, or the existing file is empty.
 pub fn new_output_file_checked(file: &FileData, clobber: bool) -> BufWriter<File> {
     if !file.path.exists() || file.len == 0 {}
@@ -258,15 +258,8 @@ pub fn new_output_file_checked(file: &FileData, clobber: bool) -> BufWriter<File
 /// doesn't already exist, or the existing directory is empty.
 pub fn new_dir(out: &FileData, clobber: bool) {
     if !out.path.exists() {
-        if let Err(e) = create_dir(&out.path) {
-            match e.kind() {
-                ErrorKind::InvalidInput => {
-                    error::invalid_input(&out.path);
-                }
-                _ => {
-                    error::dir_general(&out.path);
-                }
-            }
+        if create_dir(&out.path).is_err() {
+            error::dir_general(&out.path);
         }
     }
     else if out.path.read_dir().unwrap().count() == 0 {}

@@ -22,10 +22,10 @@ use crate::{
 /// or truncated to align with the end of the current file. The end of an 
 /// archive is marked by an empty block.
 pub struct Archiver {
-    pub archive:  BufWriter<File>,
-    cfg:          Config,
-    files:        Vec<FileData>,
-    tp:           ThreadPool,
+    archive:  BufWriter<File>,
+    cfg:      Config,
+    files:    Vec<FileData>,
+    tp:       ThreadPool,
 }
 impl Archiver {
     /// Create a new Archiver.
