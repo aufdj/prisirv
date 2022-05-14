@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    sort::Sort, fv,
+    fv,
+    sort::{Sort, sort_files}, 
     formatting::fmt_root_output,
     error::ConfigError,
     filedata::FileData,
@@ -187,7 +188,7 @@ impl Config {
                         "mod"  => cfg.sort = Sort::Modified,
                         "prt"  => {
                             parser = Parse::Lvl;
-                            cfg.sort = Sort::PrtDir(1)
+                            cfg.sort = Sort::PrtDir(1);
                         },
                         m => { 
                             return Err(ConfigError::InvalidSortCriteria(m.to_string()));
@@ -319,11 +320,23 @@ impl Config {
 
         cfg.out = fmt_root_output(&cfg);
 
+        cfg.print();
+
+        if cfg.mode == Mode::CreateArchive || cfg.mode == Mode::AddFiles {
+            let mut files = Vec::new();
+            collect_files(&cfg.inputs, &mut files);
+
+            files.sort_by(|f1, f2| 
+                sort_files(&f1.path, &f2.path, cfg.sort).unwrap()
+            );
+
+            cfg.inputs = files;
+        }
+        
         if fv { 
             fv::fv(&cfg.inputs[0], cs);
         }
         
-        cfg.print();
         Ok(cfg)
     }
 

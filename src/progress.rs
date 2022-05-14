@@ -6,7 +6,6 @@ use std::{
 use crate::{
     config::{Config, Mode},
     block::Block,
-    filedata::FileData,
 };
 
 
@@ -22,13 +21,13 @@ pub struct Progress {
 }
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
-    pub fn new(cfg: &Config, files: &[FileData]) -> Progress {
+    pub fn new(cfg: &Config) -> Progress {
         let sizei: u64 = 
         if cfg.mode == Mode::AddFiles {
             cfg.ex_arch.len
         }
         else {
-            files.iter().map(|f| f.len).sum()
+            cfg.inputs.iter().map(|f| f.len).sum()
         };
         Progress {
             sizei,

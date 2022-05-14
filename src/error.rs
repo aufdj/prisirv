@@ -4,6 +4,7 @@ use std::{
     fmt,
 };
 
+/// Possible errors encountered while parsing Config arguments.
 pub enum ConfigError {
     InvalidSortCriteria(String),
     InvalidLvl(String),
@@ -14,12 +15,17 @@ pub enum ConfigError {
     OutOfRangeThreadCount(usize),
     InvalidThreadCount(String),
     InvalidInput(PathBuf),
-    //NotPrisirvArchive(),
-    //MetadataNotSupported(),
-    //CreationTimeNotSupported(),
-    //AccessTimeNotSupported(),
-    //ModifiedTimeNotSupported(),
+    InvalidSortMethod(SortError),
     InputsEmpty,
+}
+
+/// Possible errors encountered while sorting files.
+#[derive(Debug)]
+pub enum SortError {
+    MetadataNotSupported,
+    CreationTimeNotSupported,
+    AccessTimeNotSupported,
+    ModifiedTimeNotSupported,
 }
 
 impl fmt::Display for ConfigError {
@@ -94,6 +100,23 @@ Thread count must be a number 1..128.")
             ConfigError::InputsEmpty => {
                 write!(f, "No inputs found.")
             }
+
+            ConfigError::InvalidSortMethod(method) => {
+                match method {
+                    SortError::MetadataNotSupported => {
+                        write!(f, "Metadata not supported.")
+                    }
+                    SortError::CreationTimeNotSupported => {
+                        write!(f, "Creation time metadata not supported.")
+                    }
+                    SortError::AccessTimeNotSupported => {
+                        write!(f, "Access time metadata not supported.")
+                    }
+                    SortError::ModifiedTimeNotSupported => {
+                        write!(f, "Modified time metadata not supported.")
+                    }
+                }
+            }
         }
     }
 }
@@ -102,29 +125,6 @@ pub fn no_prisirv_archive() -> ! {
     println!("Not a prisirv archive.");
     exit(0);
 }
-
-pub fn metadata_not_supported() -> ! {
-    println!("Couldn't get metadata.");
-    exit(0);
-}
-
-pub fn creation_time_not_supported() -> ! {
-    println!("Creation time metadata not supported on this platform.");
-    exit(0);
-}
-
-pub fn access_time_not_supported() -> ! {
-    println!("Last accessed time metadata not supported on this platform.");
-    exit(0);
-}
-
-pub fn modified_time_not_supported() -> ! {
-    println!("Last modified time metadata not supported on this platform.");
-    exit(0);
-}
-
-
-
 pub fn file_general(path: &Path) -> ! {
     println!("Couldn't open file {}", path.display());
     exit(0);
@@ -141,7 +141,7 @@ pub fn file_already_exists(path: &Path) -> ! {
     exit(0);
 }
 
-pub fn file_not_found(path: & Path) -> ! {
+pub fn file_not_found(path: &Path) -> ! {
     println!("Couldn't open file {}: Not Found", path.display());
     exit(0);
 }

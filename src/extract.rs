@@ -90,7 +90,7 @@ impl Extractor {
             new_input_file(4096, &cfg.ex_arch.path)
         };
 
-        let prg = Progress::new(&cfg, &cfg.inputs);
+        let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(cfg.threads, prg);
         
         Extractor { 
