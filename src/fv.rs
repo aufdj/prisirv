@@ -1,5 +1,5 @@
 use std::{
-    path::Path,
+    path::PathBuf,
     time::Instant,
     io::{Seek, SeekFrom},
 };
@@ -131,8 +131,8 @@ impl Image {
         c = self.pixels[i+2] as i32 + red;
         self.pixels[i+2] = clamp(c);
     }
-    fn save_bmp(&mut self, file_name: &str) {
-        let mut file_out = new_output_file(4096, Path::new(file_name));
+    fn save_bmp(&mut self, file: &FileData, clobber: bool) {
+        let mut file_out = new_output_file(file, clobber);
         let file_size    = (54 + self.pixels.len()) as u32;
         let image_size   = (self.width * self.height * 3) as u32;
 
@@ -157,11 +157,12 @@ impl Image {
     }
 }
 
-pub fn fv(file: &FileData, col_opt: f64) -> ! {
+pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> ! {
     let time        = Instant::now();
     let size        = file.len;
-    let mut file_in = new_input_file(4096, &file.path);
-    let file_name   = file.path.name_no_ext();
+    let mut file_in = new_input_file(&file.path);
+    let file_name   = &format!("{}.bmp", file.path.name_no_ext());
+    let file_out    = FileData::new(PathBuf::from(file_name));
 
     let width: i32 = 512;
     let height: i32 = 256;
@@ -262,7 +263,7 @@ pub fn fv(file: &FileData, col_opt: f64) -> ! {
         println!("Drew part {} of 4 in {:.2?}",
             i + 1, start_pass.elapsed());
     }
-    img.save_bmp(&format!("{}.bmp", file_name));
+    img.save_bmp(&file_out, clobber);
     
     println!("Created {}.bmp in {:.2?}", 
         file_name,

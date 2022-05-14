@@ -85,12 +85,12 @@ pub struct Config {
     pub quiet:      bool,          // Suppresses output other than errors
     pub mode:       Mode,          // Create archive, extract files, add files, extract files
     pub mem:        u64,           // Memory usage 
-    pub clbr:       bool,          // Allow clobbering files
+    pub clobber:    bool,          // Allow clobbering files
     pub blk_sz:     usize,         // Block size
     pub threads:    usize,         // Maximum number of threads
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
-    pub ex_arch:    FileData,      // Existing archive to add to or remove from
+    pub ex_arch:    FileData,      // An existing Prisirv archive
     pub insert_id:  usize,         // Where to insert new blocks into an existing archive
 }
 impl Config {
@@ -299,7 +299,7 @@ impl Config {
                     cfg.quiet = true;
                 }
                 Parse::Clobber => {
-                    cfg.clbr = true;
+                    cfg.clobber = true;
                 }
                 Parse::Align => {
                     cfg.align = Align::File;
@@ -334,7 +334,7 @@ impl Config {
         }
         
         if fv { 
-            fv::fv(&cfg.inputs[0], cs);
+            fv::fv(&cfg.inputs[0], cs, cfg.clobber);
         }
         
         Ok(cfg)
@@ -443,7 +443,7 @@ impl Default for Config {
             mem:        1 << 22,
             mode:       Mode::CreateArchive,
             quiet:      false,
-            clbr:       false,
+            clobber:    false,
             threads:    4,
             inputs:     Vec::new(),
             out:        FileData::default(),

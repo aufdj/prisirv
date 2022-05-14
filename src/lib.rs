@@ -52,7 +52,7 @@ impl Prisirv {
 
     /// Allow clobbering of files.
     pub fn clobber(&mut self) -> &mut Self {
-        self.cfg.clbr = true;
+        self.cfg.clobber = true;
         &mut *self
     }
 

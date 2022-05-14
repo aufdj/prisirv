@@ -101,7 +101,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
 ///
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
-pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
+pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> FileData {
     let dir_out_path = Path::new(dir_out);
 
     let path = 
@@ -150,6 +150,6 @@ pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> PathBuf {
         create_dir_all(parent).unwrap();
     }
     
-    path
+    FileData::new(path)
 }
 

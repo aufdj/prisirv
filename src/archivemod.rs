@@ -25,8 +25,8 @@ pub struct ArchiveModifier {
 }
 impl ArchiveModifier {
     pub fn new(cfg: Config) -> ArchiveModifier {
-        let old = new_input_file(4096, &cfg.ex_arch.path);
-        let new = new_output_file(4096, &cfg.out.path);
+        let old = new_input_file(&cfg.ex_arch.path);
+        let new = new_output_file(&cfg.out, cfg.clobber);
         let prg = Progress::new(&cfg);
         let tp  = ThreadPool::new(cfg.threads, prg);
 
@@ -45,7 +45,7 @@ impl ArchiveModifier {
         }
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
-            let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
+            let mut file_in = new_input_file(&file.path);
 
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());

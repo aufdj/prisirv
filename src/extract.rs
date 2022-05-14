@@ -26,13 +26,14 @@ struct FileWriter {
     file_in:       FileData,                           // Current input file data
     file_out_pos:  u64,                                // Current output file position
     dir_out:       String,                             // Output directory
+    clobber:       bool,
 }
 impl FileWriter {
-    fn new(files: Vec<FileData>, dir_out: &str) -> FileWriter {
+    fn new(files: Vec<FileData>, dir_out: &str, clobber: bool) -> FileWriter {
         let mut files = files.into_iter();
 
         let file_in = files.next().unwrap();
-        let mut file_out = next_file(&file_in, dir_out);  
+        let mut file_out = next_file(&file_in, dir_out, clobber);  
         file_out.seek(SeekFrom::Start(file_in.seg_beg)).unwrap();        
 
         FileWriter {
@@ -41,12 +42,13 @@ impl FileWriter {
             file_out_pos: file_in.seg_beg,
             file_out,
             file_in,
+            clobber,
         }
     }
     /// Switch to new file when current is correct size.
     fn update(&mut self) {
         let file_in = self.files.next().unwrap();
-        self.file_out = next_file(&file_in, &self.dir_out);
+        self.file_out = next_file(&file_in, &self.dir_out, self.clobber);
         self.file_out_pos = file_in.seg_beg;
         self.file_in = file_in;
     }
@@ -65,12 +67,12 @@ impl FileWriter {
 ///
 /// The input file length is needed to know when the output file is the 
 /// correct size.
-fn next_file(file_in: &FileData, dir_out: &str) -> BufWriter<File> {
-    let file_out_path = fmt_file_out_extract(dir_out, &file_in.path);
-    if file_out_path.exists() {
-        return new_output_file_no_trunc(4096, &file_out_path)
+fn next_file(file_in: &FileData, dir_out: &str, clobber: bool) -> BufWriter<File> {
+    let file_out = fmt_file_out_extract(dir_out, &file_in.path);
+    if file_out.path.exists() {
+        return new_output_file_no_trunc(&file_out)
     }
-    new_output_file(4096, &file_out_path)
+    new_output_file(&file_out, clobber)
 }
 
 /// An Extractor extracts archives.
@@ -84,10 +86,10 @@ impl Extractor {
     pub fn new(cfg: Config) -> Extractor {
         let archive = 
         if cfg.mode == Mode::ExtractArchive {
-            new_input_file(4096, &cfg.inputs[0].path)
+            new_input_file(&cfg.inputs[0].path)
         }
         else {
-            new_input_file(4096, &cfg.ex_arch.path)
+            new_input_file(&cfg.ex_arch.path)
         };
 
         let prg = Progress::new(&cfg);
@@ -101,7 +103,7 @@ impl Extractor {
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
-        new_dir(&self.cfg.out, self.cfg.clbr);
+        new_dir(&self.cfg.out, self.cfg.clobber);
         
         let mut blk = Block::default();
 
@@ -123,7 +125,11 @@ impl Extractor {
                     break; 
                 }
                 
-                let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str());
+                let mut fw = FileWriter::new(
+                    blk.files.clone(), 
+                    self.cfg.out.path_str(), 
+                    self.cfg.clobber
+                );
 
                 for byte in blk.data.iter() {
                     fw.write_byte(*byte);
@@ -179,7 +185,11 @@ impl Extractor {
 
                 blk.files.retain(|blk_file| blk_file.path == file.path);
                 
-                let mut fw = FileWriter::new(blk.files.clone(), self.cfg.out.path_str());
+                let mut fw = FileWriter::new(
+                    blk.files.clone(), 
+                    self.cfg.out.path_str(), 
+                    self.cfg.clobber
+                );
 
                 let file = &blk.files[0];
 

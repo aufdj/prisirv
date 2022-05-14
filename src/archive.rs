@@ -9,7 +9,7 @@ use crate::{
     config::{Config, Align},
     buffered_io::{
         BufferedRead, BufferedWrite,
-        new_input_file, new_output_file_checked,
+        new_input_file, new_output_file,
     },
     block::Block,
 };
@@ -28,7 +28,7 @@ impl Archiver {
     pub fn new(cfg: Config) -> Archiver {
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(cfg.threads, prg);
-        let archive = new_output_file_checked(&cfg.out, cfg.clbr);
+        let archive = new_output_file(&cfg.out, cfg.clobber);
 
         Archiver { 
             archive, cfg, tp, 
@@ -41,7 +41,7 @@ impl Archiver {
 
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
-            let mut file_in = new_input_file(self.cfg.blk_sz, &file.path);
+            let mut file_in = new_input_file(&file.path);
             file.blk_pos = blk.data.len() as u64;
 
             for _ in 0..file.len {

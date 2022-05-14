@@ -180,9 +180,9 @@ impl BufferedWrite for BufWriter<File> {
 
 
 /// Takes a file path and returns an input file wrapped in a BufReader.
-pub fn new_input_file(capacity: usize, path: &Path) -> BufReader<File> {
+pub fn new_input_file(path: &Path) -> BufReader<File> {
     BufReader::with_capacity(
-        capacity, 
+        4096, 
         match File::open(path) {
             Ok(file) => file,
             Err(e) => match e.kind() {
@@ -201,20 +201,20 @@ pub fn new_input_file(capacity: usize, path: &Path) -> BufReader<File> {
 }
 
 /// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file_no_trunc(capacity: usize, path: &Path) -> BufWriter<File> {
+pub fn new_output_file_no_trunc(file: &FileData) -> BufWriter<File> {
     BufWriter::with_capacity(
-        capacity, 
-        match OpenOptions::new().write(true).open(path) {
+        4096, 
+        match OpenOptions::new().write(true).open(&file.path) {
             Ok(file) => file,
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => {
-                    error::file_not_found(path);
+                    error::file_not_found(&file.path);
                 }
                 ErrorKind::PermissionDenied => {
-                    error::permission_denied(path);
+                    error::permission_denied(&file.path);
                 }
                 _ => {
-                    error::file_general(path);
+                    error::file_general(&file.path);
                 }
             }
         }
@@ -223,35 +223,29 @@ pub fn new_output_file_no_trunc(capacity: usize, path: &Path) -> BufWriter<File>
 
 
 /// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file(capacity: usize, path: &Path) -> BufWriter<File> {
+pub fn new_output_file(file: &FileData, clobber: bool) -> BufWriter<File> {
+    if !file.path.exists() || file.len == 0 {}
+    else if !clobber { 
+        error::file_already_exists(&file.path);
+    }
+    else {}
     BufWriter::with_capacity(
-        capacity, 
-        match File::create(path) {
+        4096,
+        match File::create(&file.path) {
             Ok(file) => file,
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => {
-                    error::file_not_found(path);
+                    error::file_not_found(&file.path);
                 }
                 ErrorKind::PermissionDenied => {
-                    error::permission_denied(path);
+                    error::permission_denied(&file.path);
                 }
                 _ => {
-                    error::file_general(path);
+                    error::file_general(&file.path);
                 }
             }
         }
     )
-}
-
-/// Create a new file only if the clobber flag is set, the file doesn't
-/// already exist, or the existing file is empty.
-pub fn new_output_file_checked(file: &FileData, clobber: bool) -> BufWriter<File> {
-    if !file.path.exists() || file.len == 0 {}
-    else if !clobber { 
-        error::file_already_exists(&file.path); 
-    }
-    else {}
-    new_output_file(4096, &file.path)
 }
 
 /// Create a new directory only if the clobber flag is set, the directory 
