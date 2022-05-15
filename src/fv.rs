@@ -132,7 +132,7 @@ impl Image {
         self.pixels[i+2] = clamp(c);
     }
     fn save_bmp(&mut self, file: &FileData, clobber: bool) {
-        let mut file_out = new_output_file(file, clobber);
+        let mut file_out = new_output_file(file, clobber).unwrap();
         let file_size    = (54 + self.pixels.len()) as u32;
         let image_size   = (self.width * self.height * 3) as u32;
 
@@ -160,7 +160,7 @@ impl Image {
 pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> ! {
     let time        = Instant::now();
     let size        = file.len;
-    let mut file_in = new_input_file(&file.path);
+    let mut file_in = new_input_file(&file.path).unwrap();
     let file_name   = &format!("{}.bmp", file.path.name_no_ext());
     let file_out    = FileData::new(PathBuf::from(file_name));
 

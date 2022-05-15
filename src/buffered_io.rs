@@ -2,15 +2,12 @@ use std::{
     fs::{File, create_dir, OpenOptions},
     path::Path,
     io::{
-        Read, Write, BufReader, BufWriter,
-        BufRead, ErrorKind
+        self, Read, Write, BufReader, 
+        BufWriter, BufRead, ErrorKind
     },
 };
 
-use crate::{
-    error,
-    filedata::FileData,
-};
+use crate::filedata::FileData;
 
 // Indicates an empty or non-empty buffer. 
 #[derive(PartialEq, Eq)]
@@ -67,8 +64,8 @@ impl BufferedRead for BufReader<File> {
         }
         u32::from_le_bytes(bytes)
     }
-    /// Read 8 bytes from an input file, taking care to handle reading 
-    /// across buffer boundaries.
+    /// Read 8 bytes from an input file, taking care 
+    /// to handle reading across buffer boundaries.
     fn read_u64(&mut self) -> u64 {
         let mut bytes = [0u8; 8];
 
@@ -180,87 +177,46 @@ impl BufferedWrite for BufWriter<File> {
 
 
 /// Takes a file path and returns an input file wrapped in a BufReader.
-pub fn new_input_file(path: &Path) -> BufReader<File> {
-    BufReader::with_capacity(
-        4096, 
-        match File::open(path) {
-            Ok(file) => file,
-            Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    error::file_not_found(path);
-                }
-                ErrorKind::PermissionDenied => {
-                    error::permission_denied(path);
-                }
-                _ => {
-                    error::file_general(path);
-                }
-            }
-        }
-    )
-}
-
-/// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file_no_trunc(file: &FileData) -> BufWriter<File> {
-    BufWriter::with_capacity(
-        4096, 
-        match OpenOptions::new().write(true).open(&file.path) {
-            Ok(file) => file,
-            Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    error::file_not_found(&file.path);
-                }
-                ErrorKind::PermissionDenied => {
-                    error::permission_denied(&file.path);
-                }
-                _ => {
-                    error::file_general(&file.path);
-                }
-            }
-        }
-    )
-}
-
-
-/// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file(file: &FileData, clobber: bool) -> BufWriter<File> {
-    if !file.path.exists() || file.len == 0 {}
-    else if !clobber { 
-        error::file_already_exists(&file.path);
+pub fn new_input_file(path: &Path) -> io::Result<BufReader<File>> {
+    match File::open(path) {
+        Ok(file) => Ok(BufReader::with_capacity(4096, file)),
+        Err(err) => Err(err),
     }
-    else {}
-    BufWriter::with_capacity(
-        4096,
+}
+
+/// Takes a file path and returns an output file wrapped in a BufWriter.
+pub fn new_output_file_no_trunc(file: &FileData) -> io::Result<BufWriter<File>> {
+    match OpenOptions::new().write(true).open(&file.path) {
+        Ok(file) => Ok(BufWriter::with_capacity(4096, file)),
+        Err(err) => Err(err),
+    }
+}
+
+
+pub fn new_output_file(file: &FileData, clobber: bool) -> io::Result<BufWriter<File>> {
+    if !file.path.exists() || file.len == 0 || clobber {
         match File::create(&file.path) {
-            Ok(file) => file,
-            Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    error::file_not_found(&file.path);
-                }
-                ErrorKind::PermissionDenied => {
-                    error::permission_denied(&file.path);
-                }
-                _ => {
-                    error::file_general(&file.path);
-                }
-            }
+            Ok(file) => Ok(BufWriter::with_capacity(4096, file)),
+            Err(err) => Err(err),
         }
-    )
+    }
+    else {
+        Err(io::Error::from(ErrorKind::AlreadyExists))
+    }
+    
 }
 
-/// Create a new directory only if the clobber flag is set, the directory 
-/// doesn't already exist, or the existing directory is empty.
-pub fn new_dir(out: &FileData, clobber: bool) {
+/// Create a new directory if it doesn't already exist.
+pub fn new_dir(out: &FileData) -> io::Result<()> {
     if !out.path.exists() {
-        if create_dir(&out.path).is_err() {
-            error::dir_general(&out.path);
+        if let Err(err) = create_dir(&out.path) {
+            return Err(err);
+        }
+        else {
+            return Ok(());
         }
     }
-    else if out.path.read_dir().unwrap().count() == 0 {}
-    else if !clobber {
-        error::dir_already_exists(&out.path);
-    }
-    else {}
+    Ok(())
 }
 
 

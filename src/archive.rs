@@ -28,7 +28,7 @@ impl Archiver {
     pub fn new(cfg: Config) -> Archiver {
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(cfg.threads, prg);
-        let archive = new_output_file(&cfg.out, cfg.clobber);
+        let archive = new_output_file(&cfg.out, cfg.clobber).unwrap();
 
         Archiver { 
             archive, cfg, tp, 
@@ -41,7 +41,7 @@ impl Archiver {
 
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
-            let mut file_in = new_input_file(&file.path);
+            let mut file_in = new_input_file(&file.path).unwrap();
             file.blk_pos = blk.data.len() as u64;
 
             for _ in 0..file.len {

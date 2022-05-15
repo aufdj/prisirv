@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::exit,
     fmt,
 };
@@ -123,36 +123,5 @@ Thread count must be a number 1..128.")
 
 pub fn no_prisirv_archive() -> ! {
     println!("Not a prisirv archive.");
-    exit(0);
-}
-pub fn file_general(path: &Path) -> ! {
-    println!("Couldn't open file {}", path.display());
-    exit(0);
-}
-
-pub fn dir_general(path: &Path) -> ! {
-    println!("Couldn't create directory {}", path.display());
-    exit(0);
-}
-
-pub fn file_already_exists(path: &Path) -> ! {
-    println!("A file at location {} already exists.", path.display());
-    println!("To overwrite existing files, enable file clobbering via '-clb' or '-clobber'.");
-    exit(0);
-}
-
-pub fn file_not_found(path: &Path) -> ! {
-    println!("Couldn't open file {}: Not Found", path.display());
-    exit(0);
-}
-
-pub fn permission_denied(path: &Path) -> ! {
-    println!("Couldn't open file {}: Permission Denied", path.display());
-    exit(0);
-}
-
-pub fn dir_already_exists(path: &Path) -> ! {
-    println!("A directory at location {} already exists.", path.display());
-    println!("To overwrite existing directories, enable file clobbering via '-clb' or '-clobber'.");
     exit(0);
 }

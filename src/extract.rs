@@ -70,9 +70,9 @@ impl FileWriter {
 fn next_file(file_in: &FileData, dir_out: &str, clobber: bool) -> BufWriter<File> {
     let file_out = fmt_file_out_extract(dir_out, &file_in.path);
     if file_out.path.exists() {
-        return new_output_file_no_trunc(&file_out)
+        return new_output_file_no_trunc(&file_out).unwrap();
     }
-    new_output_file(&file_out, clobber)
+    new_output_file(&file_out, clobber).unwrap()
 }
 
 /// An Extractor extracts archives.
@@ -84,14 +84,15 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Extractor {
-        let archive = 
+        let path = 
         if cfg.mode == Mode::ExtractArchive {
-            new_input_file(&cfg.inputs[0].path)
+            &cfg.inputs[0].path
         }
         else {
-            new_input_file(&cfg.ex_arch.path)
+            &cfg.ex_arch.path
         };
 
+        let archive = new_input_file(path).unwrap();
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(cfg.threads, prg);
         
@@ -103,7 +104,7 @@ impl Extractor {
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
     pub fn extract_archive(&mut self) {
-        new_dir(&self.cfg.out, self.cfg.clobber);
+        new_dir(&self.cfg.out).unwrap();
         
         let mut blk = Block::default();
 
@@ -143,14 +144,16 @@ impl Extractor {
         let mut blk = Block::default();
         let file = &self.cfg.inputs[0];
 
-        let blk_id = find_file(file, &self.cfg.ex_arch);
-        if blk_id == None {
-            println!("File not in archive.");
-            std::process::exit(0);
-        }
+        let blk_id = match find_file(file, &self.cfg.ex_arch) {
+            Some(id) => id,
+            None => {
+                println!("File not in archive.");
+                std::process::exit(0);
+            }
+        };
 
         // Skip over blocks preceding block containing target file.
-        for _ in 0..blk_id.unwrap() {
+        for _ in 0..blk_id {
             blk.read_header_from(&mut self.archive);
 
             self.archive.seek(

@@ -47,7 +47,7 @@ impl Crc32 for Path {
     fn crc32(&self) -> u32 {
         let mut crc32 = 0xFFFFFFFF;
     
-        let mut file_in = new_input_file(self);
+        let mut file_in = new_input_file(self).unwrap();
     
         while file_in.fill_buffer() == BufferState::NotEmpty {
             for byte in file_in.buffer().iter() {

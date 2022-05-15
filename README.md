@@ -3,7 +3,7 @@
 Prisirv is a context mixing archiver based on [lpaq1 by Matt Mahoney.](http://mattmahoney.net/dc/#lpaq)
 
 <pre>
-USAGE: PROG_NAME [create|extract] [-i [..]] [OPTIONS|FLAGS]
+USAGE: PROG_NAME [create|extract] [-inputs [..]] [OPTIONS|FLAGS]
 
 REQUIRED: 
     create               Create archive
@@ -19,7 +19,7 @@ OPTIONS:
 
 FLAGS:
    -q,    -quiet         Suppress output other than errors
-   -clb,  -clobber       Allow file clobbering
+   -clobber              Allow file clobbering
    -file-align           Truncate blocks to align with files
    -lzw                  Use LZW compression method
 
@@ -40,8 +40,6 @@ Memory Options:
    -mem 2  15 MiB  -mem 7  387 MiB
    -mem 3  27 MiB  -mem 8  771 MiB
    -mem 4  51 MiB  -mem 9  1539 MiB
-    
-Memory option only applies if context mixing method is used.
 
 Extraction requires same memory option used for archiving.
 Any memory option specified for extraction will be ignored.

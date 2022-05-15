@@ -18,15 +18,15 @@ use crate::{
 /// modification supported is adding files to an existing archive, but in 
 /// the future removing files or changing metadata may be supported.
 pub struct ArchiveModifier {
-    old:    BufReader<File>,
-    new:    BufWriter<File>,
-    cfg:    Config,
-    tp:     ThreadPool,
+    old:  BufReader<File>,
+    new:  BufWriter<File>,
+    cfg:  Config,
+    tp:   ThreadPool,
 }
 impl ArchiveModifier {
     pub fn new(cfg: Config) -> ArchiveModifier {
-        let old = new_input_file(&cfg.ex_arch.path);
-        let new = new_output_file(&cfg.out, cfg.clobber);
+        let old = new_input_file(&cfg.ex_arch.path).unwrap();
+        let new = new_output_file(&cfg.out, cfg.clobber).unwrap();
         let prg = Progress::new(&cfg);
         let tp  = ThreadPool::new(cfg.threads, prg);
 
@@ -45,7 +45,7 @@ impl ArchiveModifier {
         }
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
-            let mut file_in = new_input_file(&file.path);
+            let mut file_in = new_input_file(&file.path).unwrap();
 
             for _ in 0..file.len {
                 blk.data.push(file_in.read_byte());

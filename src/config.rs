@@ -340,6 +340,20 @@ impl Config {
         Ok(cfg)
     }
 
+    //pub fn expand_inputs(&mut self) {
+    //    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
+    //    inputs.iter().cloned()
+    //    .partition(|f| f.path.is_file());
+
+    //    // Walk through directories and collect all files
+    //    for file in fi.into_iter() {
+    //        files.push(file);
+    //    }
+    //    for dir in dirs.iter() {
+    //        collect(&dir.path, files);
+    //    }
+    //}
+
     /// Print information about new archive.
     pub fn print(&self) {
         if !self.quiet {
@@ -455,6 +469,8 @@ impl Default for Config {
     }
 }
 
+
+
 /// Recursively collect all files into a vector for sorting before compression.
 pub fn collect_files(inputs: &[FileData], files: &mut Vec<FileData>) {
     // Group files and directories 
@@ -535,7 +551,7 @@ fn print_program_info() {
     println!();
     println!("  FLAGS:");
     println!("    -q,     -quiet         Suppresses output other than errors");
-    println!("    -clb,   -clobber       Allow file clobbering");
+    println!("    -clobber               Allow file clobbering");
     println!("    -file-align            Truncate blocks to align with file boundaries");
     println!("    -lzw                   Use LZW compression method");
     println!();
