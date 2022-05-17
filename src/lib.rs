@@ -116,7 +116,7 @@ impl Prisirv {
 
         self.cfg.print();
 
-        Extractor::new(self.cfg.clone()).extract_archive()?; 
+        Extractor::new(self.cfg).extract_archive()?; 
         Ok(())
     }
 

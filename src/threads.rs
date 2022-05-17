@@ -13,16 +13,18 @@ use crate::{
     crc32::Crc32,
     block::{Block, BlockQueue},
     config::Method,
+    error::ExtractError,
     lzw,
 };
 
 pub enum Message {
-    NewJob(Job),
+    Compress(A),
+    Decompress(B),
     Terminate,
 }
 
-
-type Job = Box<dyn FnOnce() -> Block + Send + 'static>;
+type A = Box<dyn FnOnce() -> Block + Send + 'static>;
+type B = Box<dyn FnOnce() -> Result<Block, ExtractError> + Send + 'static>;
 type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
 type SharedReceiver   = Arc<Mutex<Receiver<Message>>>;
 type SharedProgress   = Arc<Mutex<Progress>>;
@@ -61,7 +63,7 @@ impl ThreadPool {
 
     pub fn store_block(&mut self, blk_in: Block) {
         self.sndr.send(
-            Message::NewJob(
+            Message::Compress(
                 Box::new(move || {
                     let crtd = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
@@ -79,20 +81,22 @@ impl ThreadPool {
     /// Create a new message containing a job consisting of compressing an
     /// input block and returning the compressed block.
     pub fn compress_block(&mut self, blk_in: Block) {
+        let len = blk_in.data.len();
+        let mem = blk_in.mem as usize;
         self.sndr.send(
-            Message::NewJob(
+            Message::Compress(
                 Box::new(move || {
                     let chksum = (&blk_in.data).crc32();
                     let sizei = blk_in.data.len() as u64;
 
                     let blk_out = 
                     if blk_in.method == Method::Cm {
-                        let mut enc = Encoder::new(blk_in.mem as usize, blk_in.data.len());
+                        let mut enc = Encoder::new(mem, len);
                         enc.compress_block(&blk_in.data);
                         enc.blk_out
                     }
                     else if blk_in.method == Method::Lzw {
-                        lzw::encoder::compress(&blk_in.data, blk_in.mem as usize)
+                        lzw::encoder::compress(&blk_in.data, mem)
                     }
                     else { 
                         blk_in.data 
@@ -103,17 +107,14 @@ impl ThreadPool {
                         .unwrap().as_secs() as u64;
 
                     Block {
-                        method: blk_in.method,
-                        mem:    blk_in.mem,
-                        blk_sz: blk_in.blk_sz,
-                        chksum,
                         sizeo:  blk_out.len() as u64,
-                        sizei, 
-                        files:  blk_in.files,
                         data:   blk_out,
-                        id:     blk_in.id,
+                        chksum,
+                        sizei, 
                         crtd,
+                        ..blk_in
                     }
+                    
                 })
             )
         ).unwrap();
@@ -125,12 +126,12 @@ impl ThreadPool {
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
         self.sndr.send(
-            Message::NewJob(
+            Message::Decompress(
                 Box::new(move || {
                     let blk_out = 
                     if blk_in.method == Method::Cm {
-                        let mut dec = Decoder::new(blk_in.data, mem);
-                        dec.decompress_block(blk_in.sizei as usize)
+                        Decoder::new(blk_in.data, mem)
+                        .decompress_block(blk_in.sizei as usize)
                     }
                     else if blk_in.method == Method::Lzw {
                         lzw::decoder::decompress(&blk_in.data, mem)
@@ -141,21 +142,20 @@ impl ThreadPool {
                     
                     let chksum = (&blk_out).crc32();
                     if chksum != blk_in.chksum {
-                        println!("Incorrect Checksum: Block {}", blk_in.id);
+                        return Err(ExtractError::IncorrectChecksum(blk_in.id));
                     }
                     
-                    Block {
-                        method: blk_in.method,
-                        mem:    blk_in.mem,
-                        blk_sz: blk_in.blk_sz,
-                        chksum,
-                        sizeo:  blk_out.len() as u64,
-                        sizei:  len as u64,
-                        files:  blk_in.files,
-                        data:   blk_out,
-                        id:     blk_in.id,
-                        crtd:   0,
-                    }
+                    Ok(
+                        Block {
+                            sizeo:  blk_out.len() as u64,
+                            sizei:  len as u64,
+                            data:   blk_out,
+                            crtd:   0,
+                            chksum,
+                            ..blk_in
+                        }
+                    )
+                    
                 })
             )
         ).unwrap();   
@@ -193,10 +193,21 @@ impl Thread {
             let message = rcvr.lock().unwrap().recv().unwrap();
 
             match message {
-                Message::NewJob(job) => {
+                Message::Compress(job) => {
                     let blk = job();
                     { prg.lock().unwrap().update(&blk); }
                     bq.lock().unwrap().blocks.push(blk);
+                }
+                Message::Decompress(job) => {
+                    match job() {
+                        Ok(blk) => {
+                            { prg.lock().unwrap().update(&blk); }
+                            bq.lock().unwrap().blocks.push(blk);
+                        }
+                        Err(_) => {
+                            break;
+                        }
+                    };
                 }
                 Message::Terminate => {
                     break;
@@ -205,7 +216,7 @@ impl Thread {
         });
         
         Thread { 
-            handle: Some(handle) 
+            handle: Some(handle)
         }
     }
 }

@@ -147,6 +147,7 @@ impl fmt::Display for ConfigError {
 pub enum ExtractError {
     MalformedBlockHeader(u32),
     FileNotFound(PathBuf),
+    IncorrectChecksum(u32),
 }
 impl fmt::Display for ExtractError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -160,6 +161,11 @@ impl fmt::Display for ExtractError {
                 write!(f, "
                     \r{} not found.\n", 
                     file.display()
+                )
+            }
+            ExtractError::IncorrectChecksum(id) => {
+                write!(f, "
+                    \rBlock {id} checksum is invalid.\n"
                 )
             }
         }

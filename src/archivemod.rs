@@ -39,7 +39,7 @@ impl ArchiveModifier {
         let mut blks_added = 0;
         let mut blk = Block::new(&self.cfg);
         for _ in 0..self.cfg.insert_id {
-            blk.read_from(&mut self.old);
+            blk.read_from(&mut self.old).unwrap();
             self.tp.store_block(blk.clone());
             blk.next();
         }
@@ -82,7 +82,7 @@ impl ArchiveModifier {
         }
 
         loop {
-            blk.read_from(&mut self.old);
+            blk.read_from(&mut self.old).unwrap();
             blk.id += blks_added;
             self.tp.store_block(blk.clone());
             if blk.data.is_empty() { 

@@ -51,7 +51,7 @@ pub fn find_file(file: &FileData, ex_arch: &FileData) -> Result<Option<u32>, Ext
 
         blk.next();
     }
-    return Ok(None);
+    Ok(None)
 }
 
 /// Print archive information.
