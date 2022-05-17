@@ -12,13 +12,17 @@ fn main() {
                     Prisirv::new(cfg).create_archive();  
                 }
                 Mode::ExtractArchive => { 
-                    Prisirv::new(cfg).extract_archive(); 
+                    if let Err(err) = Prisirv::new(cfg).extract_archive() {
+                        println!("{err}");
+                    } 
                 }
                 Mode::AddFiles => { 
                     Prisirv::new(cfg).add_files();
                 }
                 Mode::ExtractFiles => { 
-                    Prisirv::new(cfg).extract_files(); 
+                    if let Err(err) = Prisirv::new(cfg).extract_files() {
+                        println!("{err}");
+                    }  
                 }
             }
         }

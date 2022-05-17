@@ -7,7 +7,7 @@ use crate::{
     filedata::FileData,
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
-    error,
+    error::ExtractError,
 };
 
 const MGC: u32 = 0x5653_5250;
@@ -71,8 +71,8 @@ impl Block {
         }
     }
     /// Read entire block
-    pub fn read_from(&mut self, archive: &mut BufReader<File>) {
-        self.read_header_from(archive);
+    pub fn read_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ExtractError>  {
+        self.read_header_from(archive)?;
 
         self.data.reserve(self.blk_sz);
         
@@ -80,12 +80,11 @@ impl Block {
         for _ in 0..self.sizeo {
             self.data.push(archive.read_byte());
         }
+        Ok(())
     }
     /// Read block header
-    pub fn read_header_from(&mut self, archive: &mut BufReader<File>) {
-        if archive.read_u32() != MGC { 
-            error::no_prisirv_archive(); 
-        }
+    pub fn read_header_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ExtractError> {
+        let mgc       = archive.read_u32();
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
         self.method   = Method::from(archive.read_byte());
@@ -94,6 +93,10 @@ impl Block {
         self.sizeo    = archive.read_u64();
         self.sizei    = archive.read_u64();
         let num_files = archive.read_u32();
+
+        if mgc != MGC { 
+            return Err(ExtractError::MalformedBlockHeader(self.id));
+        }
 
         let mut path: Vec<u8> = Vec::with_capacity(64);
 
@@ -127,6 +130,7 @@ impl Block {
                 }
             }
         }
+        Ok(())
     }
     pub fn size(&self) -> u64 {
         let mut total: u64 = 0;
@@ -182,8 +186,6 @@ impl BlockQueue {
     /// added to the queue yet, do nothing.
     pub fn try_get_block(&mut self) -> Option<Block> {
         let mut i: usize = 0;
-        //println!("looking for block {}", self.next_out);
-        //println!("blocks: {:#?}", self.blocks);
         while i < self.blocks.len() {
             if self.blocks[i].id == self.next_out {
                 let blk = self.blocks[i].clone();

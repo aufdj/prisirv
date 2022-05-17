@@ -25,7 +25,7 @@ use crate::{
     filedata::FileData,
     config::{Config, Mode},
     sort::Sort,
-    error::ConfigError,
+    error::{ConfigError, ExtractError},
     formatting::fmt_root_output,
 };
 
@@ -39,54 +39,54 @@ pub struct Prisirv {
 }
 impl Prisirv {
     /// Choose number of threads to use.
-    pub fn threads(&mut self, count: usize) -> &mut Self {
+    pub fn threads(mut self, count: usize) -> Self {
         self.cfg.threads = count;
-        &mut *self
+        self
     }
 
     /// Supress output other than errors.
-    pub fn quiet(&mut self) -> &mut Self {
+    pub fn quiet(mut self) -> Self {
         self.cfg.quiet = true;
-        &mut *self
+        self
     }
 
     /// Allow clobbering of files.
-    pub fn clobber(&mut self) -> &mut Self {
+    pub fn clobber(mut self) -> Self {
         self.cfg.clobber = true;
-        &mut *self
+        self
     }
 
     /// Choose block size in MiB.
-    pub fn block_size(&mut self, size: usize) -> &mut Self {
+    pub fn block_size(mut self, size: usize) -> Self {
         self.cfg.blk_sz = size*1024*1024;
-        &mut *self
+        self
     }
 
     /// Choose memory option (0..9)
-    pub fn memory(&mut self, mem: u64) -> Result<&mut Self, ConfigError> {
+    pub fn memory(mut self, mem: u64) -> Result<Self, ConfigError> {
         if mem <= 9 {
             self.cfg.mem = 1 << (20 + mem);
         }
         else { 
             return Err(ConfigError::InvalidMemory(mem.to_string()));
         } 
-        Ok(&mut *self)
+        Ok(self)
     }
 
     /// Sort files before solid archiving.
-    pub fn sort(&mut self, method: Sort) -> &mut Self {
+    pub fn sort(mut self, method: Sort) -> Self {
         self.cfg.sort = method;
-        &mut *self
+        self
     }
 
     /// Choose an output path.
-    pub fn output(&mut self, path: &str) -> &mut Self {
+    pub fn output(mut self, path: &str) -> Self {
         self.cfg.user_out = path.to_string();
-        &mut *self
+        self
     }
 
     /// Create archive of supplied paths.
-    pub fn create_archive_of(&mut self, paths: &[&str]) {
+    pub fn create_archive_of(mut self, paths: &[&str]) {
         self.cfg.mode = Mode::CreateArchive;
         let paths = paths.iter()
             .map(PathBuf::from)
@@ -99,11 +99,11 @@ impl Prisirv {
 
         self.cfg.print();
 
-        Archiver::new(self.cfg.clone()).create_archive();  
+        Archiver::new(self.cfg.clone()).create_archive();
     }
 
     /// Extract supplied paths.
-    pub fn extract_archive_of(&mut self, paths: &[&str]) {
+    pub fn extract_archive_of(mut self, paths: &[&str]) -> Result<(), ExtractError> {
         self.cfg.mode = Mode::ExtractArchive;
         let paths = paths.iter()
             .map(PathBuf::from)
@@ -116,7 +116,8 @@ impl Prisirv {
 
         self.cfg.print();
 
-        Extractor::new(self.cfg.clone()).extract_archive(); 
+        Extractor::new(self.cfg.clone()).extract_archive()?; 
+        Ok(())
     }
 
 
@@ -133,15 +134,17 @@ impl Prisirv {
     }
 
     /// Extract inputs specified in Config.
-    pub fn extract_archive(self) {
-        Extractor::new(self.cfg).extract_archive(); 
+    pub fn extract_archive(self) -> Result<(), ExtractError> {
+        Extractor::new(self.cfg).extract_archive()?; 
+        Ok(())
     }
 
     pub fn add_files(self) {
         ArchiveModifier::new(self.cfg).add_files();
     }
 
-    pub fn extract_files(self) {
-        Extractor::new(self.cfg).extract_files(); 
+    pub fn extract_files(self) -> Result<(), ExtractError>  {
+        Extractor::new(self.cfg).extract_files()?; 
+        Ok(())
     }
 }

@@ -158,7 +158,7 @@ impl Config {
                 "-q" | "-quiet" => {
                     parser = Parse::Quiet;
                 }
-                "-clb" | "-clobber" => {
+                "-clobber" => {
                     parser = Parse::Clobber;
                 }
                 "-file-align" => {
@@ -252,7 +252,7 @@ impl Config {
                 }
                 Parse::List => {
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    list_archive(&cfg.ex_arch);
+                    list_archive(&cfg.ex_arch).unwrap();
                 }
                 Parse::Fv => {
                     fv = true;
@@ -268,14 +268,21 @@ impl Config {
                 Parse::AddFiles => {
                     cfg.mode = Mode::AddFiles; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    cfg.insert_id = block_count(&cfg.ex_arch);
+                    cfg.insert_id = block_count(&cfg.ex_arch).unwrap();
                 }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                 }
                 Parse::Insert => {
-                    cfg.insert_id = arg.parse::<usize>().unwrap();
+                    if let Ok(id) = arg.parse::<usize>() {
+                        cfg.insert_id = id;
+                    }
+                    else {
+                        return Err(
+                            ConfigError::InvalidInsertId(arg.to_string())
+                        );
+                    }
                 }
                 Parse::Lzw => {
                     cfg.method = Method::Lzw;
@@ -339,20 +346,6 @@ impl Config {
         
         Ok(cfg)
     }
-
-    //pub fn expand_inputs(&mut self) {
-    //    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-    //    inputs.iter().cloned()
-    //    .partition(|f| f.path.is_file());
-
-    //    // Walk through directories and collect all files
-    //    for file in fi.into_iter() {
-    //        files.push(file);
-    //    }
-    //    for dir in dirs.iter() {
-    //        collect(&dir.path, files);
-    //    }
-    //}
 
     /// Print information about new archive.
     pub fn print(&self) {
@@ -468,7 +461,6 @@ impl Default for Config {
         }
     }
 }
-
 
 
 /// Recursively collect all files into a vector for sorting before compression.

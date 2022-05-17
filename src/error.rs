@@ -1,6 +1,5 @@
 use std::{
     path::PathBuf,
-    process::exit,
     fmt,
 };
 
@@ -16,6 +15,7 @@ pub enum ConfigError {
     InvalidThreadCount(String),
     InvalidInput(PathBuf),
     InvalidSortMethod(SortError),
+    InvalidInsertId(String),
     InputsEmpty,
 }
 
@@ -33,95 +33,135 @@ impl fmt::Display for ConfigError {
         match self {
             ConfigError::InvalidSortCriteria(m) => {
                 write!(f,  "
-{m} is not a valid sort criteria.\n
-Sorting Methods:\n
-    -sort ext      Sort by extension
-    -sort name     Sort by name
-    -sort len      Sort by length
-    -sort prt n    Sort by nth parent directory
-    -sort crtd     Sort by creation time
-    -sort accd     Sort by last access time
-    -sort mod      Sort by last modification time")
+                    \r{m} is not a valid sort criteria.\n
+                    \rSorting Methods:\n
+                    \r    -sort ext      Sort by extension
+                    \r    -sort name     Sort by name
+                    \r    -sort len      Sort by length
+                    \r    -sort prt n    Sort by nth parent directory
+                    \r    -sort crtd     Sort by creation time
+                    \r    -sort accd     Sort by last access time
+                    \r    -sort mod      Sort by last modification time\n"
+                )
             }
-
             ConfigError::InvalidLvl(lvl) => {
                 write!(f,  "
-{lvl} is not a valid directory level.\n
-To sort by nth parent directory, use option
-'-sort prt n'.")
+                    \r{lvl} is not a valid directory level.\n
+                    \rTo sort by nth parent directory, use option
+                    \r'-sort prt n'.\n"
+                )
             }
-
             ConfigError::OutOfRangeMemory(mem) => {
                 write!(f, "
-{mem} is outside the valid range of memory options (0..9).\n
-Memory Options:\n
--mem 0  6 MB   -mem 5  99 MB
--mem 1  9 MB   -mem 6  195 MB
--mem 2  15 MB  -mem 7  387 MB
--mem 3  27 MB  -mem 8  771 MB
--mem 4  51 MB  -mem 9  1539 MB")
+                    \r{mem} is outside the valid range of memory options (0..9).\n
+                    \rMemory Options:\n
+                    \r-mem 0  6 MB   -mem 5  99 MB
+                    \r-mem 1  9 MB   -mem 6  195 MB
+                    \r-mem 2  15 MB  -mem 7  387 MB
+                    \r-mem 3  27 MB  -mem 8  771 MB
+                    \r-mem 4  51 MB  -mem 9  1539 MB\n"
+                )
             }
-
             ConfigError::InvalidMemory(mem) => {
                 write!(f, "
-{mem} is not a valid memory option.\n
-Memory Options:\n
--mem 0  6 MB   -mem 5  99 MB
--mem 1  9 MB   -mem 6  195 MB
--mem 2  15 MB  -mem 7  387 MB
--mem 3  27 MB  -mem 8  771 MB
--mem 4  51 MB  -mem 9  1539 MB")
+                    \r{mem} is not a valid memory option.\n
+                    \rMemory Options:\n
+                    \r-mem 0  6 MB   -mem 5  99 MB
+                    \r-mem 1  9 MB   -mem 6  195 MB
+                    \r-mem 2  15 MB  -mem 7  387 MB
+                    \r-mem 3  27 MB  -mem 8  771 MB
+                    \r-mem 4  51 MB  -mem 9  1539 MB\n"
+                )
             }
-
             ConfigError::InvalidBlockSize(size) => {
-                write!(f, "{size} is not a valid block size.")
+                write!(f, "
+                    \r{size} is not a valid block size.\n"
+                )
             }
-
             ConfigError::InvalidBlockMagnitude(mag) => {
                 write!(f, "
-{mag} is not a valid magnitude.\n
-Valid magnitudes are 'B' (Bytes), 'K' (Kibibytes), 'M' (Mebibytes), or 'G' (Gibibytes)")
+                    \r{mag} is not a valid magnitude.\n
+                    \rValid magnitudes are:
+                    \r'B' (Bytes), 
+                    \r'K' (Kibibytes), 
+                    \r'M' (Mebibytes), 
+                    \r'G' (Gibibytes)\n"
+                )
             }
-
             ConfigError::OutOfRangeThreadCount(count) => {
-                write!(f, "{count} is outside the accepted thread count range (1..128).")
+                write!(f, "
+                    \r{count} is outside the accepted thread count range (1..128).\n"
+                )
             }
-
             ConfigError::InvalidThreadCount(count) => {
                 write!(f, "
-{count} is not a valid thread count.
-Thread count must be a number 1..128.")
+                    \r{count} is not a valid thread count.
+                    \rThread count must be a number 1..128.\n"
+                )
             }
-
             ConfigError::InvalidInput(path) => {
-                write!(f, "{} is not a valid path.", path.display())
+                write!(f, "
+                    \r{} is not a valid path.\n", 
+                    path.display()
+                )
             }
-
             ConfigError::InputsEmpty => {
-                write!(f, "No inputs found.")
+                write!(f, "
+                    No inputs found.\n"
+                )
             }
-
             ConfigError::InvalidSortMethod(method) => {
                 match method {
                     SortError::MetadataNotSupported => {
-                        write!(f, "Metadata not supported.")
+                        write!(f, "
+                            \rMetadata not supported.\n"
+                        )
                     }
                     SortError::CreationTimeNotSupported => {
-                        write!(f, "Creation time metadata not supported.")
+                        write!(f, "
+                            \rCreation time metadata not supported.\n"
+                        )
                     }
                     SortError::AccessTimeNotSupported => {
-                        write!(f, "Access time metadata not supported.")
+                        write!(f, "
+                            \rAccess time metadata not supported.\n"
+                        )
                     }
                     SortError::ModifiedTimeNotSupported => {
-                        write!(f, "Modified time metadata not supported.")
+                        write!(f, "
+                            \rModified time metadata not supported.\n"
+                        )
                     }
                 }
+            }
+            ConfigError::InvalidInsertId(id) => {
+                write!(f, "
+                    \r{id} is not a valid insert id.\n"
+                )
             }
         }
     }
 }
 
-pub fn no_prisirv_archive() -> ! {
-    println!("Not a prisirv archive.");
-    exit(0);
+#[derive(Debug)]
+pub enum ExtractError {
+    MalformedBlockHeader(u32),
+    FileNotFound(PathBuf),
+}
+impl fmt::Display for ExtractError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExtractError::MalformedBlockHeader(id) => {
+                write!(f, "
+                    \rDid not find valid magic number in block {id} header.\n"
+                )
+            }
+            ExtractError::FileNotFound(file) => {
+                write!(f, "
+                    \r{} not found.\n", 
+                    file.display()
+                )
+            }
+        }
+    }
 }

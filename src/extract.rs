@@ -15,6 +15,7 @@ use crate::{
         new_dir, new_output_file_no_trunc,
     },
     archivescan::find_file,
+    error::ExtractError,
 };
 
 
@@ -103,14 +104,14 @@ impl Extractor {
 
     /// Decompress blocks and parse blocks into files. A block can span 
     /// multiple files.
-    pub fn extract_archive(&mut self) {
+    pub fn extract_archive(&mut self) -> Result<(), ExtractError> {
         new_dir(&self.cfg.out).unwrap();
         
         let mut blk = Block::default();
 
         // Read and decompress blocks
         loop {
-            blk.read_from(&mut self.archive);
+            blk.read_from(&mut self.archive)?;
             self.tp.decompress_block(blk.clone());
             if blk.data.is_empty() { 
                 break; 
@@ -138,23 +139,30 @@ impl Extractor {
                 fw.file_out.flush_buffer();
             } 
         }
+        Ok(())
     } 
 
-    pub fn extract_files(&mut self) {
+    pub fn extract_files(&mut self) -> Result<(), ExtractError> {
         let mut blk = Block::default();
         let file = &self.cfg.inputs[0];
 
         let blk_id = match find_file(file, &self.cfg.ex_arch) {
-            Some(id) => id,
-            None => {
-                println!("File not in archive.");
-                std::process::exit(0);
+            Ok(id) => {
+                match id {
+                    Some(id) => id,
+                    None => {
+                        return Err(ExtractError::FileNotFound(file.path.clone()));
+                    }
+                }
+            }
+            Err(err) => {
+                return Err(err);
             }
         };
 
         // Skip over blocks preceding block containing target file.
         for _ in 0..blk_id {
-            blk.read_header_from(&mut self.archive);
+            blk.read_header_from(&mut self.archive)?;
 
             self.archive.seek(
                 SeekFrom::Current(blk.sizeo as i64)
@@ -165,7 +173,7 @@ impl Extractor {
 
         // Read all blocks that contain a segment of the target file.
         loop {
-            blk.read_from(&mut self.archive);
+            blk.read_from(&mut self.archive)?;
             if !blk.files.iter().any(|f| f.path == file.path) {
                 break;
             }
@@ -206,6 +214,7 @@ impl Extractor {
                 fw.file_out.flush_buffer();
             } 
         }
+        Ok(())
     }
 }
 
