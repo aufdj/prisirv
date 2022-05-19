@@ -1,5 +1,9 @@
 use std::{
-    io::{BufWriter, BufReader, Seek, SeekFrom},
+    io::{
+        self, 
+        BufWriter, BufReader, 
+        Seek, SeekFrom
+    },
     fs::File,
 };
 
@@ -18,62 +22,17 @@ use crate::{
     error::ExtractError,
 };
 
-
-/// A decompressed block can span multiple files, so a FileWriter is used 
-/// to handle swapping files when needed while writing a block.
-struct FileWriter {
-    files:         Box<dyn Iterator<Item = FileData>>, // Input file data
-    file_out:      BufWriter<File>,                    // Current output file
-    file_in:       FileData,                           // Current input file data
-    file_out_pos:  u64,                                // Current output file position
-    dir_out:       String,                             // Output directory
-    clobber:       bool,
-}
-impl FileWriter {
-    fn new(files: Vec<FileData>, dir_out: &str, clobber: bool) -> FileWriter {
-        let mut files = files.into_iter();
-
-        let file_in = files.next().unwrap();
-        let mut file_out = next_file(&file_in, dir_out, clobber);  
-        file_out.seek(SeekFrom::Start(file_in.seg_beg)).unwrap();        
-
-        FileWriter {
-            dir_out:      dir_out.to_string(),
-            files:        Box::new(files),
-            file_out_pos: file_in.seg_beg,
-            file_out,
-            file_in,
-            clobber,
-        }
-    }
-    /// Switch to new file when current is correct size.
-    fn update(&mut self) {
-        let file_in = self.files.next().unwrap();
-        self.file_out = next_file(&file_in, &self.dir_out, self.clobber);
-        self.file_out_pos = file_in.seg_beg;
-        self.file_in = file_in;
-    }
-    fn write_byte(&mut self, byte: u8) {
-        if self.file_out_pos == self.file_in.seg_end {
-            self.file_out.flush_buffer();
-            self.update();
-        }
-        self.file_out.write_byte(byte);
-        self.file_out_pos += 1;
-    }
-}
-
 /// Get the next output file and the input file length, the input file being
 /// the original file that was compressed.
 ///
 /// The input file length is needed to know when the output file is the 
 /// correct size.
-fn next_file(file_in: &FileData, dir_out: &str, clobber: bool) -> BufWriter<File> {
+fn next_file(file_in: &FileData, dir_out: &str, clobber: bool) -> io::Result<BufWriter<File>> {
     let file_out = fmt_file_out_extract(dir_out, &file_in.path);
     if file_out.path.exists() {
-        return new_output_file_no_trunc(&file_out).unwrap();
+        return new_output_file_no_trunc(&file_out);
     }
-    new_output_file(&file_out, clobber).unwrap()
+    new_output_file(&file_out, clobber)
 }
 
 /// An Extractor extracts archives.
@@ -121,24 +80,26 @@ impl Extractor {
 
         // Write blocks to output 
         loop {
-            
             if let Some(blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 // Check for sentinel block
                 if blk.data.is_empty() {
                     break; 
                 }
-                
-                let mut fw = FileWriter::new(
-                    blk.files.clone(), 
-                    self.cfg.out.path_str(), 
-                    self.cfg.clobber
-                );
 
-                for byte in blk.data.iter() {
-                    fw.write_byte(*byte);
+                for file in blk.files.iter() {
+                    let mut file_out = next_file(&file, self.cfg.out.path_str(), self.cfg.clobber)?;
+                    file_out.seek(SeekFrom::Start(file.seg_beg))?;
+
+                    // Get segment of block containing target file's data.
+                    let beg = file.blk_pos as usize;
+                    let end = (file.blk_pos + (file.seg_end - file.seg_beg)) as usize;
+                
+                    for byte in blk.data[beg..end].iter() {
+                        file_out.write_byte(*byte);
+                    }
+                    file_out.flush_buffer();
                 }
-                fw.file_out.flush_buffer();
-            } 
+            }
         }
         Ok(())
     } 
@@ -160,10 +121,7 @@ impl Extractor {
         // Skip over blocks preceding block containing target file.
         for _ in 0..blk_id {
             blk.read_header_from(&mut self.archive)?;
-
-            self.archive.seek(
-                SeekFrom::Current(blk.sizeo as i64)
-            ).unwrap();
+            self.archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
         }
 
         let mut id = 0;
@@ -192,23 +150,20 @@ impl Extractor {
                 }
 
                 blk.files.retain(|blk_file| blk_file.path == file.path);
-                
-                let mut fw = FileWriter::new(
-                    blk.files.clone(), 
-                    self.cfg.out.path_str(), 
-                    self.cfg.clobber
-                );
 
-                let file = &blk.files[0];
+                for file in blk.files.iter() {
+                    let mut file_out = next_file(&file, self.cfg.out.path_str(), self.cfg.clobber)?;
+                    file_out.seek(SeekFrom::Start(file.seg_beg))?;
 
-                // Get segment of block containing target file's data.
-                let beg = file.blk_pos as usize;
-                let end = (file.blk_pos + (file.seg_end - file.seg_beg)) as usize;
+                    // Get segment of block containing target file's data.
+                    let beg = file.blk_pos as usize;
+                    let end = (file.blk_pos + (file.seg_end - file.seg_beg)) as usize;
                 
-                for byte in blk.data[beg..end].iter() {
-                    fw.write_byte(*byte);
+                    for byte in blk.data[beg..end].iter() {
+                        file_out.write_byte(*byte);
+                    }
+                    file_out.flush_buffer();
                 }
-                fw.file_out.flush_buffer();
             } 
         }
         Ok(())

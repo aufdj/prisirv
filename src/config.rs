@@ -245,7 +245,7 @@ impl Config {
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                     let info = ArchiveInfo::new(&cfg.ex_arch).unwrap();
                     println!("{info}");
-                    //list_archive(&cfg.ex_arch).unwrap();
+                    std::process::exit(0);
                 }
                 Parse::Fv => {
                     fv = true;
