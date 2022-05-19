@@ -13,7 +13,7 @@ mod fv;
 mod block;
 mod cm;
 mod lzw;
-mod archivescan;
+mod archiveinfo;
 
 use std::path::PathBuf;
 

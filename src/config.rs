@@ -6,11 +6,7 @@ use crate::{
     formatting::fmt_root_output,
     error::ConfigError,
     filedata::FileData,
-    archivescan::{
-        block_count, 
-        list_archive,
-        find_eod,
-    },
+    archiveinfo::ArchiveInfo,
 };
 
 
@@ -89,8 +85,8 @@ pub struct Config {
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
     pub ex_arch:    FileData,      // An existing Prisirv archive
-    pub insert_id:  u32,           // Where to insert new blocks into an existing archive
-    pub insert_pos: u64,
+    pub insert_id:  u32,           // Starting id of new blocks appended to archive
+    pub insert_pos: u64,           // Where to insert new blocks
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.
@@ -247,7 +243,9 @@ impl Config {
                 }
                 Parse::List => {
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    list_archive(&cfg.ex_arch).unwrap();
+                    let info = ArchiveInfo::new(&cfg.ex_arch).unwrap();
+                    println!("{info}");
+                    //list_archive(&cfg.ex_arch).unwrap();
                 }
                 Parse::Fv => {
                     fv = true;
@@ -263,8 +261,9 @@ impl Config {
                 Parse::AppendFiles => {
                     cfg.mode = Mode::AppendFiles; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    cfg.insert_id = block_count(&cfg.ex_arch).unwrap();
-                    cfg.insert_pos = find_eod(&cfg.ex_arch).unwrap();
+                    let info = ArchiveInfo::new(&cfg.ex_arch).unwrap();
+                    cfg.insert_id = info.block_count();
+                    cfg.insert_pos = info.end_of_data();
                 }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;

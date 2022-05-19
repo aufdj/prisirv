@@ -14,7 +14,7 @@ use crate::{
         BufferedWrite, new_input_file, new_output_file, 
         new_dir, new_output_file_no_trunc,
     },
-    archivescan::find_file,
+    archiveinfo::find_file,
     error::ExtractError,
 };
 

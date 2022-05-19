@@ -54,7 +54,7 @@ impl Progress {
         self.current += blk.sizei;
         if self.mode == Mode::CreateArchive
         || self.mode == Mode::AppendFiles {
-            self.sizeo += blk.size(); 
+            self.sizeo += blk.size();
         }
         else { 
             self.sizeo += blk.sizeo; 
