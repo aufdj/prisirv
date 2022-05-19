@@ -12,12 +12,12 @@ use crate::{
     progress::Progress,
     crc32::Crc32,
     block::{Block, BlockQueue},
-    config::Method,
+    config::{Config, Method},
     error::ExtractError,
     lzw,
 };
 
-pub enum Message {
+pub enum Task {
     Compress(A),
     Decompress(B),
     Terminate,
@@ -26,7 +26,7 @@ pub enum Message {
 type A = Box<dyn FnOnce() -> Block + Send + 'static>;
 type B = Box<dyn FnOnce() -> Result<Block, ExtractError> + Send + 'static>;
 type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
-type SharedReceiver   = Arc<Mutex<Receiver<Message>>>;
+type SharedReceiver   = Arc<Mutex<Receiver<Task>>>;
 type SharedProgress   = Arc<Mutex<Progress>>;
 
 /// A threadpool spawns a set number of threads and handles sending new 
@@ -34,20 +34,20 @@ type SharedProgress   = Arc<Mutex<Progress>>;
 /// compressed or decompressed block.
 pub struct ThreadPool {
     threads:  Vec<Thread>,
-    sndr:     Sender<Message>,
+    sndr:     Sender<Task>,
     pub bq:   SharedBlockQueue,
 }
 impl ThreadPool {
     /// Create a new ThreadPool.
-    pub fn new(size: usize, prg: Progress) -> ThreadPool {
+    pub fn new(cfg: &Config, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
-        let mut threads = Vec::with_capacity(size);
+        let mut threads = Vec::with_capacity(cfg.threads);
 
         let rcvr = Arc::new(Mutex::new(rcvr));
-        let bq   = Arc::new(Mutex::new(BlockQueue::new()));
+        let bq   = Arc::new(Mutex::new(BlockQueue::new(cfg.insert_id)));
         let prg  = Arc::new(Mutex::new(prg));
 
-        for _ in 0..size {
+        for _ in 0..cfg.threads {
             threads.push(
                 Thread::new(
                     Arc::clone(&rcvr), 
@@ -63,7 +63,7 @@ impl ThreadPool {
 
     pub fn store_block(&mut self, blk_in: Block) {
         self.sndr.send(
-            Message::Compress(
+            Task::Compress(
                 Box::new(move || {
                     let crtd = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
@@ -78,28 +78,29 @@ impl ThreadPool {
         ).unwrap();
     }
     
-    /// Create a new message containing a job consisting of compressing an
+    /// Create a new task containing a job consisting of compressing an
     /// input block and returning the compressed block.
     pub fn compress_block(&mut self, blk_in: Block) {
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
         self.sndr.send(
-            Message::Compress(
+            Task::Compress(
                 Box::new(move || {
                     let chksum = (&blk_in.data).crc32();
                     let sizei = blk_in.data.len() as u64;
 
-                    let blk_out = 
-                    if blk_in.method == Method::Cm {
-                        let mut enc = Encoder::new(mem, len);
-                        enc.compress_block(&blk_in.data);
-                        enc.blk_out
-                    }
-                    else if blk_in.method == Method::Lzw {
-                        lzw::encoder::compress(&blk_in.data, mem)
-                    }
-                    else { 
-                        blk_in.data 
+                    let blk_out = match blk_in.method {
+                        Method::Cm => {
+                            let mut enc = Encoder::new(mem, len);
+                            enc.compress_block(&blk_in.data);
+                            enc.blk_out
+                        }
+                        Method::Lzw => {
+                            lzw::encoder::compress(&blk_in.data, mem)
+                        }
+                        Method::Store => {
+                            blk_in.data
+                        }
                     };
                     
                     let crtd = SystemTime::now()
@@ -120,24 +121,25 @@ impl ThreadPool {
         ).unwrap();
     }
 
-    /// Create a new message containing a job consisting of decompressing
+    /// Create a new task containing a job consisting of decompressing
     /// an input block and returning the decompressed block.
     pub fn decompress_block(&mut self, blk_in: Block) {
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
         self.sndr.send(
-            Message::Decompress(
+            Task::Decompress(
                 Box::new(move || {
-                    let blk_out = 
-                    if blk_in.method == Method::Cm {
-                        Decoder::new(blk_in.data, mem)
-                        .decompress_block(blk_in.sizei as usize)
-                    }
-                    else if blk_in.method == Method::Lzw {
-                        lzw::decoder::decompress(&blk_in.data, mem)
-                    }
-                    else { 
-                        blk_in.data 
+                    let blk_out = match blk_in.method {
+                        Method::Cm => {
+                            Decoder::new(blk_in.data, mem)
+                            .decompress_block(blk_in.sizei as usize)
+                        }
+                        Method::Lzw => {
+                            lzw::decoder::decompress(&blk_in.data, mem)
+                        }
+                        Method::Store => {
+                            blk_in.data 
+                        }
                     };
                     
                     let chksum = (&blk_out).crc32();
@@ -162,11 +164,11 @@ impl ThreadPool {
     }
 }
 
-/// Send a terminate message to every spawned thread and join all handles.
+/// Send a terminate task to every spawned thread and join all handles.
 impl Drop for ThreadPool {
     fn drop(&mut self) {
         for _ in &self.threads {
-            self.sndr.send(Message::Terminate).unwrap();
+            self.sndr.send(Task::Terminate).unwrap();
         }
 
         for thread in &mut self.threads {
@@ -190,15 +192,15 @@ impl Thread {
     /// to terminate the thread.
     fn new(rcvr: SharedReceiver, bq: SharedBlockQueue, prg: SharedProgress) -> Thread {
         let handle = thread::spawn(move || loop {
-            let message = rcvr.lock().unwrap().recv().unwrap();
+            let task = rcvr.lock().unwrap().recv().unwrap();
 
-            match message {
-                Message::Compress(job) => {
+            match task {
+                Task::Compress(job) => {
                     let blk = job();
                     { prg.lock().unwrap().update(&blk); }
                     bq.lock().unwrap().blocks.push(blk);
                 }
-                Message::Decompress(job) => {
+                Task::Decompress(job) => {
                     match job() {
                         Ok(blk) => {
                             { prg.lock().unwrap().update(&blk); }
@@ -209,7 +211,7 @@ impl Thread {
                         }
                     };
                 }
-                Message::Terminate => {
+                Task::Terminate => {
                     break;
                 }
             }

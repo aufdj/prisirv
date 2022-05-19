@@ -9,6 +9,7 @@ use crate::{
     archivescan::{
         block_count, 
         list_archive,
+        find_eod,
     },
 };
 
@@ -32,8 +33,7 @@ enum Parse {
     Align,
     Lzw,
     Store,
-    AddFiles,
-    Insert,
+    AppendFiles,
     ExtractFiles,
 }
 
@@ -41,7 +41,7 @@ enum Parse {
 pub enum Mode {
     CreateArchive,
     ExtractArchive,
-    AddFiles,
+    AppendFiles,
     ExtractFiles,
 }
 
@@ -56,7 +56,6 @@ pub enum Method {
     Cm,
     Lzw,
     Store,
-    None,
 }
 impl Default for Method {
     fn default() -> Method {
@@ -69,7 +68,7 @@ impl From<u8> for Method {
             0 => Method::Cm,
             1 => Method::Lzw,
             2 => Method::Store,
-            _ => Method::None,
+            _ => Method::Store,
         }
     }
 }
@@ -91,7 +90,8 @@ pub struct Config {
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
     pub ex_arch:    FileData,      // An existing Prisirv archive
-    pub insert_id:  usize,         // Where to insert new blocks into an existing archive
+    pub insert_id:  u32,           // Where to insert new blocks into an existing archive
+    pub insert_pos: u64,
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.
@@ -135,16 +135,12 @@ impl Config {
                     parser = Parse::Fv;
                     continue;
                 }
-                "add-files" => {
-                    parser = Parse::AddFiles;
-                    continue;
-                }
-                "-insert-at" => {
-                    parser = Parse::Insert;
-                    continue;
-                }
                 "-lzw" => {
                     parser = Parse::Lzw;
+                }
+                "append" => {
+                    parser = Parse::AppendFiles;
+                    continue;
                 }
                 "-store" => {
                     parser = Parse::Store;
@@ -265,24 +261,15 @@ impl Config {
                         cfg.inputs.push(FileData::new(PathBuf::from(arg)));
                     }
                 }
-                Parse::AddFiles => {
-                    cfg.mode = Mode::AddFiles; 
+                Parse::AppendFiles => {
+                    cfg.mode = Mode::AppendFiles; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
                     cfg.insert_id = block_count(&cfg.ex_arch).unwrap();
+                    cfg.insert_pos = find_eod(&cfg.ex_arch).unwrap();
                 }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                }
-                Parse::Insert => {
-                    if let Ok(id) = arg.parse::<usize>() {
-                        cfg.insert_id = id;
-                    }
-                    else {
-                        return Err(
-                            ConfigError::InvalidInsertId(arg.to_string())
-                        );
-                    }
                 }
                 Parse::Lzw => {
                     cfg.method = Method::Lzw;
@@ -329,7 +316,7 @@ impl Config {
 
         cfg.print();
 
-        if cfg.mode == Mode::CreateArchive || cfg.mode == Mode::AddFiles {
+        if cfg.mode == Mode::CreateArchive || cfg.mode == Mode::AppendFiles {
             let mut files = Vec::new();
             collect_files(&cfg.inputs, &mut files);
 
@@ -358,7 +345,7 @@ impl Config {
             }
             else {
                 println!("=============================================================");
-                if self.mode == Mode::AddFiles {
+                if self.mode == Mode::AppendFiles {
                     println!(" Adding to archive {}", self.ex_arch.path.display());
                 }
                 else {
@@ -390,9 +377,11 @@ impl Config {
                 }
                 println!();
     
-                println!(" Output Path:     {}", self.out.path.display());
-    
-                if self.mode == Mode::CreateArchive || self.mode == Mode::AddFiles {
+                if self.mode != Mode::AppendFiles {
+                    println!(" Output Path:     {}", self.out.path.display());
+                }
+                
+                if self.mode == Mode::CreateArchive || self.mode == Mode::AppendFiles {
                     println!(" Method:          {}", 
                         if self.method == Method::Cm { 
                             "Context Mixing" 
@@ -458,6 +447,7 @@ impl Default for Config {
             method:     Method::Cm,
             ex_arch:    FileData::default(),
             insert_id:  0,
+            insert_pos: 0,
         }
     }
 }
@@ -537,8 +527,7 @@ fn print_program_info() {
     println!("    -blk,   -block-size    Specify block size       (Default - 10 MiB)");
     println!("    -threads               Specify thread count     (Default - 4)");
     println!("    -sort                  Sort files               (Default - none)");
-    println!("     add-files a           Add files to existing archive 'a'");
-    println!("    -insert-at n           Insert added files as block 'n'");
+    println!("     append a              Append files to existing archive 'a'");
     println!("     extract-files a       Extract files from existing archive 'a'");
     println!();
     println!("  FLAGS:");

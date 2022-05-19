@@ -81,7 +81,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
         Mode::ExtractArchive => {
             out.push_str("_d");
         }
-        Mode::AddFiles => {
+        Mode::AppendFiles => {
             out.push_str("_add.prsv");
         }
         Mode::ExtractFiles => {

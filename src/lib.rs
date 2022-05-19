@@ -6,14 +6,13 @@ mod buffered_io;
 mod formatting;    
 mod threads;
 mod progress; 
-pub mod config;     
+pub mod config;
 pub mod crc32;
 mod error;
 mod fv;
 mod block;
 mod cm;
 mod lzw;
-mod archivemod;
 mod archivescan;
 
 use std::path::PathBuf;
@@ -21,14 +20,16 @@ use std::path::PathBuf;
 use crate::{
     archive::Archiver,
     extract::Extractor,
-    archivemod::ArchiveModifier,
     filedata::FileData,
     config::{Config, Mode},
     sort::Sort,
-    error::{ConfigError, ExtractError},
+    error::{
+        ConfigError, 
+        ArchiveError, 
+        ExtractError
+    },
     formatting::fmt_root_output,
 };
-
 
 
 /// Prisirv API. Allows for creating or extracting a Prisirv archive
@@ -86,7 +87,7 @@ impl Prisirv {
     }
 
     /// Create archive of supplied paths.
-    pub fn create_archive_of(mut self, paths: &[&str]) {
+    pub fn create_archive_of(mut self, paths: &[&str]) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::CreateArchive;
         let paths = paths.iter()
             .map(PathBuf::from)
@@ -99,7 +100,8 @@ impl Prisirv {
 
         self.cfg.print();
 
-        Archiver::new(self.cfg.clone()).create_archive();
+        Archiver::new(self.cfg).create_archive()?;
+        Ok(())
     }
 
     /// Extract supplied paths.
@@ -129,22 +131,24 @@ impl Prisirv {
     }
 
     /// Create an archive from inputs specified in Config.
-    pub fn create_archive(self) {
-        Archiver::new(self.cfg).create_archive();  
+    pub fn create_archive(self) -> Result<(), ArchiveError> {
+        Archiver::new(self.cfg).create_archive()?; 
+        Ok(())
     }
 
     /// Extract inputs specified in Config.
     pub fn extract_archive(self) -> Result<(), ExtractError> {
-        Extractor::new(self.cfg).extract_archive()?; 
+        Extractor::new(self.cfg).extract_archive()?;
         Ok(())
     }
 
-    pub fn add_files(self) {
-        ArchiveModifier::new(self.cfg).add_files();
+    pub fn append_files(self) -> Result<(), ArchiveError> {
+        Archiver::new(self.cfg).append_files()?;
+        Ok(())
     }
 
     pub fn extract_files(self) -> Result<(), ExtractError>  {
-        Extractor::new(self.cfg).extract_files()?; 
+        Extractor::new(self.cfg).extract_files()?;
         Ok(())
     }
 }

@@ -9,15 +9,19 @@ fn main() {
         Ok(cfg) => {
             match cfg.mode {
                 Mode::CreateArchive => { 
-                    Prisirv::new(cfg).create_archive();  
+                    if let Err(err) = Prisirv::new(cfg).create_archive() {
+                        println!("{err}");
+                    } 
                 }
                 Mode::ExtractArchive => { 
                     if let Err(err) = Prisirv::new(cfg).extract_archive() {
                         println!("{err}");
                     } 
                 }
-                Mode::AddFiles => { 
-                    Prisirv::new(cfg).add_files();
+                Mode::AppendFiles => { 
+                    if let Err(err) = Prisirv::new(cfg).append_files() {
+                        println!("{err}");
+                    }
                 }
                 Mode::ExtractFiles => { 
                     if let Err(err) = Prisirv::new(cfg).extract_files() {

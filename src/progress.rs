@@ -23,7 +23,7 @@ impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
     pub fn new(cfg: &Config) -> Progress {
         let sizei: u64 = 
-        if cfg.mode == Mode::AddFiles {
+        if cfg.mode == Mode::AppendFiles {
             cfg.ex_arch.len
         }
         else {
@@ -45,7 +45,8 @@ impl Progress {
     /// compressed data.
     pub fn update(&mut self, blk: &Block) {
         self.current += blk.sizei;
-        if self.mode == Mode::CreateArchive {
+        if self.mode == Mode::CreateArchive
+        || self.mode == Mode::AppendFiles {
             self.sizeo += blk.size(); 
         }
         else { 

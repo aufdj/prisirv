@@ -170,15 +170,15 @@ impl Block {
 /// which blocks will be compressed/decompressed first, so each block is 
 /// added to a BlockQueue, which handles outputting in the correct order.
 pub struct BlockQueue {
-    pub blocks:  Vec<Block>, // Blocks to be output
-    next_out:    u32,        // Next block to be output
+    pub blocks:   Vec<Block>, // Blocks to be output
+    pub next_out: u32,        // Next block to be output
 }
 impl BlockQueue {
     /// Create a new BlockQueue.
-    pub fn new() -> BlockQueue {
+    pub fn new(start: u32) -> BlockQueue {
         BlockQueue {
             blocks:    Vec::new(),
-            next_out:  0,
+            next_out:  start,
         }
     }
 

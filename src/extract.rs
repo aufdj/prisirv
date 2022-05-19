@@ -85,7 +85,7 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Extractor {
-        let path = 
+        let path =
         if cfg.mode == Mode::ExtractArchive {
             &cfg.inputs[0].path
         }
@@ -95,17 +95,17 @@ impl Extractor {
 
         let archive = new_input_file(path).unwrap();
         let prg = Progress::new(&cfg);
-        let tp = ThreadPool::new(cfg.threads, prg);
+        let tp = ThreadPool::new(&cfg, prg);
         
         Extractor { 
-            archive, cfg, tp, 
+            archive, cfg, tp,
         }
     }
 
-    /// Decompress blocks and parse blocks into files. A block can span 
+    /// Decompress blocks and parse blocks into files. A block can span
     /// multiple files.
     pub fn extract_archive(&mut self) -> Result<(), ExtractError> {
-        new_dir(&self.cfg.out).unwrap();
+        new_dir(&self.cfg.out)?;
         
         let mut blk = Block::default();
 
@@ -113,17 +113,18 @@ impl Extractor {
         loop {
             blk.read_from(&mut self.archive)?;
             self.tp.decompress_block(blk.clone());
-            if blk.data.is_empty() { 
-                break; 
+            if blk.data.is_empty() {
+                break;
             }
             blk.next();
         }
 
         // Write blocks to output 
         loop {
+            
             if let Some(blk) = self.tp.bq.lock().unwrap().try_get_block() {
                 // Check for sentinel block
-                if blk.data.is_empty() { 
+                if blk.data.is_empty() {
                     break; 
                 }
                 
@@ -147,13 +148,9 @@ impl Extractor {
         let file = &self.cfg.inputs[0];
 
         let blk_id = match find_file(file, &self.cfg.ex_arch) {
-            Ok(id) => {
-                match id {
-                    Some(id) => id,
-                    None => {
-                        return Err(ExtractError::FileNotFound(file.path.clone()));
-                    }
-                }
+            Ok(Some(id)) => id, 
+            Ok(None) => {
+                return Err(ExtractError::FileNotFound(file.path.clone()));
             }
             Err(err) => {
                 return Err(err);

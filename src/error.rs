@@ -1,6 +1,7 @@
 use std::{
     path::PathBuf,
     fmt,
+    io,
 };
 
 /// Possible errors encountered while parsing Config arguments.
@@ -26,6 +27,32 @@ pub enum SortError {
     CreationTimeNotSupported,
     AccessTimeNotSupported,
     ModifiedTimeNotSupported,
+}
+
+/// Possible errors encountered during extraction, either reading or 
+/// decompressing.
+#[derive(Debug)]
+pub enum ExtractError {
+    MalformedBlockHeader(u32),
+    FileNotFound(PathBuf),
+    IncorrectChecksum(u32),
+    IoError(io::Error),
+}
+
+impl From<io::Error> for ExtractError {
+    fn from(err: io::Error) -> ExtractError {
+        ExtractError::IoError(err)
+    }
+}
+
+pub enum ArchiveError {
+    IoError(io::Error),
+}
+
+impl From<io::Error> for ArchiveError {
+    fn from(err: io::Error) -> ArchiveError {
+        ArchiveError::IoError(err)
+    }
 }
 
 impl fmt::Display for ConfigError {
@@ -143,12 +170,6 @@ impl fmt::Display for ConfigError {
     }
 }
 
-#[derive(Debug)]
-pub enum ExtractError {
-    MalformedBlockHeader(u32),
-    FileNotFound(PathBuf),
-    IncorrectChecksum(u32),
-}
 impl fmt::Display for ExtractError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -166,6 +187,23 @@ impl fmt::Display for ExtractError {
             ExtractError::IncorrectChecksum(id) => {
                 write!(f, "
                     \rBlock {id} checksum is invalid.\n"
+                )
+            }
+            ExtractError::IoError(err) => {
+                write!(f, "
+                    \r{err}.\n"
+                )
+            }
+        }
+    }
+}
+
+impl fmt::Display for ArchiveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArchiveError::IoError(err) => {
+                write!(f, "
+                    \r{err}.\n"
                 )
             }
         }

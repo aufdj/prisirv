@@ -16,6 +16,8 @@ OPTIONS:
    -blk,  -block-size    Specify block size     (Default - 10 MiB)
    -threads              Specify thread count   (Default - 4)
    -sort                 Sort files             (Default - None)
+    append a             Append files to existing archive 'a'
+    extract-files a      Extract files from existing archive 'a'
 
 FLAGS:
    -q,    -quiet         Suppress output other than errors

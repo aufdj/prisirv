@@ -11,19 +11,18 @@ use std::io::{Seek, SeekFrom};
 /// or modifying an archive.
 
 /// Count number of blocks in an archive.
-pub fn block_count(ex_arch: &FileData) -> Result<usize, ExtractError> {
-    let mut count = 0;
+pub fn block_count(ex_arch: &FileData) -> Result<u32, ExtractError> {
+    let mut count = 0u32;
     let mut blk = Block::default();
-    let mut archive = new_input_file(&ex_arch.path).unwrap();
+    let mut archive = new_input_file(&ex_arch.path)?;
     loop {
+        
         blk.read_header_from(&mut archive)?;
-        if blk.sizeo == 0 { 
-            break; 
+        if blk.sizeo == 0 {
+            break;
         }
 
-        archive.seek(
-            SeekFrom::Current(blk.sizeo as i64)
-        ).unwrap();
+        archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
 
         count += 1;
         blk.next();
@@ -31,11 +30,27 @@ pub fn block_count(ex_arch: &FileData) -> Result<usize, ExtractError> {
     Ok(count)
 }
 
+pub fn find_eod(ex_arch: &FileData) -> Result<u64, ExtractError> {
+    let mut blk = Block::default();
+    let mut archive = new_input_file(&ex_arch.path)?;
+    loop {
+        let eod = archive.stream_position()?;
+        blk.read_header_from(&mut archive)?;
+        if blk.sizeo == 0 {
+            return Ok(eod);
+        }
+
+        archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
+
+        blk.next();
+    }
+}
+
 /// Return id of the first block that contains 'file', or none if the file 
 /// isn't in the archive.
 pub fn find_file(file: &FileData, ex_arch: &FileData) -> Result<Option<u32>, ExtractError> {
     let mut blk = Block::default();
-    let mut archive = new_input_file(&ex_arch.path).unwrap();
+    let mut archive = new_input_file(&ex_arch.path)?;
     loop {
         blk.read_header_from(&mut archive)?;
         if blk.sizeo == 0 {
@@ -45,9 +60,7 @@ pub fn find_file(file: &FileData, ex_arch: &FileData) -> Result<Option<u32>, Ext
             return Ok(Some(blk.id));
         }
 
-        archive.seek(
-            SeekFrom::Current(blk.sizeo as i64)
-        ).unwrap();
+        archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
 
         blk.next();
     }
@@ -57,16 +70,14 @@ pub fn find_file(file: &FileData, ex_arch: &FileData) -> Result<Option<u32>, Ext
 /// Print archive information.
 pub fn list_archive(ex_arch: &FileData) -> Result<(), ExtractError> {
     let mut blk = Block::default();
-    let mut archive = new_input_file(&ex_arch.path).unwrap();
+    let mut archive = new_input_file(&ex_arch.path)?;
     loop {
         blk.read_header_from(&mut archive)?;
         if blk.sizeo == 0 { 
             break; 
         }
 
-        archive.seek(
-            SeekFrom::Current(blk.sizeo as i64)
-        ).unwrap();
+        archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
 
         blk.print();
         blk.next();
