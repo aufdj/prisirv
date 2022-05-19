@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{BufWriter, BufReader, Write},
     path::PathBuf,
+    fmt,
 };
 use crate::{
     filedata::FileData,
@@ -140,27 +141,40 @@ impl Block {
         }
         total + 49
     }
-    pub fn print(&self) {
-        println!();
-        println!("Block {}:", self.id);
-        println!("==========================================");
-        println!("Uncompressed Size: {}", self.sizei);
-        println!("Compressed Size:   {}", self.sizeo);
-        println!("CRC32 Checksum:    {:x}", self.chksum);
-        println!("Creation time:     {}", self.crtd);
-        println!();
-        println!("Files:");
+}
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "
+            \rBlock {}:
+            \r==========================================
+            \rUncompressed Size: {}
+            \rCompressed Size:   {}
+            \rCRC32 Checksum:    {:x}
+            \rCreation time:     {}\n\n",
+            self.id,
+            self.sizei, 
+            self.sizeo,
+            self.chksum, 
+            self.crtd
+        )?;
+        write!(f, "\rFiles:")?;
         for file in self.files.iter() {
             if file.seg_beg != file.seg_end {
-                println!("Path:   {}", file.path.display());
-                println!("Length: {}", file.len);
-                println!("Segment Begin: {}", file.seg_beg);
-                println!("Segment End:   {}", file.seg_end);
-                println!("Block Position: {}", file.blk_pos);
-                println!();
+                write!(f, "
+                    \r  Path:   {}
+                    \r  Length: {}
+                    \r  Segment Begin:  {}
+                    \r  Segment End:    {}
+                    \r  Block Position: {}\n",
+                    file.path.display(), 
+                    file.len,
+                    file.seg_beg, 
+                    file.seg_end,
+                    file.blk_pos
+                )?;
             }
         }
-        println!("==========================================");
+        write!(f, "\r==========================================\n")
     }
 }
 

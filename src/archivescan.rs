@@ -79,7 +79,7 @@ pub fn list_archive(ex_arch: &FileData) -> Result<(), ExtractError> {
 
         archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
 
-        blk.print();
+        println!("{}", blk);
         blk.next();
     }
     std::process::exit(0);

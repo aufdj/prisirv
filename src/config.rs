@@ -67,7 +67,6 @@ impl From<u8> for Method {
         match num {
             0 => Method::Cm,
             1 => Method::Lzw,
-            2 => Method::Store,
             _ => Method::Store,
         }
     }

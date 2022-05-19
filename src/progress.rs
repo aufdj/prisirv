@@ -29,9 +29,16 @@ impl Progress {
         else {
             cfg.inputs.iter().map(|f| f.len).sum()
         };
+        let sizeo =
+        if cfg.mode == Mode::AppendFiles {
+            cfg.ex_arch.len
+        }
+        else { 
+            0 
+        };
         Progress {
             sizei,
-            sizeo:    0,
+            sizeo,
             current:  0,
             quiet:    cfg.quiet,
             mode:     cfg.mode,
