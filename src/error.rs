@@ -17,6 +17,32 @@ pub enum SortError {
     AccessTimeNotSupported,
     ModifiedTimeNotSupported,
 }
+impl fmt::Display for SortError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SortError::MetadataNotSupported => {
+                write!(f, "
+                    \rMetadata not supported.\n"
+                )
+            }
+            SortError::CreationTimeNotSupported => {
+                write!(f, "
+                    \rCreation time metadata not supported.\n"
+                )
+            }
+            SortError::AccessTimeNotSupported => {
+                write!(f, "
+                    \rAccess time metadata not supported.\n"
+                )
+            }
+            SortError::ModifiedTimeNotSupported => {
+                write!(f, "
+                    \rModified time metadata not supported.\n"
+                )
+            }
+        }
+    }
+}
 
 /// Possible errors encountered while parsing Config arguments.
 pub enum ConfigError {
@@ -31,6 +57,8 @@ pub enum ConfigError {
     InvalidInput(PathBuf),
     InvalidSortMethod(SortError),
     InvalidInsertId(String),
+    IoError(io::Error),
+    ExtractError(ExtractError),
     InputsEmpty,
 }
 impl fmt::Display for ConfigError {
@@ -115,38 +143,45 @@ impl fmt::Display for ConfigError {
                     No inputs found.\n"
                 )
             }
-            ConfigError::InvalidSortMethod(method) => {
-                match method {
-                    SortError::MetadataNotSupported => {
-                        write!(f, "
-                            \rMetadata not supported.\n"
-                        )
-                    }
-                    SortError::CreationTimeNotSupported => {
-                        write!(f, "
-                            \rCreation time metadata not supported.\n"
-                        )
-                    }
-                    SortError::AccessTimeNotSupported => {
-                        write!(f, "
-                            \rAccess time metadata not supported.\n"
-                        )
-                    }
-                    SortError::ModifiedTimeNotSupported => {
-                        write!(f, "
-                            \rModified time metadata not supported.\n"
-                        )
-                    }
-                }
+            ConfigError::InvalidSortMethod(err) => {
+                write!(f, "
+                    \r{err}\n"
+                )
             }
             ConfigError::InvalidInsertId(id) => {
                 write!(f, "
                     \r{id} is not a valid insert id.\n"
                 )
             }
+            ConfigError::IoError(err) => {
+                write!(f, "
+                    \r{err}\n"
+                )
+            }
+            ConfigError::ExtractError(err) => {
+                write!(f, "
+                    \r{err}\n"
+                )
+            }
         }
     }
 }
+impl From<io::Error> for ConfigError {
+    fn from(err: io::Error) -> ConfigError {
+        ConfigError::IoError(err)
+    }
+}
+impl From<ExtractError> for ConfigError {
+    fn from(err: ExtractError) -> ConfigError {
+        ConfigError::ExtractError(err)
+    }
+}
+impl From<SortError> for ConfigError {
+    fn from(err: SortError) -> ConfigError {
+        ConfigError::InvalidSortMethod(err)
+    }
+}
+
 
 /// Possible errors encountered during extraction, either reading or 
 /// decompressing.

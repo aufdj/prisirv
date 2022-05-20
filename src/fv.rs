@@ -1,7 +1,7 @@
 use std::{
     path::PathBuf,
     time::Instant,
-    io::{Seek, SeekFrom},
+    io::{self, Seek, SeekFrom},
 };
 
 use crate::{
@@ -131,8 +131,8 @@ impl Image {
         c = self.pixels[i+2] as i32 + red;
         self.pixels[i+2] = clamp(c);
     }
-    fn save_bmp(&mut self, file: &FileData, clobber: bool) {
-        let mut file_out = new_output_file(file, clobber).unwrap();
+    fn save_bmp(&mut self, file: &FileData, clobber: bool) -> io::Result<()> {
+        let mut file_out = new_output_file(file, clobber)?;
         let file_size    = (54 + self.pixels.len()) as u32;
         let image_size   = (self.width * self.height * 3) as u32;
 
@@ -154,18 +154,19 @@ impl Image {
         for pixel in self.pixels.iter() {
             file_out.write_byte(*pixel);
         }
+        Ok(())
     }
 }
 
-pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> ! {
+pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> io::Result<()> {
     let time        = Instant::now();
     let size        = file.len;
-    let mut file_in = new_input_file(&file.path).unwrap();
+    let mut file_in = new_input_file(&file.path)?;
     let file_name   = &format!("{}.bmp", file.path.name_no_ext());
     let file_out    = FileData::new(PathBuf::from(file_name));
 
-    let width: i32 = 512;
-    let height: i32 = 256;
+    let width   = 1024i32;
+    let height  = 512i32;
     let fwidth  = width  as f64;
     let fheight = height as f64;
     let fsize   = size   as f64;
@@ -251,10 +252,10 @@ pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> ! {
 
                 if cs > 1 || rand.next() < csd_max {
                     match i {
-                        0 => { img.put(x, y, -cs, -cs, -cs); } // Black, 1st pass 
-                        1 => { img.put(x, y, 0,   -cs, -cs); } // Red,   2nd pass
-                        2 => { img.put(x, y, -cs, 0,   -cs); } // Green, 3rd pass 
-                        _ => { img.put(x, y, -cs, -cs, 0  ); } // Blue,  4th pass
+                        0 => img.put(x, y, -cs, -cs, -cs), // Black, 1st pass 
+                        1 => img.put(x, y, 0,   -cs, -cs), // Red,   2nd pass
+                        2 => img.put(x, y, -cs, 0,   -cs), // Green, 3rd pass 
+                        _ => img.put(x, y, -cs, -cs, 0  ), // Blue,  4th pass
                     }
                 }  
             }
@@ -263,11 +264,11 @@ pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> ! {
         println!("Drew part {} of 4 in {:.2?}",
             i + 1, start_pass.elapsed());
     }
-    img.save_bmp(&file_out, clobber);
+    img.save_bmp(&file_out, clobber)?;
     
-    println!("Created {}.bmp in {:.2?}", 
+    println!("Created {} in {:.2?}", 
         file_name,
         time.elapsed()
     );
-    std::process::exit(0);
+    Ok(())
 }

@@ -243,7 +243,7 @@ impl Config {
                 }
                 Parse::List => {
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    let info = ArchiveInfo::new(&cfg.ex_arch).unwrap();
+                    let info = ArchiveInfo::new(&cfg.ex_arch)?;
                     println!("{info}");
                     std::process::exit(0);
                 }
@@ -261,7 +261,7 @@ impl Config {
                 Parse::AppendFiles => {
                     cfg.mode = Mode::AppendFiles; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    let info = ArchiveInfo::new(&cfg.ex_arch).unwrap();
+                    let info = ArchiveInfo::new(&cfg.ex_arch)?;
                     cfg.insert_id = info.block_count();
                     cfg.insert_pos = info.end_of_data();
                 }
@@ -326,7 +326,7 @@ impl Config {
         }
         
         if fv { 
-            fv::fv(&cfg.inputs[0], cs, cfg.clobber);
+            fv::fv(&cfg.inputs[0], cs, cfg.clobber)?;
         }
         
         Ok(cfg)
