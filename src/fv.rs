@@ -165,8 +165,8 @@ pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> io::Result<()> {
     let file_name   = &format!("{}.bmp", file.path.name_no_ext());
     let file_out    = FileData::new(PathBuf::from(file_name));
 
-    let width   = 1024i32;
-    let height  = 512i32;
+    let width   = 512i32;
+    let height  = 256i32;
     let fwidth  = width  as f64;
     let fheight = height as f64;
     let fsize   = size   as f64;

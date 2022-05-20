@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     fv,
@@ -312,7 +315,7 @@ impl Config {
 
         cfg.out = fmt_root_output(&cfg);
 
-        cfg.print();
+        println!("{cfg}");
 
         if cfg.mode == Mode::CreateArchive || cfg.mode == Mode::AppendFiles {
             let mut files = Vec::new();
@@ -331,68 +334,47 @@ impl Config {
         
         Ok(cfg)
     }
-
-    /// Print information about new archive.
-    pub fn print(&self) {
+}
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.quiet {
-            println!();
-            
-            if self.mode == Mode::ExtractFiles {
-                println!(" Extracting file {} from archive {}", 
-                    self.inputs[0].path.display(), self.ex_arch.path.display());
-            }
-            else {
-                println!("=============================================================");
-                if self.mode == Mode::AppendFiles {
-                    println!(" Adding to archive {}", self.ex_arch.path.display());
-                }
-                else {
-                    println!(" {} Archive of Inputs:", 
-                        if self.mode == Mode::CreateArchive { 
-                            "Creating" 
-                        } 
-                        else { 
-                            "Extracting" 
+            match self.mode {
+                Mode::CreateArchive => {
+                    write!(f, "
+                        \r=============================================================
+                        \r Creating Archive of Inputs:"
+                    )?;
+                    for input in self.inputs.iter() {
+                        write!(f, "
+                            \r    {} ({})", 
+                            input.path.display(),
+                            if input.path.is_file() { 
+                                "File" 
+                            }
+                            else if input.path.is_dir() { 
+                                "Directory" 
+                            }
+                            else { 
+                                "" 
+                            }
+                        )?;
+                    }
+                    let (size, suffix) = format(self.blk_sz);
+                    write!(f, "\n
+                        \r Output Path:     {}
+                        \r Method:          {}
+                        \r Sorting by:      {}
+                        \r Memory Usage:    {} MiB
+                        \r Block Size:      {} {}
+                        \r Block Alignment: {}
+                        \r Threads:         {}
+                        \r=============================================================\n",
+                        self.out.path.display(),
+                        match self.method {
+                            Method::Cm  => "Context Mixing",
+                            Method::Lzw => "LZW",
+                            _           => "No Compression",
                         },
-                    );
-                }
-                println!();
-    
-                println!(" Inputs: ");
-                for input in self.inputs.iter() {
-                    println!("    {} ({})", 
-                        input.path.display(),
-                        if input.path.is_file() { 
-                            "File" 
-                        }
-                        else if input.path.is_dir() { 
-                            "Directory" 
-                        }
-                        else { 
-                            "" 
-                        }
-                    );
-                }
-                println!();
-    
-                if self.mode != Mode::AppendFiles {
-                    println!(" Output Path:     {}", self.out.path.display());
-                }
-                
-                if self.mode == Mode::CreateArchive || self.mode == Mode::AppendFiles {
-                    println!(" Method:          {}", 
-                        if self.method == Method::Cm { 
-                            "Context Mixing" 
-                        }
-                        else if self.method == Method::Lzw { 
-                            "LZW" 
-                        }
-                        else { 
-                            "No Compression"
-                        }
-                    );
-    
-                    println!(" Sorting by:      {}",
                         match self.sort {
                             Sort::None      => "None",
                             Sort::Ext       => "Extension",
@@ -402,29 +384,132 @@ impl Config {
                             Sort::Accessed  => "Last accessed time",
                             Sort::Modified  => "Last modified time",
                             Sort::PrtDir(_) => "Parent Directory",
-                        }
-                    );
-    
-                    println!(" Memory Usage:    {} MiB", 3 + (self.mem >> 20) * 3);
-    
-                    let (size, suffix) = format(self.blk_sz);
-                    println!(" Block Size:      {} {}", size, suffix); 
-    
-                    println!(" Block Alignment: {}", 
-                        if self.align == Align::File {
-                            "File" 
-                        } 
-                        else { 
-                            "Fixed" 
-                        }
-                    );
+                        },
+                        3 + (self.mem >> 20) * 3,
+                        size, suffix,
+                        match self.align {
+                            Align::File  => "File",
+                            Align::Fixed => "Fixed",
+                        },
+                        self.threads
+                    )
                 }
-    
-                println!(" Threads:         Up to {}", self.threads);
-                println!("=============================================================");
+                Mode::ExtractArchive => { 
+                    write!(f, "
+                        \r=============================================================
+                        \r Extracting Archive of Inputs:"
+                    )?;
+                    for input in self.inputs.iter() {
+                        write!(f, "
+                            \r    {} ({})", 
+                            input.path.display(),
+                            if input.path.is_file() { 
+                                "File" 
+                            }
+                            else if input.path.is_dir() { 
+                                "Directory" 
+                            }
+                            else { 
+                                "" 
+                            }
+                        )?;
+                    }
+                    write!(f, "\n
+                        \r Output Path: {}
+                        \r Threads:     {}
+                        \r=============================================================\n",
+                        self.out.path.display(),
+                        self.threads
+                    )
+                },
+                Mode::AppendFiles => { 
+                    write!(f, "
+                        \r=============================================================
+                        \r Adding to archive {}\n
+                        \r Inputs:", 
+                        self.ex_arch.path.display()
+                    )?;
+                    for input in self.inputs.iter() {
+                        write!(f, "
+                            \r    {} ({})", 
+                            input.path.display(),
+                            if input.path.is_file() { 
+                                "File" 
+                            }
+                            else if input.path.is_dir() { 
+                                "Directory" 
+                            }
+                            else { 
+                                "" 
+                            }
+                        )?;
+                    }
+                    let (size, suffix) = format(self.blk_sz);
+                    write!(f, "\n
+                        \r Method:          {}
+                        \r Sorting by:      {}
+                        \r Memory Usage:    {} MiB
+                        \r Block Size:      {} {}
+                        \r Block Alignment: {}
+                        \r Threads:         {}
+                        \r=============================================================\n",
+                        match self.method {
+                            Method::Cm  => "Context Mixing",
+                            Method::Lzw => "LZW",
+                            _           => "No Compression",
+                        },
+                        match self.sort {
+                            Sort::None      => "None",
+                            Sort::Ext       => "Extension",
+                            Sort::Name      => "Name",
+                            Sort::Len       => "Length",
+                            Sort::Created   => "Creation time",
+                            Sort::Accessed  => "Last accessed time",
+                            Sort::Modified  => "Last modified time",
+                            Sort::PrtDir(_) => "Parent Directory",
+                        },
+                        3 + (self.mem >> 20) * 3,
+                        size, suffix,
+                        match self.align {
+                            Align::File  => "File",
+                            Align::Fixed => "Fixed",
+                        },
+                        self.threads
+                    )
+                },
+                Mode::ExtractFiles => {
+                    write!(f, "
+                        \r=============================================================
+                        \r Extracting file {} from archive {}", 
+                        self.inputs[0].path.display(), self.ex_arch.path.display()
+                    )?;
+                    for input in self.inputs.iter() {
+                        write!(f, "
+                            \r    {} ({})", 
+                            input.path.display(),
+                            if input.path.is_file() { 
+                                "File" 
+                            }
+                            else if input.path.is_dir() { 
+                                "Directory" 
+                            }
+                            else { 
+                                "" 
+                            }
+                        )?;
+                    }
+                    write!(f, "\n
+                        \r Output Path: {}
+                        \r Threads:     {}
+                        \r=============================================================\n",
+                        self.out.path.display(),
+                        self.threads
+                    )
+                },
             }
-            
-            println!();
+        }
+        else {
+            Ok(())
         }
     }
 }

@@ -99,8 +99,6 @@ impl Prisirv {
 
         self.cfg.out = fmt_root_output(&self.cfg);
 
-        self.cfg.print();
-
         Archiver::new(self.cfg).create_archive()?;
         Ok(())
     }
@@ -116,8 +114,6 @@ impl Prisirv {
         self.cfg.inputs.extend_from_slice(&paths);
 
         self.cfg.out = fmt_root_output(&self.cfg);
-
-        self.cfg.print();
 
         Extractor::new(self.cfg).extract_archive()?; 
         Ok(())

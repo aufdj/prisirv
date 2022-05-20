@@ -87,7 +87,7 @@ impl Extractor {
                 }
 
                 for file in blk.files.iter() {
-                    let mut file_out = next_file(&file, self.cfg.out.path_str(), self.cfg.clobber)?;
+                    let mut file_out = next_file(file, self.cfg.out.path_str(), self.cfg.clobber)?;
                     file_out.seek(SeekFrom::Start(file.seg_beg))?;
 
                     // Get segment of block containing target file's data.
@@ -152,7 +152,7 @@ impl Extractor {
                 blk.files.retain(|blk_file| blk_file.path == file.path);
 
                 for file in blk.files.iter() {
-                    let mut file_out = next_file(&file, self.cfg.out.path_str(), self.cfg.clobber)?;
+                    let mut file_out = next_file(file, self.cfg.out.path_str(), self.cfg.clobber)?;
                     file_out.seek(SeekFrom::Start(file.seg_beg))?;
 
                     // Get segment of block containing target file's data.
