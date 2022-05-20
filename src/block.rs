@@ -9,9 +9,10 @@ use crate::{
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
     error::ExtractError,
+    constant::{
+        MAGIC, MAJOR, MINOR, PATCH,
+    }
 };
-
-const MGC: u32 = 0x5653_5250;
 
 #[derive(Clone, Default, Debug)]
 pub struct Block {
@@ -47,7 +48,10 @@ impl Block {
         self.id += 1;
     }
     pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
-        archive.write_u32(MGC);
+        archive.write_u32(MAGIC);
+        archive.write_u16(MAJOR);
+        archive.write_u16(MINOR);
+        archive.write_u16(PATCH);
         archive.write_u64(self.mem);
         archive.write_u64(self.blk_sz as u64);
         archive.write_byte(self.method as u8);
@@ -85,7 +89,10 @@ impl Block {
     }
     /// Read block header
     pub fn read_header_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ExtractError> {
-        let mgc       = archive.read_u32();
+        let magic     = archive.read_u32();
+        let major     = archive.read_u16();
+        let minor     = archive.read_u16();
+        let patch     = archive.read_u16();
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
         self.method   = Method::from(archive.read_byte());
@@ -95,8 +102,11 @@ impl Block {
         self.sizei    = archive.read_u64();
         let num_files = archive.read_u32();
 
-        if mgc != MGC { 
-            return Err(ExtractError::MalformedBlockHeader(self.id));
+        if magic != MAGIC { 
+            return Err(ExtractError::InvalidMagicNumber(self.id));
+        }
+        if major != MAJOR || minor != MINOR || patch != PATCH {
+            return Err(ExtractError::InvalidVersion((major, minor, patch)));
         }
 
         let mut path: Vec<u8> = Vec::with_capacity(64);
@@ -139,7 +149,7 @@ impl Block {
         for file in self.files.iter() {
             total += file.size() + 1; // Add 1 for null byte
         }
-        total + 49
+        total + 55
     }
 }
 impl fmt::Display for Block {

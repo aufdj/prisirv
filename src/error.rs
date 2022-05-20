@@ -4,6 +4,20 @@ use std::{
     io,
 };
 
+use crate::constant::{
+    MAJOR, MINOR, PATCH,
+};
+
+
+/// Possible errors encountered while sorting files.
+#[derive(Debug)]
+pub enum SortError {
+    MetadataNotSupported,
+    CreationTimeNotSupported,
+    AccessTimeNotSupported,
+    ModifiedTimeNotSupported,
+}
+
 /// Possible errors encountered while parsing Config arguments.
 pub enum ConfigError {
     InvalidSortCriteria(String),
@@ -19,42 +33,6 @@ pub enum ConfigError {
     InvalidInsertId(String),
     InputsEmpty,
 }
-
-/// Possible errors encountered while sorting files.
-#[derive(Debug)]
-pub enum SortError {
-    MetadataNotSupported,
-    CreationTimeNotSupported,
-    AccessTimeNotSupported,
-    ModifiedTimeNotSupported,
-}
-
-/// Possible errors encountered during extraction, either reading or 
-/// decompressing.
-#[derive(Debug)]
-pub enum ExtractError {
-    MalformedBlockHeader(u32),
-    FileNotFound(PathBuf),
-    IncorrectChecksum(u32),
-    IoError(io::Error),
-}
-
-impl From<io::Error> for ExtractError {
-    fn from(err: io::Error) -> ExtractError {
-        ExtractError::IoError(err)
-    }
-}
-
-pub enum ArchiveError {
-    IoError(io::Error),
-}
-
-impl From<io::Error> for ArchiveError {
-    fn from(err: io::Error) -> ArchiveError {
-        ArchiveError::IoError(err)
-    }
-}
-
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -170,12 +148,34 @@ impl fmt::Display for ConfigError {
     }
 }
 
+/// Possible errors encountered during extraction, either reading or 
+/// decompressing.
+#[derive(Debug)]
+pub enum ExtractError {
+    InvalidMagicNumber(u32),
+    InvalidVersion((u16, u16, u16)),
+    FileNotFound(PathBuf),
+    IncorrectChecksum(u32),
+    IoError(io::Error),
+}
+impl From<io::Error> for ExtractError {
+    fn from(err: io::Error) -> ExtractError {
+        ExtractError::IoError(err)
+    }
+}
 impl fmt::Display for ExtractError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ExtractError::MalformedBlockHeader(id) => {
+            ExtractError::InvalidMagicNumber(id) => {
                 write!(f, "
                     \rDid not find valid magic number in block {id} header.\n"
+                )
+            }
+            ExtractError::InvalidVersion((major, minor, patch)) => {
+                write!(f, "
+                    \rERROR:
+                    \rThis archive was created with Prisirv version {major}.{minor}.{patch},
+                    \rand cannot be extracted with version {MAJOR}.{MINOR}.{PATCH}.\n"
                 )
             }
             ExtractError::FileNotFound(file) => {
@@ -198,6 +198,14 @@ impl fmt::Display for ExtractError {
     }
 }
 
+pub enum ArchiveError {
+    IoError(io::Error),
+}
+impl From<io::Error> for ArchiveError {
+    fn from(err: io::Error) -> ArchiveError {
+        ArchiveError::IoError(err)
+    }
+}
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -14,6 +14,7 @@ mod block;
 mod cm;
 mod lzw;
 mod archiveinfo;
+mod constant;
 
 use std::path::PathBuf;
 

@@ -77,7 +77,7 @@ impl Progress {
 }
 impl Drop for Progress {
     fn drop(&mut self) {
-        if !self.quiet {
+        if !self.quiet && self.sizeo > 0 {
             println!("\r{} bytes -> {} bytes in {:.2?}                                                   ", 
                 self.sizei, self.sizeo, self.time.elapsed());
         }
