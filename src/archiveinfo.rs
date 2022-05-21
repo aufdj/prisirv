@@ -53,25 +53,6 @@ impl fmt::Display for ArchiveInfo {
     }
 }
 
-// pub fn archive_info(ex_arch: &FileData) -> Result<ArchiveInfo, ExtractError> {
-//     let mut info = ArchiveInfo::new();
-//     let mut blk = Block::default();
-//     let mut archive = new_input_file(&ex_arch.path)?;
-//     loop {
-//         info.eod = archive.stream_position()?;
-//         blk.read_header_from(&mut archive)?;
-//         if blk.sizeo == 0 {
-//             break;
-//         }
-//         info.blks.push(blk.clone());
-
-//         archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
-
-//         blk.next();
-//     }
-//     Ok(info)
-// }
-
 /// Return id of the first block that contains 'file', or none if the file 
 /// isn't in the archive.
 pub fn find_file(file: &FileData, ex_arch: &FileData) -> Result<Option<u32>, ExtractError> {

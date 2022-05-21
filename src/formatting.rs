@@ -87,6 +87,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
         Mode::ExtractFiles => {
             out.push_str("_d");
         }
+        _ => {}
     }
     FileData::new(PathBuf::from(out))
 }

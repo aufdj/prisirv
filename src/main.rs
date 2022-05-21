@@ -28,6 +28,17 @@ fn main() {
                         println!("{err}");
                     }  
                 }
+                Mode::ListArchive => {
+                    if let Err(err) = Prisirv::new(cfg).info() {
+                        println!("{err}");
+                    } 
+                }
+                Mode::Fv => {
+                    if let Err(err) = Prisirv::new(cfg).fv() {
+                        println!("{err}");
+                    }
+                }
+                
             }
         }
         Err(err) => {

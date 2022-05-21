@@ -13,7 +13,7 @@ mod fv;
 mod block;
 mod cm;
 mod lzw;
-mod archiveinfo;
+pub mod archiveinfo;
 mod constant;
 
 use std::path::PathBuf;
@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use crate::{
     archive::Archiver,
     extract::Extractor,
+    archiveinfo::ArchiveInfo,
     filedata::FileData,
     config::{Config, Mode},
     sort::Sort,
@@ -119,10 +120,14 @@ impl Prisirv {
         Ok(())
     }
 
+    pub fn info_of(self, ex_arch: &str) -> Result<ArchiveInfo, ExtractError> {
+        ArchiveInfo::new(&FileData::new(PathBuf::from(ex_arch)))
+    }
+
 
     /// Create a Prisirv archiver or extractor with an existing Config.
     pub fn new(cfg: Config) -> Prisirv {
-        Prisirv { 
+        Prisirv {
             cfg 
         }
     }
@@ -146,6 +151,16 @@ impl Prisirv {
 
     pub fn extract_files(self) -> Result<(), ExtractError>  {
         Extractor::new(self.cfg).extract_files()?;
+        Ok(())
+    }
+
+    pub fn info(self) -> Result<(), ExtractError> {
+        println!("{}", ArchiveInfo::new(&self.cfg.ex_arch)?);
+        Ok(())
+    }
+
+    pub fn fv(self) -> Result<(), ExtractError> {
+        fv::fv(&self.cfg)?;
         Ok(())
     }
 }

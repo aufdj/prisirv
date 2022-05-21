@@ -59,6 +59,8 @@ pub enum ConfigError {
     InvalidInsertId(String),
     IoError(io::Error),
     ExtractError(ExtractError),
+    InvalidColorScale(String),
+    InvalidImageWidth(String),
     InputsEmpty,
 }
 impl fmt::Display for ConfigError {
@@ -161,6 +163,16 @@ impl fmt::Display for ConfigError {
             ConfigError::ExtractError(err) => {
                 write!(f, "
                     \r{err}\n"
+                )
+            }
+            ConfigError::InvalidColorScale(n) => {
+                write!(f, "
+                    \r{n} is not a valid color scale."
+                )
+            }
+            ConfigError::InvalidImageWidth(w) => {
+                write!(f, "
+                    \r{w} is not a valid image width."
                 )
             }
         }

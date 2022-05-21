@@ -1,7 +1,7 @@
 use std::{
     path::PathBuf,
     time::Instant,
-    io::{self, Seek, SeekFrom},
+    io::{self, Seek},
 };
 
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
     },
     formatting::PathFmt,
     filedata::FileData,
+    config::Config,
 };
 
 
@@ -157,21 +158,22 @@ impl Image {
         Ok(())
     }
 }
-
-pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> io::Result<()> {
+//file: &FileData, col_opt: f64, clobber: bool
+pub fn fv(cfg: &Config) -> io::Result<()> {
+    let file        = &cfg.inputs[0];
     let time        = Instant::now();
     let size        = file.len;
     let mut file_in = new_input_file(&file.path)?;
     let file_name   = &format!("{}.bmp", file.path.name_no_ext());
     let file_out    = FileData::new(PathBuf::from(file_name));
 
-    let width   = 512i32;
+    let width   = cfg.fv.width;
     let height  = 256i32;
     let fwidth  = width  as f64;
     let fheight = height as f64;
     let fsize   = size   as f64;
 
-    println!("Drawing {}.bmp {} by {}",
+    println!("Drawing {} {} by {}",
         file_name, width, height);
     
     // Create blank white image
@@ -207,7 +209,7 @@ pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> io::Result<()> {
     }
     
     // Darken x,y where there are matching strings at x and y (scaled) in s
-    let csd      = col_opt * fwidth * fheight / (fsize + 0.5); // Color scale
+    let csd      = cfg.fv.col_scale * fwidth * fheight / (fsize + 0.5); // Color scale
     let cs       = csd as i32 + 1; // Rounded color scale
     let l2       = fheight / (2.0 + fsize).ln();
     let ilog     = Ilog::new(l2);
@@ -221,7 +223,7 @@ pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> io::Result<()> {
     // then 2 (red), then 4 (green), then 8 (blue).
     for i in 0i32..4 {
         let start_pass = Instant::now();
-        file_in.seek(SeekFrom::Start(0)).unwrap();
+        file_in.rewind()?;
         if i >= 2 {
             for i in ht.iter_mut() { 
                 *i = 0; 
@@ -264,7 +266,7 @@ pub fn fv(file: &FileData, col_opt: f64, clobber: bool) -> io::Result<()> {
         println!("Drew part {} of 4 in {:.2?}",
             i + 1, start_pass.elapsed());
     }
-    img.save_bmp(&file_out, clobber)?;
+    img.save_bmp(&file_out, cfg.clobber)?;
     
     println!("Created {} in {:.2?}", 
         file_name,

@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::{
-    fv,
     sort::{Sort, sort_files}, 
     formatting::fmt_root_output,
     error::ConfigError,
@@ -29,6 +28,8 @@ enum Parse {
     Threads,
     List,
     Fv,
+    ColScale,
+    Width,
     Align,
     Lzw,
     Store,
@@ -42,6 +43,8 @@ pub enum Mode {
     ExtractArchive,
     AppendFiles,
     ExtractFiles,
+    ListArchive,
+    Fv,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,6 +74,20 @@ impl From<u8> for Method {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Fv {
+    pub col_scale:  f64,
+    pub width:      i32,
+}
+impl Default for Fv {
+    fn default() -> Fv {
+        Fv {
+            col_scale:  10.0,
+            width:      512,
+        }
+    }
+}
+
 
 /// User defined configuration settings.
 #[derive(Clone, Debug)]
@@ -90,6 +107,7 @@ pub struct Config {
     pub ex_arch:    FileData,      // An existing Prisirv archive
     pub insert_id:  u32,           // Starting id of new blocks appended to archive
     pub insert_pos: u64,           // Where to insert new blocks
+    pub fv:         Fv,
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.
@@ -100,8 +118,6 @@ impl Config {
 
         let mut parser = Parse::None;
         let mut cfg    = Config::default();
-        let mut fv     = false;
-        let mut cs     = 10.0;
         
         for arg in args.iter() {
             match arg.as_str() {
@@ -131,6 +147,13 @@ impl Config {
                 }
                 "fv" => {
                     parser = Parse::Fv;
+                }
+                "-col-scale" => {
+                    parser = Parse::ColScale;
+                    continue;
+                }
+                "-width" => {
+                    parser = Parse::Width;
                     continue;
                 }
                 "-lzw" => {
@@ -190,13 +213,11 @@ impl Config {
                     }
                 }
                 Parse::Lvl => {
-                    match arg.parse::<usize>() {
-                        Ok(lvl) => {
-                            cfg.sort = Sort::PrtDir(lvl);
-                        }
-                        Err(_) => {
-                            return Err(ConfigError::InvalidLvl(arg.to_string()));
-                        }
+                    if let Ok(lvl) = arg.parse::<usize>() {
+                        cfg.sort = Sort::PrtDir(lvl);
+                    }
+                    else {
+                        return Err(ConfigError::InvalidLvl(arg.to_string()));
                     }
                 }
                 Parse::Mem => {
@@ -245,20 +266,27 @@ impl Config {
                     }
                 }
                 Parse::List => {
+                    cfg.mode = Mode::ListArchive;
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    let info = ArchiveInfo::new(&cfg.ex_arch)?;
-                    println!("{info}");
-                    std::process::exit(0);
                 }
                 Parse::Fv => {
-                    fv = true;
-
+                    cfg.mode = Mode::Fv;
+                    parser = Parse::Inputs;
+                }
+                Parse::ColScale => {
                     if let Ok(c) = arg.parse::<f64>() {
-                        cs = c;
-                        parser = Parse::Inputs;
+                        cfg.fv.col_scale = c;
                     }
                     else {
-                        cfg.inputs.push(FileData::new(PathBuf::from(arg)));
+                        return Err(ConfigError::InvalidColorScale(arg.to_string()));
+                    }
+                }
+                Parse::Width => {
+                    if let Ok(w) = arg.parse::<i32>() {
+                        cfg.fv.width = w;
+                    }
+                    else {
+                        return Err(ConfigError::InvalidImageWidth(arg.to_string()));
                     }
                 }
                 Parse::AppendFiles => {
@@ -303,18 +331,20 @@ impl Config {
             }
         }
 
-        if cfg.inputs.is_empty() {
-            return Err(ConfigError::InputsEmpty);
-        }
-
-        for input in cfg.inputs.iter() {
-            if !(input.path.is_file() || input.path.is_dir()) {
-                return Err(ConfigError::InvalidInput(input.path.clone()));
+        if cfg.mode != Mode::ListArchive {
+            if cfg.inputs.is_empty() {
+                return Err(ConfigError::InputsEmpty);
             }
+    
+            for input in cfg.inputs.iter() {
+                if !(input.path.is_file() || input.path.is_dir()) {
+                    return Err(ConfigError::InvalidInput(input.path.clone()));
+                }
+            }
+    
+            cfg.out = fmt_root_output(&cfg);
         }
-
-        cfg.out = fmt_root_output(&cfg);
-
+        
         println!("{cfg}");
 
         if cfg.mode == Mode::CreateArchive || cfg.mode == Mode::AppendFiles {
@@ -326,10 +356,6 @@ impl Config {
             );
 
             cfg.inputs = files;
-        }
-        
-        if fv { 
-            fv::fv(&cfg.inputs[0], cs, cfg.clobber)?;
         }
         
         Ok(cfg)
@@ -506,6 +532,12 @@ impl fmt::Display for Config {
                         self.threads
                     )
                 },
+                Mode::ListArchive => {
+                    write!(f, "")
+                }
+                Mode::Fv => {
+                    write!(f, "")
+                }
             }
         }
         else {
@@ -531,6 +563,7 @@ impl Default for Config {
             ex_arch:    FileData::default(),
             insert_id:  0,
             insert_pos: 0,
+            fv:         Fv::default(),
         }
     }
 }
