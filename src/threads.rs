@@ -61,22 +61,22 @@ impl ThreadPool {
         }
     }
 
-    pub fn store_block(&mut self, blk_in: Block) {
-        self.sndr.send(
-            Task::Compress(
-                Box::new(move || {
-                    let crtd = SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap().as_secs() as u64;
+    // pub fn store_block(&mut self, blk_in: Block) {
+    //     self.sndr.send(
+    //         Task::Compress(
+    //             Box::new(move || {
+    //                 let crtd = SystemTime::now()
+    //                     .duration_since(SystemTime::UNIX_EPOCH)
+    //                     .unwrap().as_secs() as u64;
 
-                    Block {
-                        crtd,
-                        ..blk_in
-                    }
-                })
-            )
-        ).unwrap();
-    }
+    //                 Block {
+    //                     crtd,
+    //                     ..blk_in
+    //                 }
+    //             })
+    //         )
+    //     ).unwrap();
+    // }
     
     /// Create a new task containing a job consisting of compressing an
     /// input block and returning the compressed block.

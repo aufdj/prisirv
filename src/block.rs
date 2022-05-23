@@ -105,7 +105,7 @@ impl Block {
         if magic != MAGIC { 
             return Err(ExtractError::InvalidMagicNumber(self.id));
         }
-        if major != MAJOR || minor != MINOR || patch != PATCH {
+        if major != MAJOR || minor != MINOR {
             return Err(ExtractError::InvalidVersion((major, minor, patch)));
         }
 

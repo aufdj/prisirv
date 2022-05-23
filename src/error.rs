@@ -142,7 +142,7 @@ impl fmt::Display for ConfigError {
             }
             ConfigError::InputsEmpty => {
                 write!(f, "
-                    No inputs found.\n"
+                    \rNo inputs found.\n"
                 )
             }
             ConfigError::InvalidSortMethod(err) => {
@@ -167,12 +167,12 @@ impl fmt::Display for ConfigError {
             }
             ConfigError::InvalidColorScale(n) => {
                 write!(f, "
-                    \r{n} is not a valid color scale."
+                    \r{n} is not a valid color scale.\n"
                 )
             }
             ConfigError::InvalidImageWidth(w) => {
                 write!(f, "
-                    \r{w} is not a valid image width."
+                    \r{w} is not a valid image width.\n"
                 )
             }
         }

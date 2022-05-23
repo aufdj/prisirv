@@ -158,7 +158,6 @@ impl Image {
         Ok(())
     }
 }
-//file: &FileData, col_opt: f64, clobber: bool
 pub fn fv(cfg: &Config) -> io::Result<()> {
     let file        = &cfg.inputs[0];
     let time        = Instant::now();
@@ -173,8 +172,11 @@ pub fn fv(cfg: &Config) -> io::Result<()> {
     let fheight = height as f64;
     let fsize   = size   as f64;
 
-    println!("Drawing {} {} by {}",
-        file_name, width, height);
+    println!("Drawing {} by {} image {}",
+        width, 
+        height,
+        file_name
+    );
     
     // Create blank white image
     let mut img = Image::new(width, height);
@@ -264,7 +266,9 @@ pub fn fv(cfg: &Config) -> io::Result<()> {
             *prev_loc = new_loc as u32;
         }
         println!("Drew part {} of 4 in {:.2?}",
-            i + 1, start_pass.elapsed());
+            i + 1, 
+            start_pass.elapsed()
+        );
     }
     img.save_bmp(&file_out, cfg.clobber)?;
     

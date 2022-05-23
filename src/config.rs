@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    sort::{Sort, sort_files}, 
+    sort::{Sort, sort_files},
     formatting::fmt_root_output,
     error::ConfigError,
     filedata::FileData,
@@ -351,7 +351,7 @@ impl Config {
             let mut files = Vec::new();
             collect_files(&cfg.inputs, &mut files);
 
-            files.sort_by(|f1, f2| 
+            files.sort_by(|f1, f2|
                 sort_files(&f1.path, &f2.path, cfg.sort).unwrap()
             );
 
@@ -506,14 +506,14 @@ impl fmt::Display for Config {
                 Mode::ExtractFiles => {
                     write!(f, "
                         \r=============================================================
-                        \r Extracting file {} from archive {}", 
-                        self.inputs[0].path.display(), self.ex_arch.path.display()
+                        \r Extracting files from archive {}:", 
+                        self.ex_arch.path.display()
                     )?;
                     for input in self.inputs.iter() {
                         write!(f, "
                             \r    {} ({})", 
                             input.path.display(),
-                            if input.path.is_file() { 
+                            if input.path.is_file() {
                                 "File" 
                             }
                             else if input.path.is_dir() { 
@@ -536,7 +536,7 @@ impl fmt::Display for Config {
                     write!(f, "")
                 }
                 Mode::Fv => {
-                    write!(f, "")
+                    Ok(())
                 }
             }
         }
