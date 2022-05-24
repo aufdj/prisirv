@@ -52,24 +52,11 @@ impl fmt::Display for ArchiveInfo {
         Ok(())
     }
 }
-
-// /// Return id of the first block that contains 'file', or none if the file 
-// /// isn't in the archive.
-// pub fn find_file(file: &FileData, ex_arch: &FileData) -> Result<Option<u32>, ExtractError> {
-//     let mut blk = Block::default();
-//     let mut archive = new_input_file(&ex_arch.path)?;
-//     loop {
-//         blk.read_header_from(&mut archive)?;
-//         if blk.sizeo == 0 {
-//             break;
-//         }
-//         if blk.files.iter().any(|f| f.path == file.path) {
-//             return Ok(Some(blk.id));
-//         }
-
-//         archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
-
-//         blk.next();
-//     }
-//     Ok(None)
-// }
+impl fmt::Debug for ArchiveInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for blk in self.blks.iter() {
+            write!(f, "{:?}", blk)?;
+        }
+        Ok(())
+    }
+}

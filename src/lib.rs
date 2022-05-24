@@ -155,7 +155,12 @@ impl Prisirv {
     }
 
     pub fn info(self) -> Result<(), ExtractError> {
-        println!("{}", ArchiveInfo::new(&self.cfg.ex_arch)?);
+        if self.cfg.verbose {
+            println!("{:?}", ArchiveInfo::new(&self.cfg.ex_arch)?);
+        }
+        else {
+            println!("{}", ArchiveInfo::new(&self.cfg.ex_arch)?);
+        }
         Ok(())
     }
 

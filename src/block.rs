@@ -14,7 +14,7 @@ use crate::{
     }
 };
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default)]
 pub struct Block {
     pub mem:     u64,           // Memory usage
     pub blk_sz:  usize,         // Block size
@@ -59,6 +59,7 @@ impl Block {
         archive.write_u32(self.chksum);
         archive.write_u64(self.sizeo);
         archive.write_u64(self.sizei);
+        archive.write_u64(self.crtd);
         archive.write_u32(self.files.len() as u32);
 
         for file in self.files.iter() {
@@ -100,6 +101,7 @@ impl Block {
         self.chksum   = archive.read_u32();
         self.sizeo    = archive.read_u64();
         self.sizei    = archive.read_u64();
+        self.crtd     = archive.read_u64();
         let num_files = archive.read_u32();
 
         if magic != MAGIC { 
@@ -149,10 +151,23 @@ impl Block {
         for file in self.files.iter() {
             total += file.size() + 1; // Add 1 for null byte
         }
-        total + 55
+        total + 63
     }
 }
 impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for file in self.files.iter() {
+            if file.seg_beg != file.seg_end && file.seg_beg == 0 {
+                write!(f, "
+                    \r{}", 
+                    file.path.display()
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "
             \rBlock {}:

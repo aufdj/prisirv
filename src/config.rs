@@ -35,6 +35,7 @@ enum Parse {
     Store,
     AppendFiles,
     ExtractFiles,
+    Verbose,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -108,6 +109,7 @@ pub struct Config {
     pub insert_id:  u32,           // Starting id of new blocks appended to archive
     pub insert_pos: u64,           // Where to insert new blocks
     pub fv:         Fv,
+    pub verbose:    bool,
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.
@@ -184,6 +186,9 @@ impl Config {
                 "ls" | "list" => {
                     parser = Parse::List;
                     continue;
+                }
+                "-verbose" => {
+                    parser = Parse::Verbose;
                 }
                 "extract-files" => {
                     parser = Parse::ExtractFiles;
@@ -268,6 +273,9 @@ impl Config {
                 Parse::List => {
                     cfg.mode = Mode::ListArchive;
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                }
+                Parse::Verbose => {
+                    cfg.verbose = true;
                 }
                 Parse::Fv => {
                     cfg.mode = Mode::Fv;
@@ -564,6 +572,7 @@ impl Default for Config {
             insert_id:  0,
             insert_pos: 0,
             fv:         Fv::default(),
+            verbose:    false,
         }
     }
 }
@@ -635,6 +644,8 @@ fn print_program_info() {
     println!("  REQUIRED:");
     println!("     create                Create archive");
     println!("     extract               Extract archive");
+    println!("     append a              Append files to existing archive 'a'");
+    println!("     extract-files a       Extract files from existing archive 'a'");
     println!("    -i,     -inputs        Specify list of input files/dirs");
     println!();
     println!("  OPTIONS:");
@@ -643,8 +654,6 @@ fn print_program_info() {
     println!("    -blk,   -block-size    Specify block size       (Default - 10 MiB)");
     println!("    -threads               Specify thread count     (Default - 4)");
     println!("    -sort                  Sort files               (Default - none)");
-    println!("     append a              Append files to existing archive 'a'");
-    println!("     extract-files a       Extract files from existing archive 'a'");
     println!();
     println!("  FLAGS:");
     println!("    -q,     -quiet         Suppresses output other than errors");

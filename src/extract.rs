@@ -127,7 +127,6 @@ impl Extractor {
             blk.next();
         }
 
-
         // Write blocks to output 
         loop {
             if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
