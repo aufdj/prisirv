@@ -1,11 +1,10 @@
 use std::{
     fmt,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use crate::{
-    sort::{Sort, sort_files},
-    formatting::fmt_root_output,
+    sort::Sort,
     error::ConfigError,
     filedata::FileData,
     archiveinfo::ArchiveInfo,
@@ -349,21 +348,6 @@ impl Config {
                     return Err(ConfigError::InvalidInput(input.path.clone()));
                 }
             }
-    
-            cfg.out = fmt_root_output(&cfg);
-        }
-        
-        println!("{cfg}");
-
-        if cfg.mode == Mode::CreateArchive || cfg.mode == Mode::AppendFiles {
-            let mut files = Vec::new();
-            collect_files(&cfg.inputs, &mut files);
-
-            files.sort_by(|f1, f2|
-                sort_files(&f1.path, &f2.path, cfg.sort).unwrap()
-            );
-
-            cfg.inputs = files;
         }
         
         Ok(cfg)
@@ -574,36 +558,6 @@ impl Default for Config {
             fv:         Fv::default(),
             verbose:    false,
         }
-    }
-}
-
-
-/// Recursively collect all files into a vector for sorting before compression.
-pub fn collect_files(inputs: &[FileData], files: &mut Vec<FileData>) {
-    // Group files and directories 
-    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-        inputs.iter().cloned()
-        .partition(|f| f.path.is_file());
-
-    // Walk through directories and collect all files
-    for file in fi.into_iter() {
-        files.push(file);
-    }
-    for dir in dirs.iter() {
-        collect(&dir.path, files);
-    }
-}
-fn collect(dir_in: &Path, files: &mut Vec<FileData>) {
-    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| FileData::new(d.unwrap().path()))
-        .partition(|f| f.path.is_file());
-
-    for file in fi.into_iter() {
-        files.push(file);
-    }
-    for dir in dirs.iter() {
-        collect(&dir.path, files);
     }
 }
 

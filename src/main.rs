@@ -29,9 +29,18 @@ fn main() {
                     }  
                 }
                 Mode::ListArchive => {
-                    if let Err(err) = Prisirv::new(cfg).info() {
-                        println!("{err}");
-                    } 
+                    let verbose = cfg.verbose;
+                    match Prisirv::new(cfg).info() {
+                        Ok(info) => {
+                            if verbose {
+                                println!("{:?}", info);
+                            }
+                            else {
+                                println!("{info}");
+                            }   
+                        },
+                        Err(err) => println!("{err}"),
+                    }
                 }
                 Mode::Fv => {
                     if let Err(err) = Prisirv::new(cfg).fv() {

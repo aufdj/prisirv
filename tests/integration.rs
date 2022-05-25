@@ -8,10 +8,14 @@ mod tests {
     #[test]
     fn calgary_tar() {
         let inputs: Vec<&str> = vec!["tests\\data\\calgary.tar"];
-        Prisirv::default().clobber().create_archive_of(&inputs);
+        if let Err(err) = Prisirv::default().clobber().inputs(&inputs).create_archive() {
+            println!("{err}");
+        }
 
         let inputs: Vec<&str> = vec!["tests\\data\\calgary.prsv"];
-        Prisirv::default().clobber().extract_archive_of(&inputs);
+        if let Err(err) = Prisirv::default().clobber().inputs(&inputs).extract_archive() {
+            println!("{err}");
+        }
         
         let crc1 = Path::new("tests\\data\\calgary.tar").crc32();
         let crc2 = Path::new("tests\\data\\calgary_d\\tests\\data\\calgary.tar").crc32();
