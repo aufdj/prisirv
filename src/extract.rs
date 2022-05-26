@@ -14,7 +14,7 @@ use crate::{
     progress::Progress,
     block::Block,
     formatting::fmt_file_out_extract,
-    config::{Config, Mode},
+    config::Config,
     buffered_io::{
         BufferedWrite, new_input_file, new_output_file, 
         new_dir, new_output_file_no_trunc,
@@ -44,15 +44,7 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Extractor {
-        let path =
-        if cfg.mode == Mode::ExtractArchive {
-            &cfg.inputs[0].path
-        }
-        else {
-            &cfg.ex_arch.path
-        };
-
-        let archive = new_input_file(path).unwrap();
+        let archive = new_input_file(&cfg.ex_arch.path).unwrap();
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(&cfg, prg);
         

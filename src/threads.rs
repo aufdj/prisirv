@@ -140,7 +140,6 @@ impl ThreadPool {
                             ..blk_in
                         }
                     )
-                    
                 })
             )
         ).unwrap();   

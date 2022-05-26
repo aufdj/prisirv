@@ -36,7 +36,7 @@ fn main() {
                                 println!("{:?}", info);
                             }
                             else {
-                                println!("{info}");
+                                println!("{}", info);
                             }   
                         },
                         Err(err) => println!("{err}"),

@@ -55,7 +55,7 @@ impl PathFmt for Path {
 pub fn fmt_root_output(cfg: &Config) -> FileData {
     let mut out = 
     if cfg.user_out.is_empty() {
-        cfg.inputs[0].path.path_no_ext().to_string() 
+        cfg.ex_arch.path.path_no_ext().to_string() 
     }
     else if cfg.user_out.contains('\\') {
         cfg.user_out.to_string()
@@ -64,7 +64,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
         let mut dir_out = String::new();
         // Replace final path component with user option
         let s: Vec<String> = 
-            cfg.inputs[0].path.path_ext()
+            cfg.ex_arch.path.path_ext()
             .split('\\').skip(1)
             .map(|s| s.to_string())
             .collect();
@@ -74,20 +74,8 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
         format!("{}\\{}", dir_out, cfg.user_out)
     };
 
-    match cfg.mode {
-        Mode::CreateArchive => {
-            out.push_str(".prsv");
-        }
-        Mode::ExtractArchive => {
-            out.push_str("_d");
-        }
-        Mode::AppendFiles => {
-            out.push_str("_add.prsv");
-        }
-        Mode::ExtractFiles => {
-            out.push_str("_d");
-        }
-        _ => {}
+    if cfg.mode == Mode::CreateArchive {
+        out.push_str(".prsv");
     }
     FileData::new(PathBuf::from(out))
 }

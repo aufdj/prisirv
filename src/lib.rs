@@ -111,6 +111,7 @@ impl Prisirv {
     /// Create an archive from inputs specified in Config.
     pub fn create_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::CreateArchive;
+        self.cfg.ex_arch = self.cfg.inputs[0].clone();
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
 
@@ -131,7 +132,6 @@ impl Prisirv {
 
     pub fn append_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::AppendFiles;
-        self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
 
         self.cfg.inputs = sort_inputs(&self.cfg);

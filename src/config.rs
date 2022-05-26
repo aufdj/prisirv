@@ -14,8 +14,8 @@ use crate::{
 /// Parsing states.
 enum Parse {
     None,
-    Compress,
-    Decompress,
+    CreateArchive,
+    ExtractArchive,
     DirOut,
     Sort,
     Inputs,
@@ -168,10 +168,11 @@ impl Config {
                     parser = Parse::Store;
                 }
                 "create" => {
-                    parser = Parse::Compress;
+                    parser = Parse::CreateArchive;
                 }
                 "extract" => {
-                    parser = Parse::Decompress;
+                    parser = Parse::ExtractArchive;
+                    continue;
                 }
                 "-q" | "-quiet" => {
                     parser = Parse::Quiet;
@@ -313,11 +314,12 @@ impl Config {
                 Parse::Store => {
                     cfg.method = Method::Store;
                 }
-                Parse::Compress => {
+                Parse::CreateArchive => {
                     cfg.mode = Mode::CreateArchive;
                 }
-                Parse::Decompress => {
+                Parse::ExtractArchive => {
                     cfg.mode = Mode::ExtractArchive;
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
                 }
                 Parse::DirOut => {
                     cfg.user_out = arg.to_string();
@@ -339,9 +341,9 @@ impl Config {
         }
 
         if cfg.mode != Mode::ListArchive {
-            if cfg.inputs.is_empty() {
-                return Err(ConfigError::InputsEmpty);
-            }
+            //if cfg.inputs.is_empty() {
+            //    return Err(ConfigError::InputsEmpty);
+            //}
     
             for input in cfg.inputs.iter() {
                 if !(input.path.is_file() || input.path.is_dir()) {
@@ -593,16 +595,20 @@ fn print_program_info() {
       Source code available at https://github.com/aufdj/prisirv");
     println!();
     println!();
-    println!("  USAGE: PROG_NAME [create|extract] [-inputs [..]] [OPTIONS|FLAGS]");
+    println!("  USAGE: PROG_NAME [REQUIRED] [-inputs [..]] [OPTIONS|FLAGS]");
     println!();
     println!("  REQUIRED:");
     println!("     create                Create archive");
     println!("     extract               Extract archive");
-    println!("     append a              Append files to existing archive 'a'");
-    println!("     extract-files a       Extract files from existing archive 'a'");
-    println!("    -i,     -inputs        Specify list of input files/dirs");
+    println!("     append a              Append files to archive 'a'");
+    println!("     extract-files a       Extract files from archive 'a'");
+    println!("     ls a                  List info about archive 'a'");
+    println!("     fv f                  Visualize file f");
+    println!();
+    println!("  One of the above commands must be used, and all are mutually exclusive.");
     println!();
     println!("  OPTIONS:");
+    println!("    -i,     -inputs        Specify list of input files/dirs");
     println!("    -out,   -output-path   Specify output path");
     println!("    -mem,   -memory        Specify memory usage     (Default - 2 (15 MiB))");
     println!("    -blk,   -block-size    Specify block size       (Default - 10 MiB)");
@@ -636,15 +642,33 @@ fn print_program_info() {
     println!("  Extraction requires same memory option used for archiving.");
     println!("  Any memory option specified for extraction will be ignored."); 
     println!();
-    println!("  EXAMPLE:");
     println!();
-    println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into archive [\\foo\\arch], \n  sorting files by creation time:");
+    println!("  EXAMPLES:");
     println!();
-    println!("      prisirv create -inputs \\foo\\bar.txt \\baz -output-path arch -sort crtd ");
+    println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into archive [\\foo\\qux.prsv], \n  sorting files by creation time:");
     println!();
-    println!("  Extract the archive:");
+    println!("      prisirv create -inputs \\foo\\bar.txt \\baz -sort crtd -output-path qux");
     println!();
-    println!("      prisirv extract -inputs \\foo\\arch.prsv ");
+    println!("  Extract archive [\\foo\\qux.prsv]:");
+    println!();
+    println!("      prisirv extract \\foo\\qux.prsv");
+    println!();
+    println!("  Append file [foo.txt] to archive [\\foo\\qux.prsv]:");
+    println!();
+    println!("      prisirv append-files \\foo\\qux.prsv -inputs foo.txt");
+    println!();
+    println!("  Extract file [foo.txt] from archive [\\foo\\qux.prsv]:");
+    println!();
+    println!("      prisirv extract-files \\foo\\qux.prsv -inputs foo.txt");
+    println!();
+    println!("  List information about archive [\\foo\\qux.prsv]:");
+    println!();
+    println!("      prisirv ls \\foo\\qux.prsv");
+    println!();
+    println!("  Visualize file [foo.bin]:");
+    println!();
+    println!("      prisirv fv foo.bin");
+    println!();
     std::process::exit(0);
 }
 
