@@ -22,13 +22,16 @@ pub struct Progress {
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
     pub fn new(cfg: &Config) -> Progress {
-        let sizei: u64 = 
+        let sizei = 
         if cfg.mode == Mode::CreateArchive {
-            cfg.inputs.iter().map(|f| f.len).sum()
+            cfg.inputs.iter()
+            .map(|f| f.len)
+            .sum()
         }
         else {
             cfg.ex_arch.len
         };
+        
         let sizeo =
         if cfg.mode == Mode::AppendFiles {
             cfg.ex_arch.len

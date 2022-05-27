@@ -101,7 +101,10 @@ impl Extractor {
         
         let mut blk = Block::default();
         let mut id = 0;
-        let paths = self.cfg.inputs.iter().map(|f| f.path.clone()).collect::<Vec<PathBuf>>();
+        
+        let paths = self.cfg.inputs.iter()
+            .map(|f| f.path.clone())
+            .collect::<Vec<PathBuf>>();
 
         // Read and decompress blocks
         loop {

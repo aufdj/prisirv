@@ -146,12 +146,9 @@ impl Block {
         Ok(())
     }
     pub fn size(&self) -> u64 {
-        let mut total: u64 = 0;
-        total += self.data.len() as u64;
-        for file in self.files.iter() {
-            total += file.size() + 1; // Add 1 for null byte
-        }
-        total + 63
+        self.files.iter().map(|file| file.size() + 1).sum::<u64>()
+        + 63 
+        + self.data.len() as u64
     }
 }
 impl fmt::Display for Block {
@@ -200,40 +197,5 @@ impl fmt::Debug for Block {
             }
         }
         writeln!(f, "\r==========================================")
-    }
-}
-
-
-/// Stores compressed or decompressed blocks. Blocks need to be written in
-/// the same order that they were read, but no guarantee can be made about
-/// which blocks will be compressed/decompressed first, so each block is 
-/// added to a BlockQueue, which handles outputting in the correct order.
-pub struct BlockQueue {
-    pub blocks:   Vec<Block>, // Blocks to be output
-    pub next_out: u32,        // Next block to be output
-}
-impl BlockQueue {
-    /// Create a new BlockQueue.
-    pub fn new(start: u32) -> BlockQueue {
-        BlockQueue {
-            blocks:    Vec::new(),
-            next_out:  start,
-        }
-    }
-
-    /// Try getting the next block to be output. If this block hasn't been 
-    /// added to the queue yet, do nothing.
-    pub fn try_get_block(&mut self) -> Option<Block> {
-        let mut i: usize = 0;
-        while i < self.blocks.len() {
-            if self.blocks[i].id == self.next_out {
-                let blk = self.blocks[i].clone();
-                self.blocks.swap_remove(i);
-                self.next_out += 1;
-                return Some(blk);
-            } 
-            i += 1;
-        }
-        None
     }
 }

@@ -340,10 +340,10 @@ impl Config {
             }
         }
 
-        if cfg.mode != Mode::ListArchive {
-            //if cfg.inputs.is_empty() {
-            //    return Err(ConfigError::InputsEmpty);
-            //}
+        if !(cfg.mode == Mode::ListArchive || cfg.mode == Mode::ExtractArchive) {
+            if cfg.inputs.is_empty() {
+                return Err(ConfigError::InputsEmpty);
+            }
     
             for input in cfg.inputs.iter() {
                 if !(input.path.is_file() || input.path.is_dir()) {
@@ -615,11 +615,15 @@ fn print_program_info() {
     println!("    -threads               Specify thread count     (Default - 4)");
     println!("    -sort                  Sort files               (Default - none)");
     println!();
+    println!("  Options '-memory', '-block-size', and '-sort' have no effect on extraction.");
+    println!();
     println!("  FLAGS:");
     println!("    -q,     -quiet         Suppresses output other than errors");
     println!("    -clobber               Allow file clobbering");
     println!("    -file-align            Truncate blocks to align with file boundaries");
     println!("    -lzw                   Use LZW compression method");
+    println!();
+    println!("  Flags '-file-align' and '-lzw' have no effect on extraction.");
     println!();
     println!("  Sorting Methods:");
     println!("    -sort ext      Sort by extension");
@@ -629,8 +633,6 @@ fn print_program_info() {
     println!("    -sort crtd     Sort by creation time");
     println!("    -sort accd     Sort by last access time");
     println!("    -sort mod      Sort by last modification time");
-    println!();
-    println!("  Any sorting option specified for extraction will be ignored.");
     println!();
     println!("  Memory Options:");
     println!("    -mem 0  6 MB   -mem 5  99 MB");

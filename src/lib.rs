@@ -158,7 +158,8 @@ impl Prisirv {
         self.cfg.mode = Mode::Fv;
         println!("{}", self.cfg);
         self.cfg.out = fmt_root_output(&self.cfg);
-        fv::fv(&self.cfg)?;
+        self.cfg.inputs = sort_inputs(&self.cfg);
+        fv::new(&self.cfg)?;
         Ok(())
     }
 }
