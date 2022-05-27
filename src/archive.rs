@@ -9,8 +9,7 @@ use crate::{
     config::{Config, Align, Mode},
     buffered_io::{
         BufferedRead, BufferedWrite,
-        new_input_file, new_output_file, 
-        new_output_file_no_trunc,
+        new_input_file, new_output_file,
     },
     error::ArchiveError,
     block::Block,
@@ -30,13 +29,16 @@ impl Archiver {
     pub fn new(cfg: Config) -> Archiver {
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(&cfg, prg);
-        let archive = 
+
+        let path = 
         if cfg.mode == Mode::CreateArchive {
-            new_output_file(&cfg.out, cfg.clobber).unwrap()
+            &cfg.out
         }
         else {
-            new_output_file_no_trunc(&cfg.ex_arch).unwrap()
+            &cfg.ex_arch
         };
+
+        let archive = new_output_file(path, cfg.clobber).unwrap();
         
         Archiver {
             archive, cfg, tp,

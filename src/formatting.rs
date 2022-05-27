@@ -90,7 +90,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
 ///
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
-pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> FileData {
+pub fn fmt_file_out_extract(dir_out: &str, file_in: &FileData) -> FileData {
     let dir_out_path = Path::new(dir_out);
 
     let path = 
@@ -99,7 +99,7 @@ pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> FileData {
             dir_out_path.iter()
             .skip(1)
             .chain(
-                file_in_path.iter()
+                file_in.path.iter()
                 .filter(|c| c.to_str().unwrap() != "C:")
                 .filter(|c| c.to_str().unwrap() != "\\")
             )
@@ -112,7 +112,7 @@ pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> FileData {
         PathBuf::from(
             dir_out_path.iter()
             .chain(
-                file_in_path.iter()
+                file_in.path.iter()
                 .filter(|c| c.to_str().unwrap() != "C:")
                 .filter(|c| c.to_str().unwrap() != "\\")
             )
@@ -125,7 +125,7 @@ pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> FileData {
         PathBuf::from(
             dir_out_path.iter()
             .chain(
-                file_in_path.iter()
+                file_in.path.iter()
                 .filter(|c| c.to_str().unwrap() != "C:")
                 .filter(|c| c.to_str().unwrap() != "\\")
             )
@@ -139,6 +139,8 @@ pub fn fmt_file_out_extract(dir_out: &str, file_in_path: &Path) -> FileData {
         create_dir_all(parent).unwrap();
     }
     
-    FileData::new(path)
+    let mut file_out = FileData::new(path);
+    file_out.seg_beg = file_in.seg_beg;
+    file_out
 }
 

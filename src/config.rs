@@ -300,6 +300,8 @@ impl Config {
                 Parse::AppendFiles => {
                     cfg.mode = Mode::AppendFiles; 
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch.seg_beg = 1;
+                    cfg.clobber = true;
                     let info = ArchiveInfo::new(&cfg.ex_arch)?;
                     cfg.insert_id = info.block_count();
                     cfg.insert_pos = info.end_of_data();

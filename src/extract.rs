@@ -17,21 +17,14 @@ use crate::{
     config::Config,
     buffered_io::{
         BufferedWrite, new_input_file, new_output_file, 
-        new_dir, new_output_file_no_trunc,
+        new_dir,
     },
     error::ExtractError,
 };
 
-/// Get the next output file and the input file length, the input file being
-/// the original file that was compressed.
-///
-/// The input file length is needed to know when the output file is the 
-/// correct size.
+/// Format and return new output file.
 fn next_file(file_in: &FileData, dir_out: &str, clobber: bool) -> io::Result<BufWriter<File>> {
-    let file_out = fmt_file_out_extract(dir_out, &file_in.path);
-    if file_out.path.exists() {
-        return new_output_file_no_trunc(&file_out);
-    }
+    let file_out = fmt_file_out_extract(dir_out, file_in);
     new_output_file(&file_out, clobber)
 }
 
@@ -101,7 +94,7 @@ impl Extractor {
         
         let mut blk = Block::default();
         let mut id = 0;
-        
+
         let paths = self.cfg.inputs.iter()
             .map(|f| f.path.clone())
             .collect::<Vec<PathBuf>>();

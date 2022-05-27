@@ -10,22 +10,26 @@ fn main() {
             match cfg.mode {
                 Mode::CreateArchive => { 
                     if let Err(err) = Prisirv::new(cfg).create_archive() {
-                        println!("{err}");
+                        print!("An error occurred while creating archive.");
+                        print!("{err}");
                     } 
                 }
                 Mode::ExtractArchive => { 
                     if let Err(err) = Prisirv::new(cfg).extract_archive() {
-                        println!("{err}");
+                        print!("An error occurred while extracting archive.");
+                        print!("{err}");
                     } 
                 }
                 Mode::AppendFiles => { 
                     if let Err(err) = Prisirv::new(cfg).append_files() {
-                        println!("{err}");
+                        print!("An error occurred while appending files.");
+                        print!("{err}");
                     }
                 }
                 Mode::ExtractFiles => { 
                     if let Err(err) = Prisirv::new(cfg).extract_files() {
-                        println!("{err}");
+                        print!("An error occurred while extracting files.");
+                        print!("{err}");
                     }  
                 }
                 Mode::ListArchive => {

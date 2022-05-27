@@ -206,23 +206,23 @@ pub fn new_input_file(path: &Path) -> io::Result<BufReader<File>> {
     }
 }
 
-/// Takes a file path and returns an output file wrapped in a BufWriter.
-pub fn new_output_file_no_trunc(file: &FileData) -> io::Result<BufWriter<File>> {
-    match OpenOptions::new().write(true).open(&file.path) {
-        Ok(file) => Ok(BufWriter::with_capacity(4096, file)),
-        Err(err) => Err(err),
-    }
-}
-
-
 pub fn new_output_file(file: &FileData, clobber: bool) -> io::Result<BufWriter<File>> {
     if !file.path.exists() || file.len == 0 || clobber {
-        match File::create(&file.path) {
-            Ok(file) => Ok(BufWriter::with_capacity(4096, file)),
-            Err(err) => Err(err),
+        match OpenOptions::new()
+            .write(true)
+            .truncate(file.seg_beg == 0)
+            .create(true)
+            .open(&file.path) {
+                Ok(file) => {
+                    Ok(BufWriter::with_capacity(4096, file))
+                },
+                Err(err) => {
+                    Err(err)
+                }
         }
     }
     else {
+        println!("err");
         Err(io::Error::from(ErrorKind::AlreadyExists))
     }
     
