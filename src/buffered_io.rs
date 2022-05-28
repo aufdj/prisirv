@@ -222,7 +222,6 @@ pub fn new_output_file(file: &FileData, clobber: bool) -> io::Result<BufWriter<F
         }
     }
     else {
-        println!("err");
         Err(io::Error::from(ErrorKind::AlreadyExists))
     }
     

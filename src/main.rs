@@ -51,6 +51,9 @@ fn main() {
                         println!("{err}");
                     }
                 }
+                Mode::None => {
+                    print!("{}", Prisirv::default());
+                }
             }
         }
         Err(err) => {

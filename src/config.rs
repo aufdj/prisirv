@@ -45,6 +45,7 @@ pub enum Mode {
     ExtractFiles,
     ListArchive,
     Fv,
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,10 +114,6 @@ pub struct Config {
 impl Config {
     /// Create a new Config with the specified command line arguments.
     pub fn new(args: &[String]) -> Result<Config, ConfigError> {
-        if args.is_empty() { 
-            print_program_info(); 
-        }
-
         let mut parser = Parse::None;
         let mut cfg    = Config::default();
         
@@ -193,9 +190,6 @@ impl Config {
                 "extract-files" => {
                     parser = Parse::ExtractFiles;
                     continue;
-                }
-                "help" => {
-                    print_program_info();
                 }
                 _ => {},
             }
@@ -342,7 +336,7 @@ impl Config {
             }
         }
 
-        if !(cfg.mode == Mode::ListArchive || cfg.mode == Mode::ExtractArchive) {
+        if !(cfg.mode == Mode::ListArchive || cfg.mode == Mode::ExtractArchive || cfg.mode == Mode::None) {
             if cfg.inputs.is_empty() {
                 return Err(ConfigError::InputsEmpty);
             }
@@ -529,9 +523,12 @@ impl fmt::Display for Config {
                     )
                 },
                 Mode::ListArchive => {
-                    write!(f, "")
+                    Ok(())
                 }
                 Mode::Fv => {
+                    Ok(())
+                }
+                Mode::None => {
                     Ok(())
                 }
             }
@@ -548,7 +545,7 @@ impl Default for Config {
             user_out:   String::new(),
             blk_sz:     10 << 20,
             mem:        1 << 22,
-            mode:       Mode::CreateArchive,
+            mode:       Mode::None,
             quiet:      false,
             clobber:    false,
             threads:    4,
@@ -563,117 +560,6 @@ impl Default for Config {
             verbose:    false,
         }
     }
-}
-
-
-/// Print information about Prisirv.
-fn print_program_info() {
-    println!();
-    println!("     ______   ______     ________  ______    ________  ______    __   __     
-    /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
-    \\:::_ \\ \\\\:::_ \\ \\  \\__.::._\\/\\::::_\\/_ \\__.::._\\/\\:::_ \\ \\ \\:\\ \\\\ \\ \\   
-     \\:(_) \\ \\\\:(_) ) )_   \\::\\ \\  \\:\\/___/\\   \\::\\ \\  \\:(_) ) )_\\:\\ \\\\ \\ \\  
-      \\: ___\\/ \\: __ `\\ \\  _\\::\\ \\__\\_::._\\:\\  _\\::\\ \\__\\: __ `\\ \\\\:\\_/.:\\ \\ 
-       \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
-        \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(  
-                                                                             ");
-    println!("  
-      Prisirv File Archiver
-      Copyright (C) 2022 aufdj
-      
-      This program is free software: you can redistribute it and/or modify
-      it under the terms of the GNU General Public License as published by
-      the Free Software Foundation, either version 3 of the License, or
-      (at your option) any later version.
-      
-      This program is distributed in the hope that it will be useful,
-      but WITHOUT ANY WARRANTY; without even the implied warranty of
-      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-      GNU General Public License for more details.
-      
-      You should have received a copy of the GNU General Public License
-      along with this program.  If not, see <https://www.gnu.org/licenses/>.");
-    println!("
-      Source code available at https://github.com/aufdj/prisirv");
-    println!();
-    println!();
-    println!("  USAGE: PROG_NAME [REQUIRED] [-inputs [..]] [OPTIONS|FLAGS]");
-    println!();
-    println!("  REQUIRED:");
-    println!("     create                Create archive");
-    println!("     extract               Extract archive");
-    println!("     append a              Append files to archive 'a'");
-    println!("     extract-files a       Extract files from archive 'a'");
-    println!("     ls a                  List info about archive 'a'");
-    println!("     fv f                  Visualize file f");
-    println!();
-    println!("  One of the above commands must be used, and all are mutually exclusive.");
-    println!();
-    println!("  OPTIONS:");
-    println!("    -i,     -inputs        Specify list of input files/dirs");
-    println!("    -out,   -output-path   Specify output path");
-    println!("    -mem,   -memory        Specify memory usage     (Default - 2 (15 MiB))");
-    println!("    -blk,   -block-size    Specify block size       (Default - 10 MiB)");
-    println!("    -threads               Specify thread count     (Default - 4)");
-    println!("    -sort                  Sort files               (Default - none)");
-    println!();
-    println!("  Options '-memory', '-block-size', and '-sort' have no effect on extraction.");
-    println!();
-    println!("  FLAGS:");
-    println!("    -q,     -quiet         Suppresses output other than errors");
-    println!("    -clobber               Allow file clobbering");
-    println!("    -file-align            Truncate blocks to align with file boundaries");
-    println!("    -lzw                   Use LZW compression method");
-    println!();
-    println!("  Flags '-file-align' and '-lzw' have no effect on extraction.");
-    println!();
-    println!("  Sorting Methods:");
-    println!("    -sort ext      Sort by extension");
-    println!("    -sort name     Sort by name");
-    println!("    -sort len      Sort by length");
-    println!("    -sort prt n    Sort by nth parent directory");
-    println!("    -sort crtd     Sort by creation time");
-    println!("    -sort accd     Sort by last access time");
-    println!("    -sort mod      Sort by last modification time");
-    println!();
-    println!("  Memory Options:");
-    println!("    -mem 0  6 MB   -mem 5  99 MB");
-    println!("    -mem 1  9 MB   -mem 6  195 MB");
-    println!("    -mem 2  15 MB  -mem 7  387 MB");
-    println!("    -mem 3  27 MB  -mem 8  771 MB");
-    println!("    -mem 4  51 MB  -mem 9  1539 MB");
-    println!();
-    println!("  Extraction requires same memory option used for archiving.");
-    println!("  Any memory option specified for extraction will be ignored."); 
-    println!();
-    println!();
-    println!("  EXAMPLES:");
-    println!();
-    println!("  Compress file [\\foo\\bar.txt] and directory [\\baz] into archive [\\foo\\qux.prsv], \n  sorting files by creation time:");
-    println!();
-    println!("      prisirv create -inputs \\foo\\bar.txt \\baz -sort crtd -output-path qux");
-    println!();
-    println!("  Extract archive [\\foo\\qux.prsv]:");
-    println!();
-    println!("      prisirv extract \\foo\\qux.prsv");
-    println!();
-    println!("  Append file [foo.txt] to archive [\\foo\\qux.prsv]:");
-    println!();
-    println!("      prisirv append-files \\foo\\qux.prsv -inputs foo.txt");
-    println!();
-    println!("  Extract file [foo.txt] from archive [\\foo\\qux.prsv]:");
-    println!();
-    println!("      prisirv extract-files \\foo\\qux.prsv -inputs foo.txt");
-    println!();
-    println!("  List information about archive [\\foo\\qux.prsv]:");
-    println!();
-    println!("      prisirv ls \\foo\\qux.prsv");
-    println!();
-    println!("  Visualize file [foo.bin]:");
-    println!();
-    println!("      prisirv fv foo.bin");
-    println!();
-    std::process::exit(0);
 }
 
 fn format(size: usize) -> (usize, String) {

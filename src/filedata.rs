@@ -3,7 +3,7 @@ use std::{
     fmt,
 };
 
-/// Files in a Prisirv archive are represented as file segments. If a file
+/// Files in an archive are represented as file segments. If a file
 /// doesn't cross a block boundary, then 'seg_beg' will be 0 and 'seg_end'
 /// will be equal to len. If a file does cross a block boundary, the segment
 /// boundaries descibe which segment of the file is in that block.

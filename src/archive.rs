@@ -15,7 +15,7 @@ use crate::{
     block::Block,
 };
 
-/// A Prisirv archive consists of blocks, with each block containing a
+/// An archive consists of blocks, with each block containing a
 /// header followed by compressed data. Blocks can either be fixed size,
 /// or truncated to align with the end of the current file. The end of an
 /// archive is marked by an empty block.
