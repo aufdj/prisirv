@@ -37,10 +37,10 @@ fn main() {
                     match Prisirv::new(cfg).info() {
                         Ok(info) => {
                             if verbose {
-                                println!("{:?}", info);
+                                println!("{info:?}");
                             }
                             else {
-                                println!("{}", info);
+                                println!("{info}");
                             }   
                         },
                         Err(err) => println!("{err}"),

@@ -11,8 +11,7 @@ use crate::{
 pub trait PathFmt {
     fn name_no_ext(&self) -> &str;
     fn path_no_ext(&self) -> &str;
-    fn name_ext(&self) -> &str;
-    fn path_ext(&self) -> String;
+    fn path_ext(&self) -> &str;
 }
 
 impl PathFmt for Path {
@@ -22,22 +21,14 @@ impl PathFmt for Path {
         .to_str().unwrap()
         .split('.').next().unwrap()
     }
-
     /// Get file path without extension.
     fn path_no_ext(&self) -> &str {
         self.to_str().unwrap()
         .split('.').next().unwrap()
     }
-
-    /// Get file name with extension.
-    fn name_ext(&self) -> &str {
-        self.file_name().unwrap()
-        .to_str().unwrap()
-    }
-
     /// Get file path with extension.
-    fn path_ext(&self) -> String {
-        self.to_str().unwrap().to_string()
+    fn path_ext(&self) -> &str {
+        self.to_str().unwrap()
     }
 }
 
@@ -55,29 +46,22 @@ impl PathFmt for Path {
 pub fn fmt_root_output(cfg: &Config) -> FileData {
     let mut out = 
     if cfg.user_out.is_empty() {
-        cfg.ex_arch.path.path_no_ext().to_string() 
+        PathBuf::from(cfg.ex_arch.path.path_no_ext())
     }
     else if cfg.user_out.contains('\\') {
-        cfg.user_out.to_string()
+        PathBuf::from(&cfg.user_out)
     }
     else {
-        let mut dir_out = String::new();
-        // Replace final path component with user option
-        let s: Vec<String> = 
-            cfg.ex_arch.path.path_ext()
-            .split('\\').skip(1)
-            .map(|s| s.to_string())
-            .collect();
-        for cmpnt in s.iter().take(s.len()-1) {
-            dir_out.push_str(format!("\\{}", cmpnt).as_str());
-        }
-        format!("{}\\{}", dir_out, cfg.user_out)
+        let mut cmpnts = cfg.ex_arch.path.components();
+        cmpnts.next_back().unwrap();
+
+        cmpnts.as_path().join(Path::new(&cfg.user_out))
     };
 
     if cfg.mode == Mode::CreateArchive {
-        out.push_str(".prsv");
+        out.set_extension("prsv");
     }
-    FileData::new(PathBuf::from(out))
+    FileData::new(out)
 }
 
 /// Format output file in extracted archive

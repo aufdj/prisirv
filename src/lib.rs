@@ -52,9 +52,14 @@ impl Prisirv {
     }
 
     /// Choose number of threads to use.
-    pub fn threads(mut self, count: usize) -> Self {
-        self.cfg.threads = count;
-        self
+    pub fn threads(mut self, count: usize) -> Result<Self, ConfigError> {
+        if count > 0 || count < 128 {
+            self.cfg.threads = count;
+        }
+        else {
+            return Err(ConfigError::OutOfRangeThreadCount(count));
+        }
+        Ok(self)
     }
 
     /// Supress output other than errors.

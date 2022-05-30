@@ -11,7 +11,7 @@ REQUIRED:
    append a              Append files to archive 'a'
    extract-files a       Extract files from archive 'a'
    ls a                  List info about archive 'a'
-   fv f                  Visualize file f
+   fv f                  Visualize file 'f'
         
 One of the above commands must be used, and all are mutually exclusive.
         
@@ -63,7 +63,7 @@ Extract archive [\\foo\\qux.prsv]:
        
 Append file [foo.txt] to archive [\\foo\\qux.prsv]:
        
-    prisirv append-files \\foo\\qux.prsv -inputs foo.txt
+    prisirv append \\foo\\qux.prsv -inputs foo.txt
        
 Extract file [foo.txt] from archive [\\foo\\qux.prsv]:
        
