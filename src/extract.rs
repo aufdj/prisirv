@@ -23,7 +23,7 @@ use crate::{
 };
 
 /// Format and return new output file.
-fn next_file(file_in: &FileData, dir_out: &str, clobber: bool) -> io::Result<BufWriter<File>> {
+fn next_file(file_in: &FileData, dir_out: &FileData, clobber: bool) -> io::Result<BufWriter<File>> {
     let file_out = fmt_file_out_extract(dir_out, file_in);
     new_output_file(&file_out, clobber)
 }
@@ -72,7 +72,7 @@ impl Extractor {
                 }
 
                 for file in blk.files.iter() {
-                    let mut file_out = next_file(file, self.cfg.out.path_str(), self.cfg.clobber)?;
+                    let mut file_out = next_file(file, &self.cfg.out, self.cfg.clobber)?;
                     file_out.seek(SeekFrom::Start(file.seg_beg))?;
 
                     // Get segment of block containing target file's data.
@@ -126,7 +126,7 @@ impl Extractor {
                 blk.files.retain(|blk_file| paths.contains(&blk_file.path));
                 
                 for file in blk.files.iter() {
-                    let mut file_out = next_file(file, self.cfg.out.path_str(), self.cfg.clobber)?;
+                    let mut file_out = next_file(file, &self.cfg.out, self.cfg.clobber)?;
                     file_out.seek(SeekFrom::Start(file.seg_beg))?;
 
                     // Get segment of block containing target file's data.

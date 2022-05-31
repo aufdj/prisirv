@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::{Path, PathBuf, Component},
     fs::create_dir_all,
 };
 use crate::{ 
@@ -74,49 +74,16 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
 ///
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
-pub fn fmt_file_out_extract(dir_out: &str, file_in: &FileData) -> FileData {
-    let dir_out_path = Path::new(dir_out);
+pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData {
+    let mut file_cmpnts = file_in.path.components();
 
-    let path = 
-    if dir_out_path.is_absolute() {
-        PathBuf::from(
-            dir_out_path.iter()
-            .skip(1)
-            .chain(
-                file_in.path.iter()
-                .filter(|c| c.to_str().unwrap() != "C:")
-                .filter(|c| c.to_str().unwrap() != "\\")
-            )
-            .map(|s| format!("\\{}", s.to_str().unwrap()))
-            .skip(1)
-            .collect::<String>()
-        )
+    // If path contains prefix, advance iterator once more to make the path
+    // non-absolute so join() will actually join rather than replace.
+    if let Some(Component::Prefix(_)) = file_cmpnts.next() {
+        file_cmpnts.next().unwrap();
     }
-    else if dir_out_path.starts_with("\\") {
-        PathBuf::from(
-            dir_out_path.iter()
-            .chain(
-                file_in.path.iter()
-                .filter(|c| c.to_str().unwrap() != "C:")
-                .filter(|c| c.to_str().unwrap() != "\\")
-            )
-            .map(|s| format!("\\{}", s.to_str().unwrap()))
-            .skip(1)
-            .collect::<String>()
-        )
-    }
-    else {
-        PathBuf::from(
-            dir_out_path.iter()
-            .chain(
-                file_in.path.iter()
-                .filter(|c| c.to_str().unwrap() != "C:")
-                .filter(|c| c.to_str().unwrap() != "\\")
-            )
-            .map(|s| format!("\\{}", s.to_str().unwrap()))
-            .collect::<String>().strip_prefix('\\').unwrap()
-        )
-    };
+
+    let path = dir_out.path.join(file_cmpnts.as_path());
 
     let parent = path.parent().unwrap();
     if !parent.exists() {
