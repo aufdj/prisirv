@@ -57,12 +57,9 @@ impl FileData {
             blk_pos: 0,
         }
     }
-    pub fn path_str(&self) -> &str {
-        self.path.to_str().unwrap()
-    }
     // Total size of FileData
     pub fn size(&self) -> u64 {
-        (self.path_str().as_bytes().len() + 32) as u64
+        32 + self.path.as_os_str().len() as u64
     }
 }
 impl fmt::Display for FileData {
