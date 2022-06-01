@@ -8,31 +8,6 @@ use crate::{
 };
 
 
-pub trait PathFmt {
-    fn name_no_ext(&self) -> &str;
-    fn path_no_ext(&self) -> &str;
-    fn path_ext(&self) -> &str;
-}
-
-impl PathFmt for Path {
-    /// Get file name without extension.
-    fn name_no_ext(&self) -> &str {
-        self.file_name().unwrap()
-        .to_str().unwrap()
-        .split('.').next().unwrap()
-    }
-    /// Get file path without extension.
-    fn path_no_ext(&self) -> &str {
-        self.to_str().unwrap()
-        .split('.').next().unwrap()
-    }
-    /// Get file path with extension.
-    fn path_ext(&self) -> &str {
-        self.to_str().unwrap()
-    }
-}
-
-
 /// Format output directory given an optional user specified output, and the 
 /// first input file or directory.
 ///
@@ -46,7 +21,7 @@ impl PathFmt for Path {
 pub fn fmt_root_output(cfg: &Config) -> FileData {
     let mut out = 
     if cfg.user_out.is_empty() {
-        PathBuf::from(cfg.ex_arch.path.path_no_ext())
+        cfg.ex_arch.path.with_extension("")
     }
     else if cfg.user_out.contains('\\') {
         PathBuf::from(&cfg.user_out)
@@ -70,7 +45,7 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
 /// absolute path of the file being compressed. This is done by chaining 
 /// together the output directory path and the input file path, excluding 
 /// the top level of the input path.
-/// i.e. \foo_d + \foo\bar\baz.txt -> \foo_d\bar\baz.txt
+/// i.e. \foo + \bar\baz\qux.txt -> \foo\baz\qux.txt
 ///
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
@@ -85,9 +60,10 @@ pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData 
 
     let path = dir_out.path.join(file_cmpnts.as_path());
 
-    let parent = path.parent().unwrap();
-    if !parent.exists() {
-        create_dir_all(parent).unwrap();
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            create_dir_all(parent).unwrap();
+        }
     }
     
     let mut file_out = FileData::new(path);

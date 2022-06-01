@@ -9,9 +9,7 @@ use crate::{
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
     error::ExtractError,
-    constant::{
-        MAGIC, MAJOR, MINOR, PATCH,
-    }
+    constant::{MAGIC, MAJOR, MINOR, PATCH}
 };
 
 #[derive(Clone, Default)]

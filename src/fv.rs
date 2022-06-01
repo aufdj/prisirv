@@ -9,7 +9,6 @@ use crate::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file,
     },
-    formatting::PathFmt,
     filedata::FileData,
     config::Config,
 };
@@ -159,8 +158,12 @@ impl Image {
     }
 }
 pub fn new(cfg: &Config) -> io::Result<()> {
-    let time      = Instant::now();
-    let file_name = &format!("{}.bmp", cfg.inputs[0].path.name_no_ext());
+    let name = cfg.inputs[0].path
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let file_name = &format!("{name}.bmp");
     let file_out  = FileData::new(PathBuf::from(file_name));
     let size_sum  = cfg.inputs.iter().map(|f| f.len).sum();
     let fsize_sum = size_sum as f64;
@@ -175,6 +178,7 @@ pub fn new(cfg: &Config) -> io::Result<()> {
         height,
         file_name
     );
+    let time = Instant::now();
     
     // Create blank white image
     let mut img = Image::new(width, height);
