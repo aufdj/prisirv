@@ -13,9 +13,9 @@ struct BitStream {
     out:           u32,
 }
 impl BitStream {
-    fn new(stream: Box<dyn Iterator<Item = u8>>) -> BitStream {
+    fn new(blk_in: Vec<u8>) -> BitStream {
         BitStream {
-            stream,
+            stream:    Box::new(blk_in.into_iter()),
             code_len:  9,
             code:      0,
             count:     0,
@@ -134,14 +134,18 @@ impl Dictionary {
     }
 }
 
-pub fn decompress(blk_in: &[u8], mem: usize) -> Vec<u8> {
-    if blk_in.is_empty() { return Vec::new(); }
-    let mut stream = BitStream::new(Box::new(blk_in.to_vec().into_iter()));
+pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
+    if blk_in.is_empty() { 
+        return Vec::new(); 
+    }
+    let mut stream = BitStream::new(blk_in);
     let mut dict = Dictionary::new(mem);
 
     loop { 
         if let Some(code) = stream.get_code() {
-            if code == DATA_END { break; }
+            if code == DATA_END { 
+                break; 
+            }
             if code != 257 && code != 258 {
                 dict.output_string(code);
             }

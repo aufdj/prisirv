@@ -79,7 +79,7 @@ impl ThreadPool {
                             enc.blk_out
                         }
                         Method::Lzw => {
-                            lzw::encoder::compress(&blk_in.data, mem)
+                            lzw::encoder::compress(blk_in.data, mem)
                         }
                         Method::Store => {
                             blk_in.data
@@ -88,7 +88,8 @@ impl ThreadPool {
                     
                     let crtd = SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap().as_secs() as u64;
+                        .unwrap()
+                        .as_secs() as u64;
 
                     Block {
                         sizeo:  blk_out.len() as u64,
@@ -118,7 +119,7 @@ impl ThreadPool {
                             .decompress_block(blk_in.sizei as usize)
                         }
                         Method::Lzw => {
-                            lzw::decoder::decompress(&blk_in.data, mem)
+                            lzw::decoder::decompress(blk_in.data, mem)
                         }
                         Method::Store => {
                             blk_in.data 

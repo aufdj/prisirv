@@ -108,8 +108,9 @@ impl Dictionary {
         
         let last_char = self.string.pop().unwrap();
 
-        let code = *self.map.get(&self.string).unwrap();
-        self.stream.write(code);
+        self.stream.write(
+            *self.map.get(&self.string).unwrap()
+        );
 
         self.string.clear();
         self.string.push(last_char); 
@@ -125,9 +126,10 @@ impl Dictionary {
     }
     fn output_last_code(&mut self) {
         if !self.string.is_empty() {
-            let code = *self.map.get(&self.string).unwrap();
-            self.stream.write(code);
-        } 
+            self.stream.write(
+                *self.map.get(&self.string).unwrap()
+            );
+        }
         self.stream.write(DATA_END);
     }
     fn update_string(&mut self, byte: u8) {
@@ -139,7 +141,7 @@ impl Dictionary {
 }
 
 
-pub fn compress(blk_in: &[u8], mem: usize) -> Vec<u8> {
+pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     if blk_in.is_empty() { 
         return Vec::new();
     }
