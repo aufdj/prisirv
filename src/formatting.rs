@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf, Component},
     fs::create_dir_all,
+    ffi::OsStr,
 };
 use crate::{ 
     config::{Config, Mode},
@@ -50,15 +51,39 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
 /// If the parent directory of the output path doesn't exist, it and other 
 /// required directories are created.
 pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData {
+    let first = file_in.path.components().next();
+
     let mut file_cmpnts = file_in.path.components();
 
-    // If path contains prefix, advance iterator once more to make the path
+    // If path contains prefix, advance iterator twice to make the path
     // non-absolute so join() will actually join rather than replace.
-    if let Some(Component::Prefix(_)) = file_cmpnts.next() {
-        file_cmpnts.next().unwrap();
+    // If path contains root, advance iterator once to make the path
+    // non-absolute so join() will actually join rather than replace. 
+    match first {
+        Some(Component::Prefix(_)) => {
+            file_cmpnts.next().unwrap();
+            file_cmpnts.next().unwrap();
+        },
+        Some(Component::RootDir) => {
+            file_cmpnts.next().unwrap();
+        },
+        _ => {}
     }
 
-    let path = dir_out.path.join(file_cmpnts.as_path());
+    let mut d = dir_out.path.into_iter();
+    
+    let n = file_cmpnts
+        .as_path()
+        .into_iter()
+        .filter(|&f| !d.any(|m| f == m))
+        .collect::<Vec<&OsStr>>();
+
+    let mut end = PathBuf::new();
+    for s in n.iter() {
+        end.push(s);
+    }
+
+    let path = dir_out.path.join(end);
 
     if let Some(parent) = path.parent() {
         if !parent.exists() {
