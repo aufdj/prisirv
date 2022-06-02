@@ -7,10 +7,9 @@ mod tests {
 
     #[test]
     fn calgary_tar() {
-        let inputs: Vec<&str> = vec!["tests\\data\\calgary.tar"];
         if let Err(err) = Prisirv::default()
             .clobber()
-            .inputs(&inputs)
+            .inputs(&vec!["tests\\data\\calgary.tar"])
             .create_archive() {
                 println!("{err}");
         }
