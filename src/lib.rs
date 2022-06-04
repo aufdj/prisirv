@@ -34,6 +34,7 @@ use crate::{
         ExtractError
     },
     formatting::fmt_root_output,
+    constant::{MAJOR, MINOR, PATCH},
 };
 
 
@@ -124,10 +125,8 @@ impl Prisirv {
         self.cfg.ex_arch = self.cfg.inputs[0].clone();
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
-
         self.cfg.inputs = sort_inputs(&self.cfg);
-
-        Archiver::new(self.cfg).create_archive()?;
+        Archiver::new(self.cfg)?.create_archive()?;
         Ok(())
     }
 
@@ -136,7 +135,7 @@ impl Prisirv {
         self.cfg.mode = Mode::ExtractArchive;
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
-        Extractor::new(self.cfg).extract_archive()?;
+        Extractor::new(self.cfg)?.extract_archive()?;
         Ok(())
     }
 
@@ -144,10 +143,8 @@ impl Prisirv {
     pub fn append_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::AppendFiles;
         println!("{}", self.cfg);
-
         self.cfg.inputs = sort_inputs(&self.cfg);
-
-        Archiver::new(self.cfg).append_files()?;
+        Archiver::new(self.cfg)?.append_files()?;
         Ok(())
     }
 
@@ -156,7 +153,7 @@ impl Prisirv {
         self.cfg.mode = Mode::ExtractFiles;
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
-        Extractor::new(self.cfg).extract_files()?;
+        Extractor::new(self.cfg)?.extract_files()?;
         Ok(())
     }
 
@@ -189,7 +186,7 @@ impl fmt::Display for Prisirv {
            \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
             \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(
                 
-        Prisirv File Archiver
+        Prisirv v{MAJOR}.{MINOR}.{PATCH}
         Copyright (C) 2022 aufdj
         
         This program is free software: you can redistribute it and/or modify
@@ -211,30 +208,30 @@ impl fmt::Display for Prisirv {
         USAGE: PROG_NAME [REQUIRED] [OPTIONS|FLAGS]
     
         REQUIRED:
-           create                Create archive
-           extract               Extract archive
-           append a              Append files to archive 'a'
-           extract-files a       Extract files from archive 'a'
-           ls a                  List info about archive 'a'
-           fv f                  Visualize file f
+           c,  create           Create archive
+           x,  extract          Extract archive
+           a,  append           Append files to archive
+           p,  pick             Extract select files from archive
+           ls                   List info about archive
+           fv                   Visualize file
                 
         One of the above commands must be used, and all are mutually exclusive.
                 
         OPTIONS:
-          -i,     -inputs        Specify list of input files/dirs
-          -out,   -output-path   Specify output path
-          -mem,   -memory        Specify memory usage     (Default - 2 (15 MiB))
-          -blk,   -block-size    Specify block size       (Default - 10 MiB)
-          -threads               Specify thread count     (Default - 4)
-          -sort                  Sort files               (Default - none)
+          -i,    -inputs        Specify list of input files/dirs
+          -out,  -output-path   Specify output path
+          -mem,  -memory        Specify memory usage     (Default - 2 (15 MiB))
+          -blk,  -block-size    Specify block size       (Default - 10 MiB)
+          -threads              Specify thread count     (Default - 4)
+          -sort                 Sort files               (Default - none)
                 
         Options '-memory', '-block-size', and '-sort' have no effect on extraction.
                 
         FLAGS:
-          -q,     -quiet         Suppresses output other than errors
-          -clobber               Allow file clobbering
-          -file-align            Truncate blocks to align with file boundaries
-          -lzw                   Use LZW compression method
+          -q,  -quiet           Suppresses output other than errors
+          -clobber              Allow file clobbering
+          -file-align           Truncate blocks to align with file boundaries
+          -lzw                  Use LZW compression method
                 
         Flags '-file-align' and '-lzw' have no effect on extraction.
                 
@@ -257,26 +254,26 @@ impl fmt::Display for Prisirv {
 
         EXAMPLES:
                 
-        Compress file [\\foo\\bar.txt] and directory [\\baz] into archive [\\foo\\qux.prsv], 
+        Compress file [/foo/bar.txt] and directory [/baz] into archive [/foo/qux.prsv], 
         sorting files by creation time:
                
-            prisirv create -inputs \\foo\\bar.txt \\baz -sort crtd -output-path qux
+            prisirv create -inputs /foo/bar.txt /baz -sort crtd -output-path qux
                
-        Extract archive [\\foo\\qux.prsv]:
+        Extract archive [/foo/qux.prsv]:
                
-            prisirv extract \\foo\\qux.prsv
+            prisirv extract /foo/qux.prsv
                
-        Append file [foo.txt] to archive [\\foo\\qux.prsv]:
+        Append file [foo.txt] to archive [/foo/qux.prsv]:
                
-            prisirv append-files \\foo\\qux.prsv -inputs foo.txt
+            prisirv append-files /foo/qux.prsv -inputs foo.txt
                
-        Extract file [foo.txt] from archive [\\foo\\qux.prsv]:
+        Extract file [foo.txt] from archive [/foo/qux.prsv]:
                
-            prisirv extract-files \\foo\\qux.prsv -inputs foo.txt
+            prisirv extract-files /foo/qux.prsv -inputs foo.txt
                
-        List information about archive [\\foo\\qux.prsv]:
+        List information about archive [/foo/qux.prsv]:
                
-            prisirv ls \\foo\\qux.prsv
+            prisirv ls /foo/qux.prsv
                
         Visualize file [foo.bin]:
                

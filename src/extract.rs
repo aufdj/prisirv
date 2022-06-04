@@ -36,14 +36,16 @@ pub struct Extractor {
 }
 impl Extractor {
     /// Create a new Extractor.
-    pub fn new(cfg: Config) -> Extractor {
-        let archive = new_input_file(&cfg.ex_arch.path).unwrap();
+    pub fn new(cfg: Config) -> Result<Extractor, ExtractError> {
+        let archive = new_input_file(&cfg.ex_arch.path)?;
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(&cfg, prg);
         
-        Extractor { 
-            archive, cfg, tp,
-        }
+        Ok(
+            Extractor { 
+                archive, cfg, tp,
+            }
+        )
     }
 
     /// Decompress blocks and parse blocks into files. A block can span

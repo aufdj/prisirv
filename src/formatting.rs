@@ -52,7 +52,6 @@ pub fn fmt_root_output(cfg: &Config) -> FileData {
 /// required directories are created.
 pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData {
     let first = file_in.path.components().next();
-
     let mut file_cmpnts = file_in.path.components();
 
     // If path contains prefix, advance iterator twice to make the path
@@ -70,16 +69,16 @@ pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData 
         _ => {}
     }
 
-    let mut d = dir_out.path.into_iter();
-    
-    let n = file_cmpnts
+    let mut dir_path = dir_out.path.into_iter();
+
+    let dedup = file_cmpnts
         .as_path()
         .into_iter()
-        .filter(|&f| !d.any(|m| f == m))
+        .filter(|&f| !dir_path.any(|d| f == d))
         .collect::<Vec<&OsStr>>();
 
     let mut end = PathBuf::new();
-    for s in n.iter() {
+    for s in dedup.iter() {
         end.push(s);
     }
 

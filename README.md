@@ -6,27 +6,27 @@ Prisirv is a file archiver based on [lpaq1 by Matt Mahoney.](http://mattmahoney.
 USAGE: PROG_NAME [REQUIRED] [OPTIONS|FLAGS]
     
 REQUIRED:
-   create                Create archive
-   extract               Extract archive
-   append a              Append files to archive 'a'
-   extract-files a       Extract files from archive 'a'
-   ls a                  List info about archive 'a'
-   fv f                  Visualize file 'f'
+   c,  create            Create archive
+   x,  extract           Extract archive
+   a,  append            Append files to archive
+   p,  pick              Extract select files from archive
+   ls                    List info about archive
+   fv                    Visualize file
         
 One of the above commands must be used, and all are mutually exclusive.
         
 OPTIONS:
-  -i,     -inputs        Specify list of input files/dirs
-  -out,   -output-path   Specify output path
-  -mem,   -memory        Specify memory usage     (Default - 2 (15 MiB))
-  -blk,   -block-size    Specify block size       (Default - 10 MiB)
+  -i,    -inputs         Specify list of input files/dirs
+  -out,  -output-path    Specify output path
+  -mem,  -memory         Specify memory usage     (Default - 2 (15 MiB))
+  -blk,  -block-size     Specify block size       (Default - 10 MiB)
   -threads               Specify thread count     (Default - 4)
   -sort                  Sort files               (Default - none)
         
 Options '-memory', '-block-size', and '-sort' have no effect on extraction.
         
 FLAGS:
-  -q,     -quiet         Suppresses output other than errors
+  -q,  -quiet            Suppresses output other than errors
   -clobber               Allow file clobbering
   -file-align            Truncate blocks to align with file boundaries
   -lzw                   Use LZW compression method

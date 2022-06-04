@@ -8,6 +8,7 @@ use crate::{
     error::ConfigError,
     filedata::FileData,
     archiveinfo::ArchiveInfo,
+    constant::{MAJOR, MINOR, PATCH},
 };
 
 
@@ -157,17 +158,17 @@ impl Config {
                 "-lzw" => {
                     parser = Parse::Lzw;
                 }
-                "append" => {
+                "a" | "append" => {
                     parser = Parse::AppendFiles;
                     continue;
                 }
                 "-store" => {
                     parser = Parse::Store;
                 }
-                "create" => {
+                "c" | "create" => {
                     parser = Parse::CreateArchive;
                 }
-                "extract" => {
+                "x" | "extract" => {
                     parser = Parse::ExtractArchive;
                     continue;
                 }
@@ -187,7 +188,7 @@ impl Config {
                 "-verbose" => {
                     parser = Parse::Verbose;
                 }
-                "extract-files" => {
+                "p" | "pick" => {
                     parser = Parse::ExtractFiles;
                     continue;
                 }
@@ -336,6 +337,23 @@ impl Config {
             }
         }
 
+        match cfg.mode {
+            Mode::ListArchive |
+            Mode::ExtractArchive |
+            Mode::None => {},
+            _ => {
+                if cfg.inputs.is_empty() {
+                    return Err(ConfigError::InputsEmpty);
+                }
+        
+                for input in cfg.inputs.iter() {
+                    if !(input.path.is_file() || input.path.is_dir()) {
+                        return Err(ConfigError::InvalidInput(input.path.clone()));
+                    }
+                } 
+            }
+        }
+
         if !(cfg.mode == Mode::ListArchive || cfg.mode == Mode::ExtractArchive || cfg.mode == Mode::None) {
             if cfg.inputs.is_empty() {
                 return Err(ConfigError::InputsEmpty);
@@ -357,6 +375,7 @@ impl fmt::Display for Config {
             match self.mode {
                 Mode::CreateArchive => {
                     write!(f, "
+                        \rPrisirv v{MAJOR}.{MINOR}.{PATCH}
                         \r=============================================================
                         \r Creating Archive of Inputs:"
                     )?;
@@ -501,17 +520,8 @@ impl fmt::Display for Config {
                     )?;
                     for input in self.inputs.iter() {
                         write!(f, "
-                            \r    {} ({})", 
+                            \r    {}", 
                             input.path.display(),
-                            if input.path.is_file() {
-                                "File" 
-                            }
-                            else if input.path.is_dir() { 
-                                "Directory" 
-                            }
-                            else { 
-                                "" 
-                            }
                         )?;
                     }
                     write!(f, "\n

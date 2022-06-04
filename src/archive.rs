@@ -26,7 +26,7 @@ pub struct Archiver {
 }
 impl Archiver {
     /// Create a new Archiver.
-    pub fn new(cfg: Config) -> Archiver {
+    pub fn new(cfg: Config) -> Result<Archiver, ArchiveError> {
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(&cfg, prg);
 
@@ -38,11 +38,14 @@ impl Archiver {
             &cfg.ex_arch
         };
 
-        let archive = new_output_file(path, cfg.clobber).unwrap();
+        let archive = new_output_file(path, cfg.clobber)?;
         
-        Archiver {
-            archive, cfg, tp,
-        }
+        Ok(
+            Archiver {
+                archive, cfg, tp,
+            }
+        )
+        
     }
 
     /// Parse files into blocks and compress blocks.

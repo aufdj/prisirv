@@ -9,23 +9,23 @@ mod tests {
     fn calgary_tar() {
         if let Err(err) = Prisirv::default()
             .clobber()
-            .inputs(&vec!["tests\\data\\calgary.tar"])
+            .inputs(&vec!["tests/data/calgary.tar"])
             .create_archive() {
                 println!("{err}");
         }
 
         if let Err(err) = Prisirv::default()
             .clobber()
-            .ex_arch("tests\\data\\calgary.prsv")
+            .ex_arch("tests/data/calgary.prsv")
             .extract_archive() {
                 println!("{err}");
         }
         
-        let crc1 = Path::new("tests\\data\\calgary.tar").crc32();
-        let crc2 = Path::new("tests\\data\\calgary\\calgary.tar").crc32();
+        let crc1 = Path::new("tests/data/calgary.tar").crc32();
+        let crc2 = Path::new("tests/data/calgary/calgary.tar").crc32();
 
-        fs::remove_dir_all("tests\\data\\calgary").unwrap();
-        fs::remove_file("tests\\data\\calgary.prsv").unwrap();
+        fs::remove_dir_all("tests/data/calgary").unwrap();
+        fs::remove_file("tests/data/calgary.prsv").unwrap();
 
         println!();
         println!("Input CRC:  {:x}", crc1);
