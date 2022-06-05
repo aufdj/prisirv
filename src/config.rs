@@ -8,7 +8,7 @@ use crate::{
     error::ConfigError,
     filedata::FileData,
     archiveinfo::ArchiveInfo,
-    constant::{MAJOR, MINOR, PATCH},
+    constant::Version,
 };
 
 
@@ -35,6 +35,7 @@ enum Parse {
     Store,
     AppendFiles,
     ExtractFiles,
+    MergeArchives,
     Verbose,
 }
 
@@ -44,6 +45,7 @@ pub enum Mode {
     ExtractArchive,
     AppendFiles,
     ExtractFiles,
+    MergeArchives,
     ListArchive,
     Fv,
     None,
@@ -192,6 +194,10 @@ impl Config {
                     parser = Parse::ExtractFiles;
                     continue;
                 }
+                "m" | "merge" => {
+                    parser = Parse::MergeArchives;
+                    continue;
+                }
                 _ => {},
             }
             match parser {
@@ -301,6 +307,15 @@ impl Config {
                     cfg.insert_id = info.block_count();
                     cfg.insert_pos = info.end_of_data();
                 }
+                Parse::MergeArchives => {
+                    cfg.mode = Mode::MergeArchives; 
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch.seg_beg = 1; // Don't truncate archive
+                    cfg.clobber = true;
+                    let info = ArchiveInfo::new(&cfg.ex_arch)?;
+                    cfg.insert_id = info.block_count();
+                    cfg.insert_pos = info.end_of_data();
+                }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;
                     cfg.ex_arch = FileData::new(PathBuf::from(arg));
@@ -338,9 +353,7 @@ impl Config {
         }
 
         match cfg.mode {
-            Mode::ListArchive |
-            Mode::ExtractArchive |
-            Mode::None => {},
+            Mode::ListArchive | Mode::ExtractArchive | Mode::None => {},
             _ => {
                 if cfg.inputs.is_empty() {
                     return Err(ConfigError::InputsEmpty);
@@ -353,18 +366,6 @@ impl Config {
                 } 
             }
         }
-
-        if !(cfg.mode == Mode::ListArchive || cfg.mode == Mode::ExtractArchive || cfg.mode == Mode::None) {
-            if cfg.inputs.is_empty() {
-                return Err(ConfigError::InputsEmpty);
-            }
-    
-            for input in cfg.inputs.iter() {
-                if !(input.path.is_file() || input.path.is_dir()) {
-                    return Err(ConfigError::InvalidInput(input.path.clone()));
-                }
-            }
-        }
         
         Ok(cfg)
     }
@@ -374,8 +375,9 @@ impl fmt::Display for Config {
         if !self.quiet {
             match self.mode {
                 Mode::CreateArchive => {
+                    let version = Version::current();
                     write!(f, "
-                        \rPrisirv v{MAJOR}.{MINOR}.{PATCH}
+                        \rPrisirv {version}
                         \r=============================================================
                         \r Creating Archive of Inputs:"
                     )?;
@@ -512,6 +514,19 @@ impl fmt::Display for Config {
                         self.threads
                     )
                 },
+                Mode::MergeArchives => {
+                    write!(f, "
+                        \r Merging into archive {}:",
+                        self.ex_arch.path.display()
+                    )?;
+                    for input in self.inputs.iter() {
+                        write!(f, "
+                            \r    {}", 
+                            input.path.display(),
+                        )?;
+                    }
+                    Ok(())
+                }
                 Mode::ExtractFiles => {
                     write!(f, "
                         \r=============================================================

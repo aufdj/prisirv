@@ -34,7 +34,7 @@ use crate::{
         ExtractError
     },
     formatting::fmt_root_output,
-    constant::{MAJOR, MINOR, PATCH},
+    constant::Version,
 };
 
 
@@ -157,6 +157,14 @@ impl Prisirv {
         Ok(())
     }
 
+    /// Append inputs to archive.
+    pub fn merge_archives(mut self) -> Result<(), ExtractError> {
+        self.cfg.mode = Mode::MergeArchives;
+        println!("{}", self.cfg);
+        Archiver::new(self.cfg).unwrap().merge_archives()?;
+        Ok(())
+    }
+
     /// Get information about archive.
     pub fn info(mut self) -> Result<ArchiveInfo, ExtractError> {
         self.cfg.mode = Mode::ListArchive;
@@ -177,6 +185,7 @@ impl Prisirv {
 
 impl fmt::Display for Prisirv {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let version = Version::current();
         write!(f, "
          ______   ______     ________  ______    ________  ______    __   __     
         /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
@@ -186,7 +195,7 @@ impl fmt::Display for Prisirv {
            \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
             \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(
                 
-        Prisirv v{MAJOR}.{MINOR}.{PATCH}
+        Prisirv {version}
         Copyright (C) 2022 aufdj
         
         This program is free software: you can redistribute it and/or modify
@@ -212,6 +221,7 @@ impl fmt::Display for Prisirv {
            x,  extract          Extract archive
            a,  append           Append files to archive
            p,  pick             Extract select files from archive
+           m,  merge            Merge archives together
            ls                   List info about archive
            fv                   Visualize file
                 

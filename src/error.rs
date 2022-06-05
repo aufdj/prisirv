@@ -4,9 +4,7 @@ use std::{
     io,
 };
 
-use crate::constant::{
-    MAJOR, MINOR, PATCH,
-};
+use crate::constant::Version;
 
 
 /// Possible errors encountered while sorting files.
@@ -200,7 +198,8 @@ impl From<SortError> for ConfigError {
 #[derive(Debug)]
 pub enum ExtractError {
     InvalidMagicNumber(u32),
-    InvalidVersion((u16, u16, u16)),
+    InvalidVersion(Version),
+    IncompatibleVersions,
     FileNotFound(PathBuf),
     IncorrectChecksum(u32),
     IoError(io::Error),
@@ -218,11 +217,18 @@ impl fmt::Display for ExtractError {
                     \rDid not find valid magic number in block {id} header.\n"
                 )
             }
-            ExtractError::InvalidVersion((major, minor, patch)) => {
+            ExtractError::InvalidVersion(version) => {
+                let current = Version::current();
                 write!(f, "
                     \rERROR:
-                    \rThis archive was created with Prisirv version {major}.{minor}.{patch},
-                    \rand cannot be extracted with version {MAJOR}.{MINOR}.{PATCH}.\n"
+                    \rThis archive was created with Prisirv version {version},
+                    \rand cannot be extracted with version {current}.\n",
+                )
+            }
+            ExtractError::IncompatibleVersions => {
+                write!(f, "
+                    \rERROR:
+                    \rCannot merge archives with incompatible versions.\n",
                 )
             }
             ExtractError::FileNotFound(file) => {
@@ -245,6 +251,7 @@ impl fmt::Display for ExtractError {
     }
 }
 
+#[derive(Debug)]
 pub enum ArchiveError {
     IoError(io::Error),
 }

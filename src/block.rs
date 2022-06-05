@@ -9,7 +9,7 @@ use crate::{
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
     error::ExtractError,
-    constant::{MAGIC, MAJOR, MINOR, PATCH}
+    constant::{MAGIC, Version},
 };
 
 #[derive(Clone, Default)]
@@ -22,6 +22,7 @@ pub struct Block {
     pub sizei:   u64,           // Input data size
     pub crtd:    u64,           // Creation time
     pub files:   Vec<FileData>, // Files in this block
+    pub version: Version,       // Version number
     pub data:    Vec<u8>,       // Block data 
     pub method:  Method,        // Context Mixing, LZW, or Uncompressed
 }
@@ -36,6 +37,7 @@ impl Block {
             sizeo:   0,
             sizei:   0,
             crtd:    0,  
+            version: Version::current(),
             files:   Vec::new(),
             data:    Vec::with_capacity(cfg.blk_sz),
         }
@@ -47,9 +49,9 @@ impl Block {
     }
     pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
         archive.write_u32(MAGIC);
-        archive.write_u16(MAJOR);
-        archive.write_u16(MINOR);
-        archive.write_u16(PATCH);
+        archive.write_u16(self.version.major);
+        archive.write_u16(self.version.minor);
+        archive.write_u16(self.version.patch);
         archive.write_u64(self.mem);
         archive.write_u64(self.blk_sz as u64);
         archive.write_byte(self.method as u8);
@@ -89,9 +91,9 @@ impl Block {
     /// Read block header
     pub fn read_header_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ExtractError> {
         let magic     = archive.read_u32();
-        let major     = archive.read_u16();
-        let minor     = archive.read_u16();
-        let patch     = archive.read_u16();
+        self.version.major = archive.read_u16();
+        self.version.minor = archive.read_u16();
+        self.version.patch = archive.read_u16();
         self.mem      = archive.read_u64();
         self.blk_sz   = archive.read_u64() as usize;
         self.method   = Method::from(archive.read_byte());
@@ -104,9 +106,6 @@ impl Block {
 
         if magic != MAGIC { 
             return Err(ExtractError::InvalidMagicNumber(self.id));
-        }
-        if major != MAJOR || minor != MINOR {
-            return Err(ExtractError::InvalidVersion((major, minor, patch)));
         }
 
         let mut path: Vec<u8> = Vec::with_capacity(64);
@@ -170,12 +169,14 @@ impl fmt::Debug for Block {
             \rUncompressed Size: {}
             \rCompressed Size:   {}
             \rCRC32 Checksum:    {:x}
-            \rCreation time:     {}\n\n",
+            \rCreation time:     {}
+            \rMemory Usage:      {}\n\n",
             self.id,
             self.sizei, 
             self.sizeo,
             self.chksum, 
-            self.crtd
+            self.crtd,
+            self.mem
         )?;
         write!(f, "\rFiles:")?;
         for file in self.files.iter() {

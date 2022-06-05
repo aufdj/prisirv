@@ -11,8 +11,9 @@ use crate::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file,
     },
-    error::ArchiveError,
+    error::{ArchiveError, ExtractError},
     block::Block,
+    archiveinfo::ArchiveInfo,
 };
 
 /// An archive consists of blocks, with each block containing a
@@ -160,6 +161,39 @@ impl Archiver {
             }
         }
         self.archive.flush_buffer();
+        Ok(())
+    }
+
+    pub fn merge_archives(&mut self) -> Result<(), ExtractError> {
+        self.archive.seek(SeekFrom::Start(self.cfg.insert_pos))?;
+        let mut blk = Block::default();
+
+        let ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
+
+        let mut info = Vec::new();
+        for input in self.cfg.inputs.iter() {
+            info.push(ArchiveInfo::new(input)?);
+        }
+
+        if !info.iter().all(|i| i.version == ex_info.version) {
+            return Err(ExtractError::IncompatibleVersions);
+        }
+
+        for file in self.cfg.inputs.iter() {
+            let mut file_in = new_input_file(&file.path)?;
+            loop {
+                blk.read_from(&mut file_in)?;
+                if blk.data.is_empty() {
+                    break;
+                }
+                blk.id = self.cfg.insert_id;
+                self.cfg.insert_id += 1;
+                blk.write_to(&mut self.archive);
+                blk.next();
+            }
+        }
+        blk.id = self.cfg.insert_id;
+        blk.write_to(&mut self.archive);
         Ok(())
     }
 }

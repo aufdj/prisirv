@@ -14,6 +14,7 @@ use crate::{
     block::Block,
     config::{Config, Method},
     error::ExtractError,
+    constant::Version,
     lzw,
 };
 
@@ -107,7 +108,10 @@ impl ThreadPool {
 
     /// Create a new task containing a job consisting of decompressing
     /// an input block and returning the decompressed block.
-    pub fn decompress_block(&mut self, blk_in: Block) {
+    pub fn decompress_block(&mut self, blk_in: Block) -> Result<(), ExtractError> {
+        if blk_in.version != Version::current() {
+            return Err(ExtractError::InvalidVersion(blk_in.version));
+        }
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
         self.sndr.send(
@@ -144,6 +148,7 @@ impl ThreadPool {
                 })
             )
         ).unwrap();   
+        Ok(())
     }
 }
 

@@ -10,15 +10,19 @@ use std::{
     fmt,
 };
 
+use crate::constant::Version;
+
 pub struct ArchiveInfo {
-    eod: u64,
+    eod:  u64,
     blks: Vec<Block>,
+    pub version: Version,
 }
 impl ArchiveInfo {
     pub fn new(ex_arch: &FileData) -> Result<ArchiveInfo, ExtractError> {
         let mut info = ArchiveInfo {
             eod:  0,
             blks: Vec::new(),
+            version: Version::default(),
         };
         let mut blk = Block::default();
         let mut archive = new_input_file(&ex_arch.path)?;
@@ -29,6 +33,7 @@ impl ArchiveInfo {
             if blk.sizeo == 0 {
                 break;
             }
+            info.version = blk.version;
             info.blks.push(blk.clone());
 
             archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
@@ -46,6 +51,7 @@ impl ArchiveInfo {
 }
 impl fmt::Display for ArchiveInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Archive created with Prisirv {}", self.version)?;
         for blk in self.blks.iter() {
             write!(f, "{blk}")?;
         }
@@ -54,8 +60,9 @@ impl fmt::Display for ArchiveInfo {
 }
 impl fmt::Debug for ArchiveInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Archive created with Prisirv {}", self.version)?;
         for blk in self.blks.iter() {
-            write!(f, "{:?}", blk)?;
+            write!(f, "{blk:?}")?;
         }
         Ok(())
     }

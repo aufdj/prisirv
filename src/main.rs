@@ -32,6 +32,12 @@ fn main() {
                         print!("{err}");
                     }  
                 }
+                Mode::MergeArchives => { 
+                    if let Err(err) = Prisirv::new(cfg).merge_archives() {
+                        print!("An error occurred while merging archives.");
+                        print!("{err}");
+                    }
+                }
                 Mode::ListArchive => {
                     let verbose = cfg.verbose;
                     match Prisirv::new(cfg).info() {

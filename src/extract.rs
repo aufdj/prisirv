@@ -58,7 +58,7 @@ impl Extractor {
         // Read and decompress blocks
         loop {
             blk.read_from(&mut self.archive)?;
-            self.tp.decompress_block(blk.clone());
+            self.tp.decompress_block(blk.clone())?;
             if blk.data.is_empty() {
                 break;
             }
@@ -107,11 +107,11 @@ impl Extractor {
             if blk.files.iter().any(|f| paths.contains(&f.path)) {
                 blk.id = id;
                 id += 1;
-                self.tp.decompress_block(blk.clone());
+                self.tp.decompress_block(blk.clone())?;
             }
             if blk.data.is_empty() {
                 blk.id = id;
-                self.tp.decompress_block(blk.clone());
+                self.tp.decompress_block(blk.clone())?;
                 break;
             }
             blk.next();
