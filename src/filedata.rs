@@ -1,6 +1,8 @@
 use std::{
+    fs::DirEntry,
     path::PathBuf,
     fmt,
+    io,
 };
 
 /// Files in an archive are represented as file segments. If a file
@@ -60,6 +62,11 @@ impl FileData {
     // Total size of FileData
     pub fn size(&self) -> u64 {
         32 + self.path.as_os_str().len() as u64
+    }
+}
+impl From<io::Result<DirEntry>> for FileData {
+    fn from(entry: io::Result<DirEntry>) -> FileData {
+        FileData::new(entry.unwrap().path())
     }
 }
 impl fmt::Display for FileData {

@@ -18,7 +18,7 @@ mod constant;
 
 use std::{
     fmt,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use crate::{
@@ -26,7 +26,7 @@ use crate::{
     extract::Extractor,
     archiveinfo::ArchiveInfo,
     filedata::FileData,
-    config::{Config, Mode},
+    config::{Config, Mode, Method},
     sort::{Sort, sort_files},
     error::{
         ConfigError, 
@@ -73,6 +73,17 @@ impl Prisirv {
         self.cfg.clobber = true;
         self
     }
+
+    pub fn lzw(mut self) -> Self {
+        self.cfg.method = Method::Lzw;
+        self
+    }
+
+    pub fn store(mut self) -> Self {
+        self.cfg.method = Method::Store;
+        self
+    }
+    
 
     /// Choose block size in bytes.
     pub fn block_size(mut self, size: usize) -> Self {
@@ -124,7 +135,7 @@ impl Prisirv {
         self.cfg.ex_arch = self.cfg.inputs[0].clone();
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
-        self.cfg.inputs = sort_inputs(&self.cfg);
+        sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         Archiver::new(self.cfg)?.create_archive()?;
         Ok(())
     }
@@ -142,7 +153,7 @@ impl Prisirv {
     pub fn append_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::AppendFiles;
         println!("{}", self.cfg);
-        self.cfg.inputs = sort_inputs(&self.cfg);
+        sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         Archiver::new(self.cfg)?.append_files()?;
         Ok(())
     }
@@ -176,7 +187,7 @@ impl Prisirv {
         self.cfg.mode = Mode::Fv;
         println!("{}", self.cfg);
         self.cfg.out = fmt_root_output(&self.cfg);
-        self.cfg.inputs = sort_inputs(&self.cfg);
+        sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         fv::new(&self.cfg)?;
         Ok(())
     }
@@ -293,40 +304,28 @@ impl fmt::Display for Prisirv {
     }
 }
 
-fn sort_inputs(cfg: &Config) -> Vec<FileData> {
-    let mut files = Vec::new();
-    collect_files(&cfg.inputs, &mut files);
-    files.sort_by(|f1, f2|
-        sort_files(&f1.path, &f2.path, cfg.sort).unwrap()
+fn sort_inputs(inputs: &mut Vec<FileData>, sort: Sort) {
+    while expand(inputs).is_some() {}
+    inputs.sort_by(|f1, f2|
+        sort_files(&f1.path, &f2.path, sort).unwrap()
     );
-    files
 }
 
-/// Recursively collect all files into a vector for sorting before compression.
-pub fn collect_files(inputs: &[FileData], files: &mut Vec<FileData>) {
-    // Group files and directories 
-    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-        inputs.iter().cloned()
-        .partition(|f| f.path.is_file());
+fn expand(inputs: &mut Vec<FileData>) -> Option<usize> {
+    let mut index: Option<usize> = None;
 
-    // Walk through directories and collect all files
-    for file in fi.into_iter() {
-        files.push(file);
+    for (i, input) in inputs.iter_mut().enumerate() {
+        if let Ok(dir) = input.path.read_dir() {
+            for data in dir.map(FileData::from) {
+                inputs.push(data);
+            }
+            index = Some(i);
+            break;
+        }
     }
-    for dir in dirs.iter() {
-        collect(&dir.path, files);
+    
+    if let Some(i) = index {
+        inputs.swap_remove(i);
     }
-}
-fn collect(dir_in: &Path, files: &mut Vec<FileData>) {
-    let (fi, dirs): (Vec<FileData>, Vec<FileData>) =
-        dir_in.read_dir().unwrap()
-        .map(|d| FileData::new(d.unwrap().path()))
-        .partition(|f| f.path.is_file());
-
-    for file in fi.into_iter() {
-        files.push(file);
-    }
-    for dir in dirs.iter() {
-        collect(&dir.path, files);
-    }
+    index
 }
