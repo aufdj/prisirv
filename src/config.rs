@@ -7,8 +7,8 @@ use crate::{
     sort::Sort,
     error::ConfigError,
     filedata::FileData,
-    archiveinfo::ArchiveInfo,
     constant::Version,
+    archiveinfo::ArchiveInfo,
 };
 
 
@@ -109,8 +109,7 @@ pub struct Config {
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
     pub ex_arch:    FileData,      // An existing Prisirv archive
-    pub insert_id:  u32,           // Starting id of new blocks appended to archive
-    pub insert_pos: u64,           // Where to insert new blocks
+    pub ex_info:    ArchiveInfo,   // Info about existing archive
     pub fv:         Fv,
     pub verbose:    bool,
 }
@@ -122,14 +121,43 @@ impl Config {
         
         for arg in args.iter() {
             match arg.as_str() {
-                "-sort" => {
-                    parser = Parse::Sort;
+                "c" | "create" => {
+                    parser = Parse::CreateArchive;
+                }
+                "x" | "extract" => {
+                    parser = Parse::ExtractArchive;
                     continue;
-                }, 
-                "-out" | "-output-path" => {
-                    parser = Parse::DirOut;
+                }
+                "a" | "append" => {
+                    parser = Parse::AppendFiles;
                     continue;
-                },     
+                }
+                "p" | "pick" => {
+                    parser = Parse::ExtractFiles;
+                    continue;
+                }
+                "m" | "merge" => {
+                    parser = Parse::MergeArchives;
+                    continue;
+                }
+                "ls" | "list" => {
+                    parser = Parse::List;
+                    continue;
+                }
+                "-verbose" => {
+                    parser = Parse::Verbose;
+                }
+                "fv" => {
+                    parser = Parse::Fv;
+                }
+                "-col-scale" => {
+                    parser = Parse::ColScale;
+                    continue;
+                }
+                "-width" => {
+                    parser = Parse::Width;
+                    continue;
+                }
                 "-i" | "-inputs" => { 
                     parser = Parse::Inputs;
                     continue;
@@ -146,34 +174,14 @@ impl Config {
                     parser = Parse::Threads;
                     continue;
                 }
-                "fv" => {
-                    parser = Parse::Fv;
-                }
-                "-col-scale" => {
-                    parser = Parse::ColScale;
+                "-sort" => {
+                    parser = Parse::Sort;
                     continue;
-                }
-                "-width" => {
-                    parser = Parse::Width;
+                }, 
+                "-out" | "-output-path" => {
+                    parser = Parse::DirOut;
                     continue;
-                }
-                "-lzw" => {
-                    parser = Parse::Lzw;
-                }
-                "a" | "append" => {
-                    parser = Parse::AppendFiles;
-                    continue;
-                }
-                "-store" => {
-                    parser = Parse::Store;
-                }
-                "c" | "create" => {
-                    parser = Parse::CreateArchive;
-                }
-                "x" | "extract" => {
-                    parser = Parse::ExtractArchive;
-                    continue;
-                }
+                },
                 "-q" | "-quiet" => {
                     parser = Parse::Quiet;
                 }
@@ -183,48 +191,67 @@ impl Config {
                 "-file-align" => {
                     parser = Parse::Align;
                 }
-                "ls" | "list" => {
-                    parser = Parse::List;
-                    continue;
+                "-lzw" => {
+                    parser = Parse::Lzw;
                 }
-                "-verbose" => {
-                    parser = Parse::Verbose;
-                }
-                "p" | "pick" => {
-                    parser = Parse::ExtractFiles;
-                    continue;
-                }
-                "m" | "merge" => {
-                    parser = Parse::MergeArchives;
-                    continue;
+                "-store" => {
+                    parser = Parse::Store;
                 }
                 _ => {},
             }
             match parser {
-                Parse::Sort => {
-                    match arg.as_str() {
-                        "ext"  => cfg.sort = Sort::Ext,
-                        "name" => cfg.sort = Sort::Name,
-                        "len"  => cfg.sort = Sort::Len,
-                        "crtd" => cfg.sort = Sort::Created,
-                        "accd" => cfg.sort = Sort::Accessed,
-                        "mod"  => cfg.sort = Sort::Modified,
-                        "prt"  => {
-                            parser = Parse::Lvl;
-                            cfg.sort = Sort::PrtDir(1);
-                        },
-                        m => { 
-                            return Err(ConfigError::InvalidSortCriteria(m.to_string()));
-                        }
-                    }
+                Parse::CreateArchive => {
+                    cfg.mode = Mode::CreateArchive;
                 }
-                Parse::Lvl => {
-                    if let Ok(lvl) = arg.parse::<usize>() {
-                        cfg.sort = Sort::PrtDir(lvl);
+                Parse::ExtractArchive => {
+                    cfg.mode = Mode::ExtractArchive;
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                }
+                Parse::AppendFiles => {
+                    cfg.mode = Mode::AppendFiles;
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+                    cfg.clobber = true;
+                }
+                Parse::ExtractFiles => {
+                    cfg.mode = Mode::ExtractFiles;
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                }
+                Parse::MergeArchives => {
+                    cfg.mode = Mode::MergeArchives; 
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+                    cfg.clobber = true;
+                }
+                Parse::List => {
+                    cfg.mode = Mode::ListArchive;
+                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                }
+                Parse::Verbose => {
+                    cfg.verbose = true;
+                }
+                Parse::Fv => {
+                    cfg.mode = Mode::Fv;
+                    parser = Parse::Inputs;
+                }
+                Parse::ColScale => {
+                    if let Ok(c) = arg.parse::<f64>() {
+                        cfg.fv.col_scale = c;
                     }
                     else {
-                        return Err(ConfigError::InvalidLvl(arg.to_string()));
+                        return Err(ConfigError::InvalidColorScale(arg.to_string()));
                     }
+                }
+                Parse::Width => {
+                    if let Ok(w) = arg.parse::<i32>() {
+                        cfg.fv.width = w;
+                    }
+                    else {
+                        return Err(ConfigError::InvalidImageWidth(arg.to_string()));
+                    }
+                }
+                Parse::Inputs => {
+                    cfg.inputs.push(FileData::new(PathBuf::from(arg)));
                 }
                 Parse::Mem => {
                     if let Ok(mem) = arg.parse::<u64>() {
@@ -271,73 +298,33 @@ impl Config {
                         return Err(ConfigError::InvalidThreadCount(arg.to_string()));
                     }
                 }
-                Parse::List => {
-                    cfg.mode = Mode::ListArchive;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                Parse::Sort => {
+                    match arg.as_str() {
+                        "ext"  => cfg.sort = Sort::Ext,
+                        "name" => cfg.sort = Sort::Name,
+                        "len"  => cfg.sort = Sort::Len,
+                        "crtd" => cfg.sort = Sort::Created,
+                        "accd" => cfg.sort = Sort::Accessed,
+                        "mod"  => cfg.sort = Sort::Modified,
+                        "prt"  => {
+                            parser = Parse::Lvl;
+                            cfg.sort = Sort::PrtDir(1);
+                        },
+                        m => { 
+                            return Err(ConfigError::InvalidSortCriteria(m.to_string()));
+                        }
+                    }
                 }
-                Parse::Verbose => {
-                    cfg.verbose = true;
-                }
-                Parse::Fv => {
-                    cfg.mode = Mode::Fv;
-                    parser = Parse::Inputs;
-                }
-                Parse::ColScale => {
-                    if let Ok(c) = arg.parse::<f64>() {
-                        cfg.fv.col_scale = c;
+                Parse::Lvl => {
+                    if let Ok(lvl) = arg.parse::<usize>() {
+                        cfg.sort = Sort::PrtDir(lvl);
                     }
                     else {
-                        return Err(ConfigError::InvalidColorScale(arg.to_string()));
+                        return Err(ConfigError::InvalidLvl(arg.to_string()));
                     }
-                }
-                Parse::Width => {
-                    if let Ok(w) = arg.parse::<i32>() {
-                        cfg.fv.width = w;
-                    }
-                    else {
-                        return Err(ConfigError::InvalidImageWidth(arg.to_string()));
-                    }
-                }
-                Parse::AppendFiles => {
-                    cfg.mode = Mode::AppendFiles; 
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    cfg.ex_arch.seg_beg = 1; // Don't truncate archive
-                    cfg.clobber = true;
-                    let info = ArchiveInfo::new(&cfg.ex_arch)?;
-                    cfg.insert_id = info.block_count();
-                    cfg.insert_pos = info.end_of_data();
-                }
-                Parse::MergeArchives => {
-                    cfg.mode = Mode::MergeArchives; 
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                    cfg.ex_arch.seg_beg = 1; // Don't truncate archive
-                    cfg.clobber = true;
-                    let info = ArchiveInfo::new(&cfg.ex_arch)?;
-                    cfg.insert_id = info.block_count();
-                    cfg.insert_pos = info.end_of_data();
-                }
-                Parse::ExtractFiles => {
-                    cfg.mode = Mode::ExtractFiles;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
-                }
-                Parse::Lzw => {
-                    cfg.method = Method::Lzw;
-                }
-                Parse::Store => {
-                    cfg.method = Method::Store;
-                }
-                Parse::CreateArchive => {
-                    cfg.mode = Mode::CreateArchive;
-                }
-                Parse::ExtractArchive => {
-                    cfg.mode = Mode::ExtractArchive;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
                 }
                 Parse::DirOut => {
                     cfg.user_out = arg.to_string();
-                }
-                Parse::Inputs => {
-                    cfg.inputs.push(FileData::new(PathBuf::from(arg)));
                 }
                 Parse::Quiet => {
                     cfg.quiet = true;
@@ -348,8 +335,18 @@ impl Config {
                 Parse::Align => {
                     cfg.align = Align::File;
                 }
+                Parse::Lzw => {
+                    cfg.method = Method::Lzw;
+                }
+                Parse::Store => {
+                    cfg.method = Method::Store;
+                }
                 Parse::None => {},
             }
+        }
+
+        if cfg.ex_arch.path.is_file() && !(cfg.mode == Mode::ExtractArchive || cfg.mode == Mode::ExtractFiles) {
+            cfg.ex_info = ArchiveInfo::new(&cfg.ex_arch)?;
         }
 
         match cfg.mode {
@@ -579,8 +576,7 @@ impl Default for Config {
             align:      Align::Fixed,
             method:     Method::Cm,
             ex_arch:    FileData::default(),
-            insert_id:  0,
-            insert_pos: 0,
+            ex_info:    ArchiveInfo::default(),
             fv:         Fv::default(),
             verbose:    false,
         }

@@ -11,7 +11,7 @@ use crate::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file,
     },
-    error::{ArchiveError, ExtractError},
+    error::ArchiveError,
     block::Block,
     archiveinfo::ArchiveInfo,
 };
@@ -43,10 +43,9 @@ impl Archiver {
         
         Ok(
             Archiver {
-                archive, cfg, tp,
+                archive, cfg, tp
             }
         )
-        
     }
 
     /// Parse files into blocks and compress blocks.
@@ -107,9 +106,9 @@ impl Archiver {
     }
     /// Add files to existing archive.
     pub fn append_files(&mut self) -> Result<(), ArchiveError> {
-        self.archive.seek(SeekFrom::Start(self.cfg.insert_pos))?;
+        self.archive.seek(SeekFrom::Start(self.cfg.ex_info.end_of_data()))?;
         let mut blk = Block::new(&self.cfg);
-        blk.id = self.cfg.insert_id;
+        blk.id = self.cfg.ex_info.block_count();
     
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
@@ -130,7 +129,7 @@ impl Archiver {
             }
             file.seg_end = file_in.stream_position()?;
 
-            // Truncate final block to align with end of file
+            // Truncate block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 blk.files.push(file.clone());
                 self.tp.compress_block(blk.clone());
@@ -160,23 +159,24 @@ impl Archiver {
                 }
             }
         }
+
         self.archive.flush_buffer();
         Ok(())
     }
 
-    pub fn merge_archives(&mut self) -> Result<(), ExtractError> {
-        self.archive.seek(SeekFrom::Start(self.cfg.insert_pos))?;
-        let mut blk = Block::default();
+    pub fn merge_archives(&mut self) -> Result<(), ArchiveError> {
+        let mut id = self.cfg.ex_info.block_count();
 
-        let ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
+        self.archive.seek(SeekFrom::Start(self.cfg.ex_info.end_of_data()))?;
+        let mut blk = Block::default();
 
         let mut info = Vec::new();
         for input in self.cfg.inputs.iter() {
             info.push(ArchiveInfo::new(input)?);
         }
 
-        if !info.iter().all(|i| i.version == ex_info.version) {
-            return Err(ExtractError::IncompatibleVersions);
+        if !info.iter().all(|i| i.version == self.cfg.ex_info.version) {
+            return Err(ArchiveError::IncompatibleVersions);
         }
 
         for file in self.cfg.inputs.iter() {
@@ -186,13 +186,13 @@ impl Archiver {
                 if blk.data.is_empty() {
                     break;
                 }
-                blk.id = self.cfg.insert_id;
-                self.cfg.insert_id += 1;
+                blk.id = id;
+                id += 1;
                 blk.write_to(&mut self.archive);
                 blk.next();
             }
         }
-        blk.id = self.cfg.insert_id;
+        blk.id = id;
         blk.write_to(&mut self.archive);
         Ok(())
     }

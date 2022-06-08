@@ -13,25 +13,24 @@ use crate::{
     crc32::Crc32,
     block::Block,
     config::{Config, Method},
-    error::ExtractError,
+    error::ArchiveError,
     constant::Version,
     lzw,
 };
 
 pub enum Task {
-    Compress(A),
+    Compress(B),
     Decompress(B),
     Terminate,
 }
 
-type A = Box<dyn FnOnce() -> Block + Send + 'static>;
-type B = Box<dyn FnOnce() -> Result<Block, ExtractError> + Send + 'static>;
+type B = Box<dyn FnOnce() -> Result<Block, ArchiveError> + Send + 'static>;
 type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
 type SharedReceiver   = Arc<Mutex<Receiver<Task>>>;
 type SharedProgress   = Arc<Mutex<Progress>>;
 
 /// A threadpool spawns a set number of threads and handles sending new 
-/// jobs to idle threads, where a job is a function that returns a
+/// tasks to idle threads, where a task is a function that returns a
 /// compressed or decompressed block.
 pub struct ThreadPool {
     threads:  Vec<Thread>,
@@ -45,8 +44,10 @@ impl ThreadPool {
         let mut threads = Vec::with_capacity(cfg.threads);
 
         let rcvr = Arc::new(Mutex::new(rcvr));
-        let bq   = Arc::new(Mutex::new(BlockQueue::new(cfg.insert_id)));
         let prg  = Arc::new(Mutex::new(prg));
+        let bq = Arc::new(Mutex::new(
+            BlockQueue::new(cfg.ex_info.block_count())
+        ));
 
         for _ in 0..cfg.threads {
             threads.push(
@@ -62,7 +63,7 @@ impl ThreadPool {
         }
     }
     
-    /// Create a new task containing a job consisting of compressing an
+    /// Create a new task consisting of compressing an
     /// input block and returning the compressed block.
     pub fn compress_block(&mut self, blk_in: Block) {
         let len = blk_in.data.len();
@@ -88,19 +89,19 @@ impl ThreadPool {
                     };
                     
                     let crtd = SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
+                        .duration_since(SystemTime::UNIX_EPOCH)?
                         .as_secs() as u64;
 
-                    Block {
-                        sizeo:  blk_out.len() as u64,
-                        data:   blk_out,
-                        chksum,
-                        sizei, 
-                        crtd,
-                        ..blk_in
-                    }
-                    
+                    Ok(
+                        Block {
+                            sizeo:  blk_out.len() as u64,
+                            data:   blk_out,
+                            chksum,
+                            sizei, 
+                            crtd,
+                            ..blk_in
+                        }
+                    ) 
                 })
             )
         ).unwrap();
@@ -108,9 +109,9 @@ impl ThreadPool {
 
     /// Create a new task containing a job consisting of decompressing
     /// an input block and returning the decompressed block.
-    pub fn decompress_block(&mut self, blk_in: Block) -> Result<(), ExtractError> {
+    pub fn decompress_block(&mut self, blk_in: Block) -> Result<(), ArchiveError> {
         if blk_in.version != Version::current() {
-            return Err(ExtractError::InvalidVersion(blk_in.version));
+            return Err(ArchiveError::InvalidVersion(blk_in.version));
         }
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
@@ -132,7 +133,7 @@ impl ThreadPool {
                     
                     let chksum = (&blk_out).crc32();
                     if chksum != blk_in.chksum {
-                        return Err(ExtractError::IncorrectChecksum(blk_in.id));
+                        return Err(ArchiveError::IncorrectChecksum(blk_in.id));
                     }
                     
                     Ok(
@@ -184,9 +185,15 @@ impl Thread {
 
             match task {
                 Task::Compress(job) => {
-                    let blk = job();
-                    { prg.lock().unwrap().update(&blk); }
-                    bq.lock().unwrap().blocks.push(blk);
+                    match job() {
+                        Ok(blk) => {
+                            { prg.lock().unwrap().update(&blk); }
+                            bq.lock().unwrap().blocks.push(blk);
+                        }
+                        Err(_) => {
+                            break;
+                        }
+                    };
                 }
                 Task::Decompress(job) => {
                     match job() {

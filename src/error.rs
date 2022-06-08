@@ -1,4 +1,5 @@
 use std::{
+    time::SystemTimeError,
     path::PathBuf,
     fmt,
     io,
@@ -56,7 +57,7 @@ pub enum ConfigError {
     InvalidSortMethod(SortError),
     InvalidInsertId(String),
     IoError(io::Error),
-    ExtractError(ExtractError),
+    ArchiveError(ArchiveError),
     InvalidColorScale(String),
     InvalidImageWidth(String),
     InputsEmpty,
@@ -158,7 +159,7 @@ impl fmt::Display for ConfigError {
                     \r{err}\n"
                 )
             }
-            ConfigError::ExtractError(err) => {
+            ConfigError::ArchiveError(err) => {
                 write!(f, "
                     \r{err}\n"
                 )
@@ -181,9 +182,9 @@ impl From<io::Error> for ConfigError {
         ConfigError::IoError(err)
     }
 }
-impl From<ExtractError> for ConfigError {
-    fn from(err: ExtractError) -> ConfigError {
-        ConfigError::ExtractError(err)
+impl From<ArchiveError> for ConfigError {
+    fn from(err: ArchiveError) -> ConfigError {
+        ConfigError::ArchiveError(err)
     }
 }
 impl From<SortError> for ConfigError {
@@ -196,74 +197,62 @@ impl From<SortError> for ConfigError {
 /// Possible errors encountered during extraction, either reading or 
 /// decompressing.
 #[derive(Debug)]
-pub enum ExtractError {
+pub enum ArchiveError {
     InvalidMagicNumber(u32),
     InvalidVersion(Version),
     IncompatibleVersions,
     FileNotFound(PathBuf),
     IncorrectChecksum(u32),
     IoError(io::Error),
-}
-impl From<io::Error> for ExtractError {
-    fn from(err: io::Error) -> ExtractError {
-        ExtractError::IoError(err)
-    }
-}
-impl fmt::Display for ExtractError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExtractError::InvalidMagicNumber(id) => {
-                write!(f, "
-                    \rDid not find valid magic number in block {id} header.\n"
-                )
-            }
-            ExtractError::InvalidVersion(version) => {
-                let current = Version::current();
-                write!(f, "
-                    \rERROR:
-                    \rThis archive was created with Prisirv version {version},
-                    \rand cannot be extracted with version {current}.\n",
-                )
-            }
-            ExtractError::IncompatibleVersions => {
-                write!(f, "
-                    \rERROR:
-                    \rCannot merge archives with incompatible versions.\n",
-                )
-            }
-            ExtractError::FileNotFound(file) => {
-                write!(f, "
-                    \r{} not found.\n", 
-                    file.display()
-                )
-            }
-            ExtractError::IncorrectChecksum(id) => {
-                write!(f, "
-                    \rBlock {id} checksum is invalid.\n"
-                )
-            }
-            ExtractError::IoError(err) => {
-                write!(f, "
-                    \r{err}.\n"
-                )
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ArchiveError {
-    IoError(io::Error),
+    CreationTimeError(SystemTimeError),
 }
 impl From<io::Error> for ArchiveError {
     fn from(err: io::Error) -> ArchiveError {
         ArchiveError::IoError(err)
     }
 }
+impl From<SystemTimeError> for ArchiveError {
+    fn from(err: SystemTimeError) -> ArchiveError {
+        ArchiveError::CreationTimeError(err)
+    }
+}
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ArchiveError::InvalidMagicNumber(id) => {
+                write!(f, "
+                    \rDid not find valid magic number in block {id} header.\n"
+                )
+            }
+            ArchiveError::InvalidVersion(version) => {
+                let current = Version::current();
+                write!(f, "
+                    \rThis archive was created with Prisirv version {version},
+                    \rand cannot be extracted with version {current}.\n",
+                )
+            }
+            ArchiveError::IncompatibleVersions => {
+                write!(f, "
+                    \rCannot merge archives with incompatible versions.\n",
+                )
+            }
+            ArchiveError::FileNotFound(file) => {
+                write!(f, "
+                    \r{} not found.\n", 
+                    file.display()
+                )
+            }
+            ArchiveError::IncorrectChecksum(id) => {
+                write!(f, "
+                    \rBlock {id} checksum is invalid.\n"
+                )
+            }
             ArchiveError::IoError(err) => {
+                write!(f, "
+                    \r{err}.\n"
+                )
+            }
+            ArchiveError::CreationTimeError(err) => {
                 write!(f, "
                     \r{err}.\n"
                 )

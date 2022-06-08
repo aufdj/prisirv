@@ -8,7 +8,7 @@ use crate::{
     filedata::FileData,
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
-    error::ExtractError,
+    error::ArchiveError,
     constant::{MAGIC, Version},
 };
 
@@ -77,7 +77,7 @@ impl Block {
         }
     }
     /// Read entire block
-    pub fn read_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ExtractError>  {
+    pub fn read_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ArchiveError>  {
         self.read_header_from(archive)?;
 
         self.data.reserve(self.blk_sz);
@@ -89,7 +89,7 @@ impl Block {
         Ok(())
     }
     /// Read block header
-    pub fn read_header_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ExtractError> {
+    pub fn read_header_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ArchiveError> {
         let magic     = archive.read_u32();
         self.version.major = archive.read_u16();
         self.version.minor = archive.read_u16();
@@ -105,7 +105,7 @@ impl Block {
         let num_files = archive.read_u32();
 
         if magic != MAGIC { 
-            return Err(ExtractError::InvalidMagicNumber(self.id));
+            return Err(ArchiveError::InvalidMagicNumber(self.id));
         }
 
         let mut path: Vec<u8> = Vec::with_capacity(64);

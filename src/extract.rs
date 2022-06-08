@@ -19,7 +19,7 @@ use crate::{
         BufferedWrite, new_input_file, new_output_file, 
         new_dir,
     },
-    error::ExtractError,
+    error::ArchiveError,
 };
 
 /// Format and return new output file.
@@ -36,10 +36,10 @@ pub struct Extractor {
 }
 impl Extractor {
     /// Create a new Extractor.
-    pub fn new(cfg: Config) -> Result<Extractor, ExtractError> {
-        let archive = new_input_file(&cfg.ex_arch.path)?;
+    pub fn new(cfg: Config) -> Result<Extractor, ArchiveError> {
         let prg = Progress::new(&cfg);
         let tp = ThreadPool::new(&cfg, prg);
+        let archive = new_input_file(&cfg.ex_arch.path)?;
         
         Ok(
             Extractor { 
@@ -50,7 +50,7 @@ impl Extractor {
 
     /// Decompress blocks and parse blocks into files. A block can span
     /// multiple files.
-    pub fn extract_archive(&mut self) -> Result<(), ExtractError> {
+    pub fn extract_archive(&mut self) -> Result<(), ArchiveError> {
         new_dir(&self.cfg.out)?;
         
         let mut blk = Block::default();
@@ -91,7 +91,7 @@ impl Extractor {
         Ok(())
     } 
 
-    pub fn extract_files(&mut self) -> Result<(), ExtractError> {
+    pub fn extract_files(&mut self) -> Result<(), ArchiveError> {
         new_dir(&self.cfg.out)?;
         
         let mut blk = Block::default();

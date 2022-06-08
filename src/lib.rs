@@ -8,7 +8,7 @@ mod threads;
 mod progress; 
 pub mod config;
 pub mod crc32;
-mod error;
+pub mod error;
 mod fv;
 mod block;
 mod cm;
@@ -31,7 +31,6 @@ use crate::{
     error::{
         ConfigError, 
         ArchiveError, 
-        ExtractError
     },
     formatting::fmt_root_output,
     constant::Version,
@@ -63,21 +62,21 @@ impl Prisirv {
         Ok(self)
     }
 
-    /// Supress output other than errors.
+    /// Suppress output other than errors.
     pub fn quiet(mut self) -> Self {
         self.cfg.quiet = true;
         self
     }
 
-    /// Allow clobbering of files.
+    /// Allow file clobbering.
     pub fn clobber(mut self) -> Self {
         self.cfg.clobber = true;
         self
     }
 
-    /// Choose block size in MiB.
+    /// Choose block size in bytes.
     pub fn block_size(mut self, size: usize) -> Self {
-        self.cfg.blk_sz = size*1024*1024;
+        self.cfg.blk_sz = size;
         self
     }
 
@@ -131,7 +130,7 @@ impl Prisirv {
     }
 
     /// Extract an archive.
-    pub fn extract_archive(mut self) -> Result<(), ExtractError> {
+    pub fn extract_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractArchive;
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
@@ -149,7 +148,7 @@ impl Prisirv {
     }
 
     /// Extract inputs from archive.
-    pub fn extract_files(mut self) -> Result<(), ExtractError> {
+    pub fn extract_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractFiles;
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
@@ -158,22 +157,22 @@ impl Prisirv {
     }
 
     /// Append inputs to archive.
-    pub fn merge_archives(mut self) -> Result<(), ExtractError> {
+    pub fn merge_archives(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::MergeArchives;
         println!("{}", self.cfg);
-        Archiver::new(self.cfg).unwrap().merge_archives()?;
+        Archiver::new(self.cfg)?.merge_archives()?;
         Ok(())
     }
 
     /// Get information about archive.
-    pub fn info(mut self) -> Result<ArchiveInfo, ExtractError> {
+    pub fn info(mut self) -> Result<ArchiveInfo, ArchiveError> {
         self.cfg.mode = Mode::ListArchive;
         println!("{}", self.cfg);
         ArchiveInfo::new(&self.cfg.ex_arch)
     }
 
     /// Visualize file.
-    pub fn fv(mut self) -> Result<(), ExtractError> {
+    pub fn fv(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::Fv;
         println!("{}", self.cfg);
         self.cfg.out = fmt_root_output(&self.cfg);
