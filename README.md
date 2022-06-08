@@ -10,6 +10,7 @@ REQUIRED:
    x,  extract           Extract archive
    a,  append            Append files to archive
    p,  pick              Extract select files from archive
+   m,  merge             Merge archives together
    ls                    List info about archive
    fv                    Visualize file
         
