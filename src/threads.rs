@@ -1,10 +1,12 @@
 use std::{
+    time::SystemTime,
+    cmp::Ordering,
+    collections::BinaryHeap,
     thread::{self, JoinHandle},
     sync::{
         mpsc::{self, Sender, Receiver},
         Arc, Mutex,
     },
-    time::SystemTime,
 };
 use crate::{
     cm::encoder::Encoder,
@@ -25,6 +27,7 @@ pub enum Task {
 }
 
 type B = Box<dyn FnOnce() -> Result<Block, ArchiveError> + Send + 'static>;
+
 type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
 type SharedReceiver   = Arc<Mutex<Receiver<Task>>>;
 type SharedProgress   = Arc<Mutex<Progress>>;
@@ -223,14 +226,14 @@ impl Thread {
 /// which blocks will be compressed/decompressed first, so each block is 
 /// added to a BlockQueue, which handles outputting in the correct order.
 pub struct BlockQueue {
-    pub blocks:   Vec<Block>, // Blocks to be output
-    pub next_out: u32,        // Next block to be output
+    pub blocks:   BinaryHeap<Block>, // Priority Queue based on block id
+    pub next_out: u32, // Next block to be output
 }
 impl BlockQueue {
     /// Create a new BlockQueue.
     pub fn new(start: u32) -> BlockQueue {
         BlockQueue {
-            blocks:    Vec::new(),
+            blocks:    BinaryHeap::new(),
             next_out:  start,
         }
     }
@@ -238,18 +241,29 @@ impl BlockQueue {
     /// Try getting the next block to be output. If this block hasn't been 
     /// added to the queue yet, do nothing.
     pub fn try_get_block(&mut self) -> Option<Block> {
-        let mut i: usize = 0;
-        while i < self.blocks.len() {
-            if self.blocks[i].id == self.next_out {
-                let blk = self.blocks[i].clone();
-                self.blocks.swap_remove(i);
+        if let Some(blk) = self.blocks.peek() {
+            if blk.id == self.next_out {
                 self.next_out += 1;
-                return Some(blk);
-            } 
-            i += 1;
+                return self.blocks.pop();
+            }
         }
         None
     }
 }
 
-
+impl Ord for Block {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.id.cmp(&self.id)
+    }
+}
+impl PartialOrd for Block {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Eq for Block {}
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
