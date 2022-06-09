@@ -44,6 +44,7 @@ impl fmt::Display for SortError {
 }
 
 /// Possible errors encountered while parsing Config arguments.
+#[derive(Debug)]
 pub enum ConfigError {
     InvalidSortCriteria(String),
     InvalidLvl(String),
@@ -53,7 +54,7 @@ pub enum ConfigError {
     InvalidBlockMagnitude(String),
     OutOfRangeThreadCount(usize),
     InvalidThreadCount(String),
-    InvalidInput(PathBuf),
+    InvalidInput(String),
     InvalidSortMethod(SortError),
     InvalidInsertId(String),
     IoError(io::Error),
@@ -135,8 +136,7 @@ impl fmt::Display for ConfigError {
             }
             ConfigError::InvalidInput(path) => {
                 write!(f, "
-                    \r{} is not a valid path.\n", 
-                    path.display()
+                    \r{path} is not a valid path.\n"
                 )
             }
             ConfigError::InputsEmpty => {
@@ -258,5 +258,33 @@ impl fmt::Display for ArchiveError {
                 )
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum PrisirvError {
+    ConfigError(ConfigError),
+    ArchiveError(ArchiveError),
+}
+impl fmt::Display for PrisirvError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PrisirvError::ConfigError(err) => {
+                write!(f, "{err}")
+            }
+            PrisirvError::ArchiveError(err) => {
+                write!(f, "{err}")
+            }
+        }
+    }
+}
+impl From<ConfigError> for PrisirvError {
+    fn from(err: ConfigError) -> PrisirvError {
+        PrisirvError::ConfigError(err)
+    }
+}
+impl From<ArchiveError> for PrisirvError {
+    fn from(err: ArchiveError) -> PrisirvError {
+        PrisirvError::ArchiveError(err)
     }
 }

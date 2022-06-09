@@ -250,7 +250,14 @@ impl Config {
                     }
                 }
                 Parse::Inputs => {
-                    cfg.inputs.push(FileData::from(&arg));
+                    let input = FileData::from(&arg);
+                    if input.path.exists() {
+                        cfg.inputs.push(input);
+                    }
+                    else {
+                        return Err(ConfigError::InvalidInput(arg));
+                    }
+                    
                 }
                 Parse::Mem => {
                     if let Ok(mem) = arg.parse::<u64>() {
@@ -341,25 +348,6 @@ impl Config {
                     cfg.method = Method::Store;
                 }
                 Parse::None => {},
-            }
-        }
-
-        if cfg.ex_arch.path.is_file() && !(cfg.mode == Mode::ExtractArchive || cfg.mode == Mode::ExtractFiles) {
-            cfg.ex_info = ArchiveInfo::new(&cfg.ex_arch)?;
-        }
-
-        match cfg.mode {
-            Mode::ListArchive | Mode::ExtractArchive | Mode::None => {},
-            _ => {
-                if cfg.inputs.is_empty() {
-                    return Err(ConfigError::InputsEmpty);
-                }
-        
-                for input in cfg.inputs.iter() {
-                    if !(input.path.is_file() || input.path.is_dir()) {
-                        return Err(ConfigError::InvalidInput(input.path.clone()));
-                    }
-                } 
             }
         }
         

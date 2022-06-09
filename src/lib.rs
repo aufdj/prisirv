@@ -84,7 +84,6 @@ impl Prisirv {
         self
     }
     
-
     /// Choose block size in bytes.
     pub fn block_size(mut self, size: usize) -> Self {
         self.cfg.blk_sz = size;
@@ -115,18 +114,29 @@ impl Prisirv {
     }
 
     /// Choose inputs.
-    pub fn inputs(mut self, paths: &[&str]) -> Self {
-        self.cfg.inputs = paths.iter()
-            .map(PathBuf::from)
-            .map(FileData::new)
-            .collect::<Vec<FileData>>();
-        self
+    pub fn inputs(mut self, inputs: &[&str]) -> Result<Self, ConfigError> {
+        for input in inputs.iter() {
+            let path = PathBuf::from(input);
+            if path.exists() {
+                self.cfg.inputs.push(FileData::new(path));
+            }
+            else {
+                return Err(ConfigError::InvalidInput(input.to_string()));
+            }
+        }
+        Ok(self)
     }
 
     /// Choose existing archive.
-    pub fn ex_arch(mut self, path: &str) -> Self {
-        self.cfg.ex_arch = FileData::new(PathBuf::from(path));
-        self
+    pub fn ex_arch(mut self, input: &str) -> Result<Self, ConfigError> {
+        let path = PathBuf::from(input);
+        if path.exists() {
+            self.cfg.ex_arch = FileData::new(path);
+        }
+        else {
+            return Err(ConfigError::InvalidInput(input.to_string()));
+        }
+        Ok(self)
     }
 
     /// Create an archive from inputs.
@@ -152,6 +162,9 @@ impl Prisirv {
     /// Append inputs to archive.
     pub fn append_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::AppendFiles;
+        self.cfg.clobber = true;
+        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+        self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
         println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         Archiver::new(self.cfg)?.append_files()?;
@@ -170,6 +183,9 @@ impl Prisirv {
     /// Append inputs to archive.
     pub fn merge_archives(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::MergeArchives;
+        self.cfg.clobber = true;
+        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+        self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
         println!("{}", self.cfg);
         Archiver::new(self.cfg)?.merge_archives()?;
         Ok(())
@@ -197,13 +213,13 @@ impl fmt::Display for Prisirv {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let version = Version::current();
         write!(f, "
-         ______   ______     ________  ______    ________  ______    __   __     
-        /_____/\\ /_____/\\   /_______/\\/_____/\\  /_______/\\/_____/\\  /_/\\ /_/\\    
-        \\:::_ \\ \\\\:::_ \\ \\  \\__.::._\\/\\::::_\\/_ \\__.::._\\/\\:::_ \\ \\ \\:\\ \\\\ \\ \\   
-         \\:(_) \\ \\\\:(_) ) )_   \\::\\ \\  \\:\\/___/\\   \\::\\ \\  \\:(_) ) )_\\:\\ \\\\ \\ \\  
-          \\: ___\\/ \\: __ `\\ \\  _\\::\\ \\__\\_::._\\:\\  _\\::\\ \\__\\: __ `\\ \\\\:\\_/.:\\ \\ 
-           \\ \\ \\    \\ \\ `\\ \\ \\/__\\::\\__/\\ /____\\:\\/__\\::\\__/\\\\ \\ `\\ \\ \\\\ ..::/ / 
-            \\_\\/     \\_\\/ \\_\\/\\________\\/ \\_____\\/\\________\\/ \\_\\/ \\_\\/ \\___/_(
+          _______    _______    __      ________  __      _______  ___      ___ 
+         |   __ '\\  /'      \\  |' \\    /'       )|' \\    /'      \\|'  \\    /'  |
+         (. |__) :)|:        | ||  |  (:   \\___/ ||  |  |:        |\\   \\  //  / 
+         |:  ____/ |_____/   ) |:  |   \\___  \\   |:  |  |_____/   ) \\\\  \\/. ./  
+         (|  /      //      /  |.  |    __/  \\\\  |.  |   //      /   \\.    //   
+        /|__/ \\    |:  __   \\  /\\  |\\  /' \\   :) /\\  |\\ |:  __   \\    \\\\   /    
+       (_______)   |__|  \\___)(__\\_|_)(_______/ (__\\_|_)|__|  \\___)    \\__/         
                 
         Prisirv {version}
         Copyright (C) 2022 aufdj
@@ -311,21 +327,18 @@ fn sort_inputs(inputs: &mut Vec<FileData>, sort: Sort) {
     );
 }
 
+/// Removes a single directory from inputs and pushes the contents of that
+/// directory to inputs. This function may need be run multiple times to
+/// fully expand inputs.
 fn expand(inputs: &mut Vec<FileData>) -> Option<usize> {
-    let mut index: Option<usize> = None;
-
     for (i, input) in inputs.iter_mut().enumerate() {
         if let Ok(dir) = input.path.read_dir() {
             for data in dir.map(FileData::from) {
                 inputs.push(data);
             }
-            index = Some(i);
-            break;
+            inputs.swap_remove(i);
+            return Some(0);
         }
     }
-    
-    if let Some(i) = index {
-        inputs.swap_remove(i);
-    }
-    index
+    None
 }

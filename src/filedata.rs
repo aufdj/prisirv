@@ -74,6 +74,11 @@ impl From<&String> for FileData {
         FileData::new(PathBuf::from(s))
     }
 }
+impl From<&str> for FileData {
+    fn from(s: &str) -> FileData {
+        FileData::new(PathBuf::from(s))
+    }
+}
 impl fmt::Display for FileData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 

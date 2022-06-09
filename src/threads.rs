@@ -215,7 +215,7 @@ impl Thread {
             }
         });
         
-        Thread { 
+        Thread {
             handle: Some(handle)
         }
     }
@@ -223,7 +223,7 @@ impl Thread {
 
 /// Stores compressed or decompressed blocks. Blocks need to be written in
 /// the same order that they were read, but no guarantee can be made about
-/// which blocks will be compressed/decompressed first, so each block is 
+/// which blocks will be compressed/decompressed first, so each block is
 /// added to a BlockQueue, which handles outputting in the correct order.
 pub struct BlockQueue {
     pub blocks:   BinaryHeap<Block>, // Priority Queue based on block id
@@ -238,7 +238,7 @@ impl BlockQueue {
         }
     }
 
-    /// Try getting the next block to be output. If this block hasn't been 
+    /// Try getting the next block to be output. If this block hasn't been
     /// added to the queue yet, do nothing.
     pub fn try_get_block(&mut self) -> Option<Block> {
         if let Some(blk) = self.blocks.peek() {
