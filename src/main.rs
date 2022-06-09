@@ -5,7 +5,7 @@ use prisirv::{
 
 /// Create a new Config and call Prisirv API.
 fn main() {
-    match Config::new(&std::env::args().skip(1).collect::<Vec<String>>()) {
+    match Config::new(std::env::args().skip(1).collect::<Vec<String>>()) {
         Ok(cfg) => {
             match cfg.mode {
                 Mode::CreateArchive => { 

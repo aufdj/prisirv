@@ -1,6 +1,5 @@
 use std::{
     fmt,
-    path::PathBuf,
 };
 
 use crate::{
@@ -115,11 +114,11 @@ pub struct Config {
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.
-    pub fn new(args: &[String]) -> Result<Config, ConfigError> {
+    pub fn new(args: Vec<String>) -> Result<Config, ConfigError> {
         let mut parser = Parse::None;
         let mut cfg    = Config::default();
         
-        for arg in args.iter() {
+        for arg in args.into_iter() {
             match arg.as_str() {
                 "c" | "create" => {
                     parser = Parse::CreateArchive;
@@ -205,27 +204,27 @@ impl Config {
                 }
                 Parse::ExtractArchive => {
                     cfg.mode = Mode::ExtractArchive;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch = FileData::from(&arg);
                 }
                 Parse::AppendFiles => {
                     cfg.mode = Mode::AppendFiles;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch = FileData::from(&arg);
                     cfg.ex_arch.seg_beg = !0; // Don't truncate archive
                     cfg.clobber = true;
                 }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch = FileData::from(&arg);
                 }
                 Parse::MergeArchives => {
                     cfg.mode = Mode::MergeArchives; 
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch = FileData::from(&arg);
                     cfg.ex_arch.seg_beg = !0; // Don't truncate archive
                     cfg.clobber = true;
                 }
                 Parse::List => {
                     cfg.mode = Mode::ListArchive;
-                    cfg.ex_arch = FileData::new(PathBuf::from(arg));
+                    cfg.ex_arch = FileData::from(&arg);
                 }
                 Parse::Verbose => {
                     cfg.verbose = true;
@@ -239,7 +238,7 @@ impl Config {
                         cfg.fv.col_scale = c;
                     }
                     else {
-                        return Err(ConfigError::InvalidColorScale(arg.to_string()));
+                        return Err(ConfigError::InvalidColorScale(arg));
                     }
                 }
                 Parse::Width => {
@@ -247,11 +246,11 @@ impl Config {
                         cfg.fv.width = w;
                     }
                     else {
-                        return Err(ConfigError::InvalidImageWidth(arg.to_string()));
+                        return Err(ConfigError::InvalidImageWidth(arg));
                     }
                 }
                 Parse::Inputs => {
-                    cfg.inputs.push(FileData::new(PathBuf::from(arg)));
+                    cfg.inputs.push(FileData::from(&arg));
                 }
                 Parse::Mem => {
                     if let Ok(mem) = arg.parse::<u64>() {
@@ -263,7 +262,7 @@ impl Config {
                         }
                     }
                     else {
-                        return Err(ConfigError::InvalidMemory(arg.to_string()));
+                        return Err(ConfigError::InvalidMemory(arg));
                     }
                 } 
                 Parse::BlkSz => {
@@ -282,7 +281,7 @@ impl Config {
                         cfg.blk_sz = size * scale;
                     }
                     else {
-                        return Err(ConfigError::InvalidBlockSize(arg.to_string()));
+                        return Err(ConfigError::InvalidBlockSize(arg));
                     }
                 }
                 Parse::Threads => {
@@ -295,7 +294,7 @@ impl Config {
                         }
                     }
                     else {
-                        return Err(ConfigError::InvalidThreadCount(arg.to_string()));
+                        return Err(ConfigError::InvalidThreadCount(arg));
                     }
                 }
                 Parse::Sort => {
@@ -320,11 +319,11 @@ impl Config {
                         cfg.sort = Sort::PrtDir(lvl);
                     }
                     else {
-                        return Err(ConfigError::InvalidLvl(arg.to_string()));
+                        return Err(ConfigError::InvalidLvl(arg));
                     }
                 }
                 Parse::DirOut => {
-                    cfg.user_out = arg.to_string();
+                    cfg.user_out = arg;
                 }
                 Parse::Quiet => {
                     cfg.quiet = true;

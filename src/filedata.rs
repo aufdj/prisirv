@@ -69,6 +69,11 @@ impl From<io::Result<DirEntry>> for FileData {
         FileData::new(entry.unwrap().path())
     }
 }
+impl From<&String> for FileData {
+    fn from(s: &String) -> FileData {
+        FileData::new(PathBuf::from(s))
+    }
+}
 impl fmt::Display for FileData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 

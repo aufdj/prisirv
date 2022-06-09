@@ -13,9 +13,9 @@ use crate::{
 
 #[derive(Default, Clone)]
 pub struct ArchiveInfo {
-    eod:  u64,
-    blks: Vec<Block>,
-    pub version: Version,
+    eod:          u64,
+    blks:         Vec<Block>,
+    pub version:  Version,
 }
 impl ArchiveInfo {
     pub fn new(ex_arch: &FileData) -> Result<ArchiveInfo, ArchiveError> {
