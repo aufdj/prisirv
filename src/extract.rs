@@ -37,8 +37,7 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Result<Extractor, ArchiveError> {
-        let prg = Progress::new(&cfg);
-        let tp = ThreadPool::new(&cfg, prg);
+        let tp = ThreadPool::new(0, cfg.threads, Progress::new(&cfg));
         let archive = new_input_file(&cfg.ex_arch.path)?;
         
         Ok(

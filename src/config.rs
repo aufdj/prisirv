@@ -7,7 +7,6 @@ use crate::{
     error::ConfigError,
     filedata::FileData,
     constant::Version,
-    archiveinfo::ArchiveInfo,
 };
 
 
@@ -108,7 +107,6 @@ pub struct Config {
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
     pub ex_arch:    FileData,      // An existing Prisirv archive
-    pub ex_info:    ArchiveInfo,   // Info about existing archive
     pub fv:         Fv,
     pub verbose:    bool,
 }
@@ -209,8 +207,6 @@ impl Config {
                 Parse::AppendFiles => {
                     cfg.mode = Mode::AppendFiles;
                     cfg.ex_arch = FileData::from(&arg);
-                    cfg.ex_arch.seg_beg = !0; // Don't truncate archive
-                    cfg.clobber = true;
                 }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;
@@ -219,8 +215,6 @@ impl Config {
                 Parse::MergeArchives => {
                     cfg.mode = Mode::MergeArchives; 
                     cfg.ex_arch = FileData::from(&arg);
-                    cfg.ex_arch.seg_beg = !0; // Don't truncate archive
-                    cfg.clobber = true;
                 }
                 Parse::List => {
                     cfg.mode = Mode::ListArchive;
@@ -277,10 +271,10 @@ impl Config {
                     let scale = arg.chars().filter(|c| !c.is_numeric()).collect::<String>();
 
                     let scale = match scale.as_str() {
-                        "B" => { 1 },
-                        "K" => { 1024 },
-                        "M" => { 1024*1024 },
-                        "G" => { 1024*1024*1024 },
+                        "B" => 1,
+                        "K" => 1024,
+                        "M" => 1024*1024,
+                        "G" => 1024*1024*1024,
                         _ => return Err(ConfigError::InvalidBlockMagnitude(scale)),
                     };
 
@@ -349,8 +343,7 @@ impl Config {
                 }
                 Parse::None => {},
             }
-        }
-        
+        } 
         Ok(cfg)
     }
 }
@@ -415,7 +408,7 @@ impl fmt::Display for Config {
                         self.threads
                     )
                 }
-                Mode::ExtractArchive => { 
+                Mode::ExtractArchive => {
                     write!(f, "
                         \r=============================================================
                         \r Extracting Archive of Inputs:"
@@ -550,22 +543,21 @@ impl fmt::Display for Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            sort:       Sort::None,
-            user_out:   String::new(),
-            blk_sz:     10 << 20,
-            mem:        1 << 22,
-            mode:       Mode::None,
-            quiet:      false,
-            clobber:    false,
-            threads:    4,
-            inputs:     Vec::new(),
-            out:        FileData::default(),
-            align:      Align::Fixed,
-            method:     Method::Cm,
-            ex_arch:    FileData::default(),
-            ex_info:    ArchiveInfo::default(),
-            fv:         Fv::default(),
-            verbose:    false,
+            sort:      Sort::None,
+            user_out:  String::new(),
+            blk_sz:    10 << 20,
+            mem:       1 << 22,
+            mode:      Mode::None,
+            quiet:     false,
+            clobber:   false,
+            threads:   4,
+            inputs:    Vec::new(),
+            out:       FileData::default(),
+            align:     Align::Fixed,
+            method:    Method::Cm,
+            ex_arch:   FileData::default(),
+            fv:        Fv::default(),
+            verbose:   false,
         }
     }
 }

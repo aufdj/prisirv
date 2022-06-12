@@ -51,17 +51,6 @@ impl Prisirv {
         }
     }
 
-    /// Choose number of threads to use.
-    pub fn threads(mut self, count: usize) -> Result<Self, ConfigError> {
-        if count > 0 || count < 128 {
-            self.cfg.threads = count;
-        }
-        else {
-            return Err(ConfigError::OutOfRangeThreadCount(count));
-        }
-        Ok(self)
-    }
-
     /// Suppress output other than errors.
     pub fn quiet(mut self) -> Self {
         self.cfg.quiet = true;
@@ -74,13 +63,27 @@ impl Prisirv {
         self
     }
 
+    /// Use LZW compression.
     pub fn lzw(mut self) -> Self {
         self.cfg.method = Method::Lzw;
         self
     }
 
+    /// Store with no compression.
     pub fn store(mut self) -> Self {
         self.cfg.method = Method::Store;
+        self
+    }
+
+    /// Sort files before solid archiving.
+    pub fn sort(mut self, method: Sort) -> Self {
+        self.cfg.sort = method;
+        self
+    }
+
+    /// Choose an output path.
+    pub fn output(mut self, path: &str) -> Self {
+        self.cfg.user_out = path.to_string();
         self
     }
     
@@ -101,16 +104,15 @@ impl Prisirv {
         Ok(self)
     }
 
-    /// Sort files before solid archiving.
-    pub fn sort(mut self, method: Sort) -> Self {
-        self.cfg.sort = method;
-        self
-    }
-
-    /// Choose an output path.
-    pub fn output(mut self, path: &str) -> Self {
-        self.cfg.user_out = path.to_string();
-        self
+    /// Choose number of threads to use.
+    pub fn threads(mut self, count: usize) -> Result<Self, ConfigError> {
+        if count > 0 || count < 128 {
+            self.cfg.threads = count;
+        }
+        else {
+            return Err(ConfigError::OutOfRangeThreadCount(count));
+        }
+        Ok(self)
     }
 
     /// Choose inputs.
@@ -146,7 +148,7 @@ impl Prisirv {
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
-        Archiver::new(self.cfg)?.create_archive()?;
+        Archiver::new(self.cfg).create_archive()?;
         Ok(())
     }
 
@@ -164,10 +166,10 @@ impl Prisirv {
         self.cfg.mode = Mode::AppendFiles;
         self.cfg.clobber = true;
         self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
-        self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
+        //self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
         println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
-        Archiver::new(self.cfg)?.append_files()?;
+        Archiver::new(self.cfg).append_files()?;
         Ok(())
     }
 
@@ -180,14 +182,14 @@ impl Prisirv {
         Ok(())
     }
 
-    /// Append inputs to archive.
+    /// Merge archives together.
     pub fn merge_archives(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::MergeArchives;
         self.cfg.clobber = true;
         self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
-        self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
+        //self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
         println!("{}", self.cfg);
-        Archiver::new(self.cfg)?.merge_archives()?;
+        Archiver::new(self.cfg).merge_archives()?;
         Ok(())
     }
 
@@ -301,11 +303,11 @@ impl fmt::Display for Prisirv {
                
         Append file [foo.txt] to archive [/foo/qux.prsv]:
                
-            prisirv append-files /foo/qux.prsv -inputs foo.txt
+            prisirv append /foo/qux.prsv -inputs foo.txt
                
         Extract file [foo.txt] from archive [/foo/qux.prsv]:
                
-            prisirv extract-files /foo/qux.prsv -inputs foo.txt
+            prisirv pick /foo/qux.prsv -inputs foo.txt
                
         List information about archive [/foo/qux.prsv]:
                

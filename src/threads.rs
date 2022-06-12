@@ -14,7 +14,7 @@ use crate::{
     progress::Progress,
     crc32::Crc32,
     block::Block,
-    config::{Config, Method},
+    config::Method,
     error::ArchiveError,
     constant::Version,
     lzw,
@@ -32,7 +32,7 @@ type SharedBlockQueue = Arc<Mutex<BlockQueue>>;
 type SharedReceiver   = Arc<Mutex<Receiver<Task>>>;
 type SharedProgress   = Arc<Mutex<Progress>>;
 
-/// A threadpool spawns a set number of threads and handles sending new 
+/// A threadpool spawns a set number of threads and handles sending new
 /// tasks to idle threads, where a task is a function that returns a
 /// compressed or decompressed block.
 pub struct ThreadPool {
@@ -42,17 +42,15 @@ pub struct ThreadPool {
 }
 impl ThreadPool {
     /// Create a new ThreadPool.
-    pub fn new(cfg: &Config, prg: Progress) -> ThreadPool {
+    pub fn new(offset: u32, thread_cnt: usize, prg: Progress) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
-        let mut threads = Vec::with_capacity(cfg.threads);
+        let mut threads = Vec::with_capacity(thread_cnt);
 
         let rcvr = Arc::new(Mutex::new(rcvr));
         let prg  = Arc::new(Mutex::new(prg));
-        let bq = Arc::new(Mutex::new(
-            BlockQueue::new(cfg.ex_info.block_count())
-        ));
+        let bq   = Arc::new(Mutex::new(BlockQueue::new(offset)));
 
-        for _ in 0..cfg.threads {
+        for _ in 0..thread_cnt {
             threads.push(
                 Thread::new(
                     Arc::clone(&rcvr), 
@@ -117,7 +115,7 @@ impl ThreadPool {
             return Err(ArchiveError::InvalidVersion(blk_in.version));
         }
         let len = blk_in.data.len();
-        let mem = blk_in.mem as usize;
+        let mem = blk_in.mem as usize;    
         self.sndr.send(
             Task::Decompress(
                 Box::new(move || {

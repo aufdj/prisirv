@@ -61,7 +61,6 @@ pub enum ConfigError {
     ArchiveError(ArchiveError),
     InvalidColorScale(String),
     InvalidImageWidth(String),
-    InputsEmpty,
 }
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -137,11 +136,6 @@ impl fmt::Display for ConfigError {
             ConfigError::InvalidInput(path) => {
                 write!(f, "
                     \r{path} is not a valid path.\n"
-                )
-            }
-            ConfigError::InputsEmpty => {
-                write!(f, "
-                    \rNo inputs found.\n"
                 )
             }
             ConfigError::InvalidSortMethod(err) => {

@@ -6,7 +6,7 @@ use std::{
 use crate::{
     threads::ThreadPool,
     progress::Progress,
-    config::{Config, Align, Mode},
+    config::{Config, Align},
     buffered_io::{
         BufferedRead, BufferedWrite,
         new_input_file, new_output_file,
@@ -16,40 +16,50 @@ use crate::{
     archiveinfo::ArchiveInfo,
 };
 
+
+/// An existing archive and associated information.
+struct ExArchive {
+    file: BufWriter<File>,
+    info: ArchiveInfo,
+}
+impl ExArchive {
+    fn new(cfg: &Config) -> Result<ExArchive, ArchiveError> {
+        let info = ArchiveInfo::new(&cfg.ex_arch)?;
+        let mut file = new_output_file(&cfg.ex_arch, cfg.clobber)?;
+        file.seek(SeekFrom::Start(info.end_of_data()))?;
+
+        Ok(
+            ExArchive {
+                info, file
+            }
+        )
+    }
+}
+
 /// An archive consists of blocks, with each block containing a
 /// header followed by compressed data. Blocks can either be fixed size,
 /// or truncated to align with the end of the current file. The end of an
 /// archive is marked by an empty block.
 pub struct Archiver {
-    archive:  BufWriter<File>,
     cfg:      Config,
-    tp:       ThreadPool,
 }
 impl Archiver {
     /// Create a new Archiver.
-    pub fn new(cfg: Config) -> Result<Archiver, ArchiveError> {
-        let prg = Progress::new(&cfg);
-        let tp = ThreadPool::new(&cfg, prg);
-
-        let path = 
-        if cfg.mode == Mode::CreateArchive {
-            &cfg.out
+    pub fn new(cfg: Config) -> Archiver {
+        Archiver {
+            cfg
         }
-        else {
-            &cfg.ex_arch
-        };
-
-        let archive = new_output_file(path, cfg.clobber)?;
-        
-        Ok(
-            Archiver {
-                archive, cfg, tp
-            }
-        )
     }
 
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) -> Result<(), ArchiveError> {
+        let mut archive = new_output_file(&self.cfg.out, self.cfg.clobber)?;
+        let mut tp = ThreadPool::new(
+            0, 
+            self.cfg.threads, 
+            Progress::new(&self.cfg)
+        );
+
         let mut blk = Block::new(&self.cfg);
 
         // Read files into blocks and compress
@@ -63,7 +73,7 @@ impl Archiver {
                     let pos = file_in.stream_position()?;
                     file.seg_end = pos;
                     blk.files.push(file.clone());
-                    self.tp.compress_block(blk.clone());
+                    tp.compress_block(blk.clone());
                     blk.next();
                     file.blk_pos = 0;
                     file.seg_beg = pos;
@@ -74,7 +84,7 @@ impl Archiver {
             // Truncate final block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 blk.files.push(file.clone());
-                self.tp.compress_block(blk.clone());
+                tp.compress_block(blk.clone());
                 blk.next();
                 file.seg_beg = file_in.stream_position()?;
             }
@@ -85,30 +95,36 @@ impl Archiver {
 
         // Compress final block
         if !blk.data.is_empty() {
-            self.tp.compress_block(blk.clone());
+            tp.compress_block(blk.clone());
             blk.next();
         }
 
         // Empty sentinel block
-        self.tp.compress_block(blk.clone());
+        tp.compress_block(blk.clone());
         
         // Output blocks
         loop {
-            if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
-                blk.write_to(&mut self.archive);
+            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+                blk.write_to(&mut archive);
                 if blk.data.is_empty() {
                     break;
                 }
             }
         }
-        self.archive.flush_buffer();
+        archive.flush_buffer();
         Ok(())
     }
     /// Add files to existing archive.
     pub fn append_files(&mut self) -> Result<(), ArchiveError> {
-        self.archive.seek(SeekFrom::Start(self.cfg.ex_info.end_of_data()))?;
+        let mut archive = ExArchive::new(&self.cfg)?;
+        let mut tp = ThreadPool::new(
+            archive.info.block_count(), 
+            self.cfg.threads, 
+            Progress::new(&self.cfg)
+        );
+
         let mut blk = Block::new(&self.cfg);
-        blk.id = self.cfg.ex_info.block_count();
+        blk.id = archive.info.block_count();
     
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
@@ -121,7 +137,7 @@ impl Archiver {
                     let pos = file_in.stream_position()?;
                     file.seg_end = pos;
                     blk.files.push(file.clone());
-                    self.tp.compress_block(blk.clone());
+                    tp.compress_block(blk.clone());
                     blk.next();
                     file.blk_pos = 0;
                     file.seg_beg = pos;
@@ -132,7 +148,7 @@ impl Archiver {
             // Truncate block to align with end of file
             if self.cfg.align == Align::File && !blk.data.is_empty() {
                 blk.files.push(file.clone());
-                self.tp.compress_block(blk.clone());
+                tp.compress_block(blk.clone());
                 blk.next();
                 file.seg_beg = file_in.stream_position()?;
             }
@@ -143,31 +159,32 @@ impl Archiver {
 
         // Compress final block
         if !blk.data.is_empty() {
-            self.tp.compress_block(blk.clone());
+            tp.compress_block(blk.clone());
             blk.next();
         }
 
         // Empty sentinel block
-        self.tp.compress_block(blk.clone());
+        tp.compress_block(blk.clone());
 
         // Output blocks
         loop {
-            if let Some(mut blk) = self.tp.bq.lock().unwrap().try_get_block() {
-                blk.write_to(&mut self.archive);
+            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+                blk.write_to(&mut archive.file);
                 if blk.data.is_empty() { 
                     break; 
                 }
             }
         }
 
-        self.archive.flush_buffer();
+        archive.file.flush_buffer();
         Ok(())
     }
 
     pub fn merge_archives(&mut self) -> Result<(), ArchiveError> {
-        let mut id = self.cfg.ex_info.block_count();
+        let mut archive = ExArchive::new(&self.cfg)?;
 
-        self.archive.seek(SeekFrom::Start(self.cfg.ex_info.end_of_data()))?;
+        let mut id = archive.info.block_count();
+
         let mut blk = Block::default();
 
         let mut info = Vec::new();
@@ -175,7 +192,7 @@ impl Archiver {
             info.push(ArchiveInfo::new(input)?);
         }
 
-        if !info.iter().all(|i| i.version == self.cfg.ex_info.version) {
+        if !info.iter().all(|i| i.version == archive.info.version) {
             return Err(ArchiveError::IncompatibleVersions);
         }
 
@@ -188,12 +205,12 @@ impl Archiver {
                 }
                 blk.id = id;
                 id += 1;
-                blk.write_to(&mut self.archive);
+                blk.write_to(&mut archive.file);
                 blk.next();
             }
         }
         blk.id = id;
-        blk.write_to(&mut self.archive);
+        blk.write_to(&mut archive.file);
         Ok(())
     }
 }
