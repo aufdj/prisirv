@@ -69,11 +69,11 @@ pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData 
         _ => {}
     }
 
-    let mut dir_path = dir_out.path.into_iter();
+    let mut dir_path = dir_out.path.iter();
 
     let dedup = file_cmpnts
         .as_path()
-        .into_iter()
+        .iter()
         .filter(|&f| !dir_path.any(|d| f == d))
         .collect::<Vec<&OsStr>>();
 

@@ -152,6 +152,27 @@ impl Prisirv {
         Ok(())
     }
 
+    /// Append inputs to archive.
+    pub fn append_files(mut self) -> Result<(), ArchiveError> {
+        self.cfg.mode = Mode::AppendFiles;
+        self.cfg.clobber = true;
+        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+        println!("{}", self.cfg);
+        sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
+        Archiver::new(self.cfg).append_files()?;
+        Ok(())
+    }
+
+    /// Merge archives together.
+    pub fn merge_archives(mut self) -> Result<(), ArchiveError> {
+        self.cfg.mode = Mode::MergeArchives;
+        self.cfg.clobber = true;
+        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+        println!("{}", self.cfg);
+        Archiver::new(self.cfg).merge_archives()?;
+        Ok(())
+    }
+
     /// Extract an archive.
     pub fn extract_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractArchive;
@@ -161,35 +182,12 @@ impl Prisirv {
         Ok(())
     }
 
-    /// Append inputs to archive.
-    pub fn append_files(mut self) -> Result<(), ArchiveError> {
-        self.cfg.mode = Mode::AppendFiles;
-        self.cfg.clobber = true;
-        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
-        //self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
-        println!("{}", self.cfg);
-        sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
-        Archiver::new(self.cfg).append_files()?;
-        Ok(())
-    }
-
     /// Extract inputs from archive.
     pub fn extract_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractFiles;
         self.cfg.out = fmt_root_output(&self.cfg);
         println!("{}", self.cfg);
         Extractor::new(self.cfg)?.extract_files()?;
-        Ok(())
-    }
-
-    /// Merge archives together.
-    pub fn merge_archives(mut self) -> Result<(), ArchiveError> {
-        self.cfg.mode = Mode::MergeArchives;
-        self.cfg.clobber = true;
-        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
-        //self.cfg.ex_info = ArchiveInfo::new(&self.cfg.ex_arch)?;
-        println!("{}", self.cfg);
-        Archiver::new(self.cfg).merge_archives()?;
         Ok(())
     }
 
