@@ -189,11 +189,11 @@ impl Archiver {
 
         let mut info = Vec::new();
         for input in self.cfg.inputs.iter() {
-            info.push(ArchiveInfo::new(input)?);
-        }
-
-        if !info.iter().all(|i| i.version == archive.info.version) {
-            return Err(ArchiveError::IncompatibleVersions);
+            let in_info = ArchiveInfo::new(input)?;
+            if in_info.version != archive.info.version {
+                return Err(ArchiveError::IncompatibleVersions);
+            }
+            info.push(in_info);
         }
 
         for file in self.cfg.inputs.iter() {

@@ -1,7 +1,7 @@
 use std::{
-    path::PathBuf,
     time::Instant,
-    io,
+    io::{self, BufWriter},
+    fs::File,
 };
 
 use crate::{
@@ -131,10 +131,9 @@ impl Image {
         c = self.pixels[i+2] as i32 + red;
         self.pixels[i+2] = clamp(c);
     }
-    fn save_bmp(&mut self, file: &FileData, clobber: bool) -> io::Result<()> {
-        let mut file_out = new_output_file(file, clobber)?;
-        let file_size    = (54 + self.pixels.len()) as u32;
-        let image_size   = (self.width * self.height * 3) as u32;
+    fn save_bmp(&mut self, file_out: &mut BufWriter<File>) {
+        let file_size  = (54 + self.pixels.len()) as u32;
+        let image_size = (self.width * self.height * 3) as u32;
 
         file_out.write_u16(u16::from_le_bytes(*b"BM"));
         file_out.write_u32(file_size);          // File size
@@ -154,7 +153,6 @@ impl Image {
         for pixel in self.pixels.iter() {
             file_out.write_byte(*pixel);
         }
-        Ok(())
     }
 }
 pub fn new(cfg: &Config) -> io::Result<()> {
@@ -164,7 +162,7 @@ pub fn new(cfg: &Config) -> io::Result<()> {
         .to_str()
         .unwrap();
     let file_name = &format!("{name}.bmp");
-    let file_out  = FileData::new(PathBuf::from(file_name));
+    let mut file_out = new_output_file(&FileData::from(file_name), cfg.clobber)?;
     let size_sum  = cfg.inputs.iter().map(|f| f.len).sum();
     let fsize_sum = size_sum as f64;
 
@@ -278,7 +276,7 @@ pub fn new(cfg: &Config) -> io::Result<()> {
             start_pass.elapsed()
         );
     }
-    img.save_bmp(&file_out, cfg.clobber)?;
+    img.save_bmp(&mut file_out);
     
     println!("Created {} in {:.2?}", 
         file_name,
