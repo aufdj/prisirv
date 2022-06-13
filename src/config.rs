@@ -411,23 +411,9 @@ impl fmt::Display for Config {
                 Mode::ExtractArchive => {
                     write!(f, "
                         \r=============================================================
-                        \r Extracting Archive of Inputs:"
+                        \r Extracting Archive {}:",
+                        self.ex_arch.path.display()
                     )?;
-                    for input in self.inputs.iter() {
-                        write!(f, "
-                            \r    {} ({})", 
-                            input.path.display(),
-                            if input.path.is_file() { 
-                                "File" 
-                            }
-                            else if input.path.is_dir() { 
-                                "Directory" 
-                            }
-                            else { 
-                                "" 
-                            }
-                        )?;
-                    }
                     write!(f, "\n
                         \r Output Path: {}
                         \r Threads:     {}
@@ -498,7 +484,7 @@ impl fmt::Display for Config {
                     )?;
                     for input in self.inputs.iter() {
                         write!(f, "
-                            \r    {}", 
+                            \r    {}",
                             input.path.display(),
                         )?;
                     }

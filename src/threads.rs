@@ -111,8 +111,8 @@ impl ThreadPool {
     /// Create a new task containing a job consisting of decompressing
     /// an input block and returning the decompressed block.
     pub fn decompress_block(&mut self, blk_in: Block) -> Result<(), ArchiveError> {
-        if blk_in.version != Version::current() {
-            return Err(ArchiveError::InvalidVersion(blk_in.version));
+        if blk_in.ver != Version::current() {
+            return Err(ArchiveError::InvalidVersion(blk_in.ver));
         }
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;    
@@ -225,6 +225,7 @@ impl Thread {
 /// added to a BlockQueue, which handles outputting in the correct order.
 pub struct BlockQueue {
     pub blocks:   BinaryHeap<Block>, // Priority Queue based on block id
+    pub offset:   u32, // Starting id when appending to archive
     pub next_out: u32, // Next block to be output
 }
 impl BlockQueue {
@@ -232,7 +233,8 @@ impl BlockQueue {
     pub fn new(start: u32) -> BlockQueue {
         BlockQueue {
             blocks:    BinaryHeap::new(),
-            next_out:  start,
+            offset:    start,
+            next_out:  0,
         }
     }
 
@@ -242,12 +244,15 @@ impl BlockQueue {
         if let Some(blk) = self.blocks.peek() {
             if blk.id == self.next_out {
                 self.next_out += 1;
-                return self.blocks.pop();
+                let mut block = self.blocks.pop().unwrap(); 
+                block.id += self.offset;
+                return Some(block);
             }
         }
         None
     }
 }
+
 
 impl Ord for Block {
     fn cmp(&self, other: &Self) -> Ordering {

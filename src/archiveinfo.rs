@@ -13,9 +13,10 @@ use crate::{
 
 #[derive(Default, Clone)]
 pub struct ArchiveInfo {
-    eod:          u64,
-    blks:         Vec<Block>,
-    pub version:  Version,
+    eod:      u64,
+    blks:     Vec<Block>,
+    pub ver:  Version,
+    next_id:  u32,
 }
 impl ArchiveInfo {
     pub fn new(ex_arch: &FileData) -> Result<ArchiveInfo, ArchiveError> {
@@ -29,25 +30,27 @@ impl ArchiveInfo {
             if blk.sizeo == 0 {
                 break;
             }
-            info.version = blk.version;
+            info.ver = blk.ver;
             info.blks.push(blk.clone());
 
             archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
 
             blk.next();
         }
+        info.next_id = info.blks.len() as u32;
         Ok(info)
-    }
-    pub fn block_count(&self) -> u32 {
-        self.blks.len() as u32
     }
     pub fn end_of_data(&self) -> u64 {
         self.eod
     }
+    pub fn next_id(&mut self) -> u32 {
+        self.next_id += 1;
+        self.next_id - 1
+    }
 }
 impl fmt::Display for ArchiveInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Archive created with Prisirv {}", self.version)?;
+        write!(f, "Archive created with Prisirv {}", self.ver)?;
         for blk in self.blks.iter() {
             write!(f, "{blk}")?;
         }
@@ -56,7 +59,7 @@ impl fmt::Display for ArchiveInfo {
 }
 impl fmt::Debug for ArchiveInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Archive created with Prisirv {}", self.version)?;
+        write!(f, "Archive created with Prisirv {}", self.ver)?;
         for blk in self.blks.iter() {
             write!(f, "{blk:?}")?;
         }

@@ -118,13 +118,12 @@ impl Archiver {
     pub fn append_files(&mut self) -> Result<(), ArchiveError> {
         let mut archive = ExArchive::new(&self.cfg)?;
         let mut tp = ThreadPool::new(
-            archive.info.block_count(), 
+            archive.info.next_id(), 
             self.cfg.threads, 
             Progress::new(&self.cfg)
         );
 
         let mut blk = Block::new(&self.cfg);
-        blk.id = archive.info.block_count();
     
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
@@ -183,17 +182,12 @@ impl Archiver {
     pub fn merge_archives(&mut self) -> Result<(), ArchiveError> {
         let mut archive = ExArchive::new(&self.cfg)?;
 
-        let mut id = archive.info.block_count();
-
         let mut blk = Block::default();
 
-        let mut info = Vec::new();
         for input in self.cfg.inputs.iter() {
-            let in_info = ArchiveInfo::new(input)?;
-            if in_info.version != archive.info.version {
+            if ArchiveInfo::new(input)?.ver != archive.info.ver {
                 return Err(ArchiveError::IncompatibleVersions);
             }
-            info.push(in_info);
         }
 
         for file in self.cfg.inputs.iter() {
@@ -203,13 +197,12 @@ impl Archiver {
                 if blk.data.is_empty() {
                     break;
                 }
-                blk.id = id;
-                id += 1;
+                blk.id = archive.info.next_id();
                 blk.write_to(&mut archive.file);
                 blk.next();
             }
         }
-        blk.id = id;
+        blk.id = archive.info.next_id();
         blk.write_to(&mut archive.file);
         Ok(())
     }

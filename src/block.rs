@@ -22,7 +22,7 @@ pub struct Block {
     pub sizei:   u64,           // Input data size
     pub crtd:    u64,           // Creation time
     pub files:   Vec<FileData>, // Files in this block
-    pub version: Version,       // Version number
+    pub ver:     Version,       // Version number
     pub data:    Vec<u8>,       // Block data 
     pub method:  Method,        // Context Mixing, LZW, or Uncompressed
 }
@@ -37,7 +37,7 @@ impl Block {
             sizeo:   0,
             sizei:   0,
             crtd:    0,  
-            version: Version::current(),
+            ver:     Version::current(),
             files:   Vec::new(),
             data:    Vec::with_capacity(cfg.blk_sz),
         }
@@ -49,9 +49,9 @@ impl Block {
     }
     pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
         archive.write_u32(MAGIC);
-        archive.write_u16(self.version.major);
-        archive.write_u16(self.version.minor);
-        archive.write_u16(self.version.patch);
+        archive.write_u16(self.ver.major);
+        archive.write_u16(self.ver.minor);
+        archive.write_u16(self.ver.patch);
         archive.write_u64(self.mem);
         archive.write_u64(self.blk_sz as u64);
         archive.write_byte(self.method as u8);
@@ -90,19 +90,19 @@ impl Block {
     }
     /// Read block header
     pub fn read_header_from(&mut self, archive: &mut BufReader<File>) -> Result<(), ArchiveError> {
-        let magic     = archive.read_u32();
-        self.version.major = archive.read_u16();
-        self.version.minor = archive.read_u16();
-        self.version.patch = archive.read_u16();
-        self.mem      = archive.read_u64();
-        self.blk_sz   = archive.read_u64() as usize;
-        self.method   = Method::from(archive.read_byte());
-        self.id       = archive.read_u32();
-        self.chksum   = archive.read_u32();
-        self.sizeo    = archive.read_u64();
-        self.sizei    = archive.read_u64();
-        self.crtd     = archive.read_u64();
-        let num_files = archive.read_u32();
+        let magic      = archive.read_u32();
+        self.ver.major = archive.read_u16();
+        self.ver.minor = archive.read_u16();
+        self.ver.patch = archive.read_u16();
+        self.mem       = archive.read_u64();
+        self.blk_sz    = archive.read_u64() as usize;
+        self.method    = Method::from(archive.read_byte());
+        self.id        = archive.read_u32();
+        self.chksum    = archive.read_u32();
+        self.sizeo     = archive.read_u64();
+        self.sizei     = archive.read_u64();
+        self.crtd      = archive.read_u64();
+        let num_files  = archive.read_u32();
 
         if magic != MAGIC { 
             return Err(ArchiveError::InvalidMagicNumber(self.id));
