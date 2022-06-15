@@ -8,7 +8,7 @@ use crate::{
     progress::Progress,
     config::{Config, Align},
     buffered_io::{
-        BufferedRead, BufferedWrite,
+        BufferedRead, 
         new_input_file, new_output_file,
     },
     error::ArchiveError,
@@ -54,11 +54,7 @@ impl Archiver {
     /// Parse files into blocks and compress blocks.
     pub fn create_archive(&mut self) -> Result<(), ArchiveError> {
         let mut archive = new_output_file(&self.cfg.out, self.cfg.clobber)?;
-        let mut tp = ThreadPool::new(
-            0, 
-            self.cfg.threads, 
-            Progress::new(&self.cfg)
-        );
+        let mut tp = ThreadPool::new(0, &self.cfg);
 
         let mut blk = Block::new(&self.cfg);
 
@@ -104,24 +100,19 @@ impl Archiver {
         
         // Output blocks
         loop {
-            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
                 blk.write_to(&mut archive);
                 if blk.data.is_empty() {
                     break;
                 }
             }
         }
-        archive.flush_buffer();
         Ok(())
     }
     /// Add files to existing archive.
     pub fn append_files(&mut self) -> Result<(), ArchiveError> {
         let mut archive = ExArchive::new(&self.cfg)?;
-        let mut tp = ThreadPool::new(
-            archive.info.next_id(), 
-            self.cfg.threads, 
-            Progress::new(&self.cfg)
-        );
+        let mut tp = ThreadPool::new(archive.info.next_id(), &self.cfg);
 
         let mut blk = Block::new(&self.cfg);
     
@@ -167,20 +158,19 @@ impl Archiver {
 
         // Output blocks
         loop {
-            if let Some(mut blk) = tp.bq.lock().unwrap().try_get_block() {
+            if let Some(blk) = tp.bq.lock().unwrap().try_get_block() {
                 blk.write_to(&mut archive.file);
                 if blk.data.is_empty() { 
                     break; 
                 }
             }
         }
-
-        archive.file.flush_buffer();
         Ok(())
     }
 
     pub fn merge_archives(&mut self) -> Result<(), ArchiveError> {
         let mut archive = ExArchive::new(&self.cfg)?;
+        let mut prg = Progress::new(&self.cfg);
 
         let mut blk = Block::default();
 
@@ -199,11 +189,13 @@ impl Archiver {
                 }
                 blk.id = archive.info.next_id();
                 blk.write_to(&mut archive.file);
+                prg.update(&blk);
                 blk.next();
             }
         }
         blk.id = archive.info.next_id();
         blk.write_to(&mut archive.file);
+        prg.update(&blk);
         Ok(())
     }
 }

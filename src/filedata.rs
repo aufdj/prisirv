@@ -37,7 +37,7 @@ use std::{
 //          seg_end: 100,
 //      }
 //  
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq, Default)]
 pub struct FileData {
     pub path:     PathBuf, // File path
     pub len:      u64,     // File length
@@ -81,16 +81,20 @@ impl From<&str> for FileData {
 }
 impl fmt::Display for FileData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, 
-            "
+        write!(f, "{}", self.path.display())
+    }
+}
+impl fmt::Debug for FileData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "
             Path:   {}\n
             Length: {}\n
             Segment Begin: {}\n
-            Segment End:   {}\n
-            ", 
+            Segment End:   {}\n", 
             self.path.display(),
             self.len,
             self.seg_beg,
-            self.seg_end)
+            self.seg_end
+        )
     }
 }

@@ -11,7 +11,6 @@ use std::{
 use crate::{
     filedata::FileData,
     threads::ThreadPool,
-    progress::Progress,
     block::Block,
     formatting::fmt_file_out_extract,
     config::Config,
@@ -37,7 +36,7 @@ pub struct Extractor {
 impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Result<Extractor, ArchiveError> {
-        let tp = ThreadPool::new(0, cfg.threads, Progress::new(&cfg));
+        let tp = ThreadPool::new(0, &cfg);
         let archive = new_input_file(&cfg.ex_arch.path)?;
         
         Ok(
@@ -124,7 +123,7 @@ impl Extractor {
                     break; 
                 }
 
-                blk.files.retain(|blk_file| paths.contains(&blk_file.path));
+                blk.files.retain(|file| paths.contains(&file.path));
                 
                 for file in blk.files.iter() {
                     let mut file_out = next_file(file, &self.cfg.out, self.cfg.clobber)?;

@@ -1,5 +1,6 @@
 use std::{
     fmt,
+    path::PathBuf,
 };
 
 use crate::{
@@ -244,12 +245,12 @@ impl Config {
                     }
                 }
                 Parse::Inputs => {
-                    let input = FileData::from(&arg);
-                    if input.path.exists() {
-                        cfg.inputs.push(input);
+                    let path = PathBuf::from(&arg);
+                    if path.exists() {
+                        cfg.inputs.push(FileData::new(path));
                     }
                     else {
-                        return Err(ConfigError::InvalidInput(arg));
+                        return Err(ConfigError::InvalidInput(path));
                     }
                     
                 }

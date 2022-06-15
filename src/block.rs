@@ -47,7 +47,7 @@ impl Block {
         self.files.clear();
         self.id += 1;
     }
-    pub fn write_to(&mut self, archive: &mut BufWriter<File>) {
+    pub fn write_to(&self, archive: &mut BufWriter<File>) {
         archive.write_u32(MAGIC);
         archive.write_u16(self.ver.major);
         archive.write_u16(self.ver.minor);

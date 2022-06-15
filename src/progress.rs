@@ -56,7 +56,8 @@ impl Progress {
     pub fn update(&mut self, blk: &Block) {
         self.current += blk.sizei;
         if self.mode == Mode::CreateArchive
-        || self.mode == Mode::AppendFiles {
+        || self.mode == Mode::AppendFiles
+        || self.mode == Mode::MergeArchives {
             self.sizeo += blk.size();
         }
         else { 

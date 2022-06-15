@@ -6,15 +6,16 @@ mod buffered_io;
 mod formatting;    
 mod threads;
 mod progress; 
-pub mod config;
-pub mod crc32;
-pub mod error;
 mod fv;
 mod block;
 mod cm;
 mod lzw;
-pub mod archiveinfo;
 mod constant;
+pub mod config;
+pub mod crc32;
+pub mod error;
+pub mod archiveinfo;
+
 
 use std::{
     fmt,
@@ -32,7 +33,7 @@ use crate::{
         ConfigError, 
         ArchiveError, 
     },
-    formatting::fmt_root_output,
+    formatting::fmt_root,
     constant::Version,
 };
 
@@ -123,7 +124,7 @@ impl Prisirv {
                 self.cfg.inputs.push(FileData::new(path));
             }
             else {
-                return Err(ConfigError::InvalidInput(input.to_string()));
+                return Err(ConfigError::InvalidInput(path));
             }
         }
         Ok(self)
@@ -136,7 +137,7 @@ impl Prisirv {
             self.cfg.ex_arch = FileData::new(path);
         }
         else {
-            return Err(ConfigError::InvalidInput(input.to_string()));
+            return Err(ConfigError::InvalidInput(path));
         }
         Ok(self)
     }
@@ -144,8 +145,8 @@ impl Prisirv {
     /// Create an archive from inputs.
     pub fn create_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::CreateArchive;
-        self.cfg.ex_arch = self.cfg.inputs[0].clone();
-        self.cfg.out = fmt_root_output(&self.cfg);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.inputs[0].path);
+        self.cfg.out.path.set_extension("prsv");
         println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         Archiver::new(self.cfg).create_archive()?;
@@ -176,7 +177,7 @@ impl Prisirv {
     /// Extract an archive.
     pub fn extract_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractArchive;
-        self.cfg.out = fmt_root_output(&self.cfg);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.ex_arch.path);
         println!("{}", self.cfg);
         Extractor::new(self.cfg)?.extract_archive()?;
         Ok(())
@@ -185,7 +186,7 @@ impl Prisirv {
     /// Extract inputs from archive.
     pub fn extract_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractFiles;
-        self.cfg.out = fmt_root_output(&self.cfg);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.ex_arch.path);
         println!("{}", self.cfg);
         Extractor::new(self.cfg)?.extract_files()?;
         Ok(())
@@ -202,7 +203,7 @@ impl Prisirv {
     pub fn fv(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::Fv;
         println!("{}", self.cfg);
-        self.cfg.out = fmt_root_output(&self.cfg);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.ex_arch.path);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         fv::new(&self.cfg)?;
         Ok(())

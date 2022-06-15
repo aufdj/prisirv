@@ -3,13 +3,12 @@ use std::{
     fs::create_dir_all,
     ffi::OsStr,
 };
-use crate::{ 
-    config::{Config, Mode},
+use crate::{
     filedata::FileData,
 };
 
 
-/// Format output directory given an optional user specified output, and the 
+/// Format output path given an optional user specified output, and the
 /// first input file or directory.
 ///
 /// An -output-path option containing \'s will be treated as an absolute path.
@@ -19,25 +18,21 @@ use crate::{
 ///
 /// i.e. Compressing \foo\bar.txt with option '-output-path \baz\arch' creates 
 /// archive \baz\arch, while option '-output-path arch' creates archive \foo\arch.
-pub fn fmt_root_output(cfg: &Config) -> FileData {
-    let mut out = 
-    if cfg.user_out.is_empty() {
-        cfg.ex_arch.path.with_extension("")
-    }
-    else if cfg.user_out.contains('\\') {
-        PathBuf::from(&cfg.user_out)
-    }
-    else {
-        let mut cmpnts = cfg.ex_arch.path.components();
-        cmpnts.next_back().unwrap();
-
-        cmpnts.as_path().join(Path::new(&cfg.user_out))
-    };
-
-    if cfg.mode == Mode::CreateArchive {
-        out.set_extension("prsv");
-    }
-    FileData::new(out)
+pub fn fmt_root(user_out: &str, ex_arch: &Path) -> FileData {
+    FileData::new(
+        if user_out.is_empty() {
+            ex_arch.with_extension("")
+        }
+        else if user_out.contains('\\') {
+            PathBuf::from(&user_out)
+        }
+        else {
+            let mut cmpnts = ex_arch.components();
+            cmpnts.next_back().unwrap();
+    
+            cmpnts.as_path().join(Path::new(&user_out))
+        }
+    )
 }
 
 /// Format output file in extracted archive

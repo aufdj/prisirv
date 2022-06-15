@@ -14,7 +14,7 @@ use crate::{
     progress::Progress,
     crc32::Crc32,
     block::Block,
-    config::Method,
+    config::{Config, Method},
     error::ArchiveError,
     constant::Version,
     lzw,
@@ -42,15 +42,15 @@ pub struct ThreadPool {
 }
 impl ThreadPool {
     /// Create a new ThreadPool.
-    pub fn new(offset: u32, thread_cnt: usize, prg: Progress) -> ThreadPool {
+    pub fn new(offset: u32, cfg: &Config) -> ThreadPool {
         let (sndr, rcvr) = mpsc::channel();
-        let mut threads = Vec::with_capacity(thread_cnt);
+        let mut threads = Vec::with_capacity(cfg.threads);
 
         let rcvr = Arc::new(Mutex::new(rcvr));
-        let prg  = Arc::new(Mutex::new(prg));
+        let prg  = Arc::new(Mutex::new(Progress::new(cfg)));
         let bq   = Arc::new(Mutex::new(BlockQueue::new(offset)));
 
-        for _ in 0..thread_cnt {
+        for _ in 0..cfg.threads {
             threads.push(
                 Thread::new(
                     Arc::clone(&rcvr), 

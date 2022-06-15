@@ -54,7 +54,7 @@ pub enum ConfigError {
     InvalidBlockMagnitude(String),
     OutOfRangeThreadCount(usize),
     InvalidThreadCount(String),
-    InvalidInput(String),
+    InvalidInput(PathBuf),
     InvalidSortMethod(SortError),
     InvalidInsertId(String),
     IoError(io::Error),
@@ -135,7 +135,8 @@ impl fmt::Display for ConfigError {
             }
             ConfigError::InvalidInput(path) => {
                 write!(f, "
-                    \r{path} is not a valid path.\n"
+                    \r{} is not a valid path.\n",
+                    path.display()
                 )
             }
             ConfigError::InvalidSortMethod(err) => {
