@@ -3,19 +3,19 @@ use crate::cm::predictor::Predictor;
 /// A block based arithmetic encoder. Accepts an uncompressed block and
 /// returns a compressed block.
 pub struct Encoder {
-    high:        u32,       // Right endpoint of range
-    low:         u32,       // Left endpoint of range
-    predictor:   Predictor, // Generates predictions
-    pub blk_out: Vec<u8>,   // Compressed block
+    high:         u32,       // Right endpoint of range
+    low:          u32,       // Left endpoint of range
+    predictor:    Predictor, // Generates predictions
+    pub blk_out:  Vec<u8>,   // Compressed block
 }
 impl Encoder {
     /// Create a new Encoder.
     pub fn new(mem: usize, blk_sz: usize) -> Encoder {
         Encoder {
-            high: 0xFFFFFFFF,
-            low: 0,
-            predictor: Predictor::new(mem),
-            blk_out: Vec::with_capacity(blk_sz),
+            high:       0xFFFFFFFF,
+            low:        0,
+            predictor:  Predictor::new(mem),
+            blk_out:    Vec::with_capacity(blk_sz),
         }
     }
 

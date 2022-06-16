@@ -63,12 +63,13 @@ impl ThreadPool {
             threads, sndr, bq 
         }
     }
-    
+
     /// Create a new task consisting of compressing an
     /// input block and returning the compressed block.
     pub fn compress_block(&mut self, blk_in: Block) {
         let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
+        
         self.sndr.send(
             Task::Compress(
                 Box::new(move || {

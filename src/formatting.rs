@@ -84,7 +84,6 @@ pub fn fmt_file_out_extract(dir_out: &FileData, file_in: &FileData) -> FileData 
             create_dir_all(parent).unwrap();
         }
     }
-    
     let mut file_out = FileData::new(path);
     file_out.seg_beg = file_in.seg_beg;
     file_out

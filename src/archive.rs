@@ -8,7 +8,7 @@ use crate::{
     progress::Progress,
     config::{Config, Align},
     buffered_io::{
-        BufferedRead, 
+        BufferedRead,
         new_input_file, new_output_file,
     },
     error::ArchiveError,
@@ -19,8 +19,8 @@ use crate::{
 
 /// An existing archive and associated information.
 struct ExArchive {
-    file: BufWriter<File>,
-    info: ArchiveInfo,
+    file:  BufWriter<File>,
+    info:  ArchiveInfo,
 }
 impl ExArchive {
     fn new(cfg: &Config) -> Result<ExArchive, ArchiveError> {
@@ -109,6 +109,7 @@ impl Archiver {
         }
         Ok(())
     }
+
     /// Add files to existing archive.
     pub fn append_files(&mut self) -> Result<(), ArchiveError> {
         let mut archive = ExArchive::new(&self.cfg)?;

@@ -268,7 +268,7 @@ impl fmt::Display for Prisirv {
           -q,  -quiet           Suppresses output other than errors
           -clobber              Allow file clobbering
           -file-align           Truncate blocks to align with file boundaries
-          -lzw                  Use LZW compression method
+          -cm                   Use Context Mixing compression method
                 
         Flags '-file-align' and '-lzw' have no effect on extraction.
                 

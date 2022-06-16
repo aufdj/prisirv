@@ -30,7 +30,7 @@ enum Parse {
     ColScale,
     Width,
     Align,
-    Lzw,
+    Cm,
     Store,
     AppendFiles,
     ExtractFiles,
@@ -189,8 +189,8 @@ impl Config {
                 "-file-align" => {
                     parser = Parse::Align;
                 }
-                "-lzw" => {
-                    parser = Parse::Lzw;
+                "-cm" => {
+                    parser = Parse::Cm;
                 }
                 "-store" => {
                     parser = Parse::Store;
@@ -336,8 +336,8 @@ impl Config {
                 Parse::Align => {
                     cfg.align = Align::File;
                 }
-                Parse::Lzw => {
-                    cfg.method = Method::Lzw;
+                Parse::Cm => {
+                    cfg.method = Method::Cm;
                 }
                 Parse::Store => {
                     cfg.method = Method::Store;
@@ -541,7 +541,7 @@ impl Default for Config {
             inputs:    Vec::new(),
             out:       FileData::default(),
             align:     Align::Fixed,
-            method:    Method::Cm,
+            method:    Method::Lzw,
             ex_arch:   FileData::default(),
             fv:        Fv::default(),
             verbose:   false,

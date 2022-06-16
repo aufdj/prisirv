@@ -45,6 +45,7 @@ impl Block {
     pub fn next(&mut self) {
         self.data.clear();
         self.files.clear();
+        self.sizei = 0;
         self.id += 1;
     }
     pub fn write_to(&self, archive: &mut BufWriter<File>) {

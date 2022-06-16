@@ -6,18 +6,18 @@ const CODE_LEN_UP: u32 = 257;
 const CODE_LEN_RESET: u32 = 258;
 
 struct BitStream {
-    pck:      u32,
-    pck_len:  u32,
-    pub out:  Vec<u8>,
-    pub code_len: u32,
+    pck:           u32,
+    pck_len:       u32,
+    pub out:       Vec<u8>,
+    pub code_len:  u32,
 }
 impl BitStream {
     fn new() -> BitStream {
         BitStream {
-            pck:      0,
-            pck_len:  0,
-            out:      Vec::new(),
-            code_len: 9,
+            pck:       0,
+            pck_len:   0,
+            out:       Vec::new(),
+            code_len:  9,
         }
     }
     fn write(&mut self, code: u32) {
