@@ -1,4 +1,4 @@
-mod filedata;
+pub mod filedata;
 mod archive;       
 mod extract;
 mod sort;

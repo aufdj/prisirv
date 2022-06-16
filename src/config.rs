@@ -252,7 +252,6 @@ impl Config {
                     else {
                         return Err(ConfigError::InvalidInput(path));
                     }
-                    
                 }
                 Parse::Mem => {
                     if let Ok(mem) = arg.parse::<u64>() {

@@ -1,11 +1,26 @@
 use prisirv::{
     Prisirv,
     config::{Config, Mode},
+    filedata::FileData,
 };
 
 /// Create a new Config and call Prisirv API.
 fn main() {
-    match Config::new(std::env::args().skip(1).collect::<Vec<String>>()) {
+    let args = std::env::args().skip(1).collect::<Vec<String>>();
+    if args.len() == 1 {
+        let mut cfg = Config::default();
+        let file = FileData::from(&args[0]);
+        
+        if file.path.extension().unwrap() == "prsv" {
+            cfg.ex_arch = file;
+            Prisirv::new(cfg).extract_archive().unwrap();
+        }
+        else {
+            cfg.inputs.push(file);
+            Prisirv::new(cfg).create_archive().unwrap();
+        }
+    }
+    match Config::new(args) {
         Ok(cfg) => {
             match cfg.mode {
                 Mode::CreateArchive => { 
