@@ -32,7 +32,7 @@ FLAGS:
   -file-align            Truncate blocks to align with file boundaries
   -cm                    Use Context Mixing compression method
         
-Flags '-file-align' and '-lzw' have no effect on extraction.
+Flags '-file-align' and '-cm' have no effect on extraction.
         
 Sorting Methods:
   -sort ext      Sort by extension
