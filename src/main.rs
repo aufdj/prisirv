@@ -11,9 +11,15 @@ fn main() {
         let mut cfg = Config::default();
         let file = FileData::from(&args[0]);
         
-        if file.path.extension().unwrap() == "prsv" {
-            cfg.ex_arch = file;
-            Prisirv::new(cfg).extract_archive().unwrap();
+        if let Some(ext) = file.path.extension() {
+            if ext == "prsv" {
+                cfg.ex_arch = file;
+                Prisirv::new(cfg).extract_archive().unwrap();
+            }
+            else {
+                cfg.inputs.push(file);
+                Prisirv::new(cfg).create_archive().unwrap();
+            }
         }
         else {
             cfg.inputs.push(file);
