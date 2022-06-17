@@ -19,11 +19,14 @@ pub struct ArchiveInfo {
     next_id:  u32,
 }
 impl ArchiveInfo {
-    pub fn new(ex_arch: &FileData) -> Result<ArchiveInfo, ArchiveError> {
+    pub fn new(arch: &FileData) -> Result<ArchiveInfo, ArchiveError> {
         let mut info = ArchiveInfo::default();
-        let mut archive = new_input_file(&ex_arch.path)?;
+        if arch.new {
+            return Ok(info);
+        }
+        let mut archive = new_input_file(&arch.path)?;
         let mut blk = Block::default();
-        
+    
         loop {
             info.eod = archive.stream_position()?;
             blk.read_header_from(&mut archive)?;
@@ -32,9 +35,7 @@ impl ArchiveInfo {
             }
             info.ver = blk.ver;
             info.blks.push(blk.clone());
-
             archive.seek(SeekFrom::Current(blk.sizeo as i64))?;
-
             blk.next();
         }
         info.next_id = info.blks.len() as u32;

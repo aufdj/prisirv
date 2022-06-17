@@ -79,6 +79,7 @@ pub struct FileData {
     pub seg_end:  u64,     // End segment position
     pub blk_pos:  u64,     // Starting block position
     pub kind:     Type,    // File type
+    pub new:      bool,    // True if creating a new archive
 }
 impl FileData {
     pub fn new(path: PathBuf) -> FileData {
@@ -96,7 +97,8 @@ impl FileData {
             seg_beg: 0,
             seg_end: len,
             blk_pos: 0,
-            kind,  
+            kind, 
+            new:     false, 
         }
     }
     // Total size of FileData

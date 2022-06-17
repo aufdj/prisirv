@@ -29,12 +29,12 @@ impl Progress {
             .sum()
         }
         else {
-            cfg.ex_arch.len
+            cfg.arch.len
         };
         
         let sizeo =
         if cfg.mode == Mode::AppendFiles {
-            cfg.ex_arch.len
+            cfg.arch.len
         }
         else { 
             0 

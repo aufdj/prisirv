@@ -131,10 +131,10 @@ impl Prisirv {
     }
 
     /// Choose existing archive.
-    pub fn ex_arch(mut self, input: &str) -> Result<Self, ConfigError> {
+    pub fn arch(mut self, input: &str) -> Result<Self, ConfigError> {
         let path = PathBuf::from(input);
         if path.exists() {
-            self.cfg.ex_arch = FileData::new(path);
+            self.cfg.arch = FileData::new(path);
         }
         else {
             return Err(ConfigError::InvalidInput(path));
@@ -145,8 +145,9 @@ impl Prisirv {
     /// Create an archive from inputs.
     pub fn create_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::CreateArchive;
-        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.inputs[0].path);
-        self.cfg.out.path.set_extension("prsv");
+        self.cfg.arch = fmt_root(&self.cfg.user_out, &self.cfg.inputs[0].path);
+        self.cfg.arch.path.set_extension("prsv");
+        self.cfg.arch.new = true;
         println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         Archiver::new(self.cfg).create_archive()?;
@@ -157,7 +158,7 @@ impl Prisirv {
     pub fn append_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::AppendFiles;
         self.cfg.clobber = true;
-        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+        self.cfg.arch.seg_beg = !0; // Don't truncate archive
         println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         Archiver::new(self.cfg).append_files()?;
@@ -168,7 +169,7 @@ impl Prisirv {
     pub fn merge_archives(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::MergeArchives;
         self.cfg.clobber = true;
-        self.cfg.ex_arch.seg_beg = !0; // Don't truncate archive
+        self.cfg.arch.seg_beg = !0; // Don't truncate archive
         println!("{}", self.cfg);
         Archiver::new(self.cfg).merge_archives()?;
         Ok(())
@@ -177,7 +178,7 @@ impl Prisirv {
     /// Extract an archive.
     pub fn extract_archive(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractArchive;
-        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.ex_arch.path);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.arch.path);
         println!("{}", self.cfg);
         Extractor::new(self.cfg)?.extract_archive()?;
         Ok(())
@@ -186,7 +187,7 @@ impl Prisirv {
     /// Extract inputs from archive.
     pub fn extract_files(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::ExtractFiles;
-        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.ex_arch.path);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.arch.path);
         println!("{}", self.cfg);
         Extractor::new(self.cfg)?.extract_files()?;
         Ok(())
@@ -196,14 +197,14 @@ impl Prisirv {
     pub fn info(mut self) -> Result<ArchiveInfo, ArchiveError> {
         self.cfg.mode = Mode::ListArchive;
         println!("{}", self.cfg);
-        ArchiveInfo::new(&self.cfg.ex_arch)
+        ArchiveInfo::new(&self.cfg.arch)
     }
 
     /// Visualize file.
     pub fn fv(mut self) -> Result<(), ArchiveError> {
         self.cfg.mode = Mode::Fv;
         println!("{}", self.cfg);
-        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.ex_arch.path);
+        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.arch.path);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
         fv::new(&self.cfg)?;
         Ok(())

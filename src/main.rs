@@ -13,7 +13,7 @@ fn main() {
         
         if let Some(ext) = file.path.extension() {
             if ext == "prsv" {
-                cfg.ex_arch = file;
+                cfg.arch = file;
                 Prisirv::new(cfg).extract_archive().unwrap();
             }
             else {

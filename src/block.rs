@@ -133,6 +133,7 @@ impl Block {
                                 seg_end,
                                 blk_pos,
                                 kind:   Type::default(),
+                                new:    false,
                             }
                         );
                         path.clear();

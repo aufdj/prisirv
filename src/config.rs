@@ -107,7 +107,7 @@ pub struct Config {
     pub threads:    usize,         // Maximum number of threads
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
-    pub ex_arch:    FileData,      // An existing Prisirv archive
+    pub arch:       FileData,      // A Prisirv archive
     pub fv:         Fv,
     pub verbose:    bool,
 }
@@ -203,23 +203,23 @@ impl Config {
                 }
                 Parse::ExtractArchive => {
                     cfg.mode = Mode::ExtractArchive;
-                    cfg.ex_arch = FileData::from(&arg);
+                    cfg.arch = FileData::from(&arg);
                 }
                 Parse::AppendFiles => {
                     cfg.mode = Mode::AppendFiles;
-                    cfg.ex_arch = FileData::from(&arg);
+                    cfg.arch = FileData::from(&arg);
                 }
                 Parse::ExtractFiles => {
                     cfg.mode = Mode::ExtractFiles;
-                    cfg.ex_arch = FileData::from(&arg);
+                    cfg.arch = FileData::from(&arg);
                 }
                 Parse::MergeArchives => {
                     cfg.mode = Mode::MergeArchives; 
-                    cfg.ex_arch = FileData::from(&arg);
+                    cfg.arch = FileData::from(&arg);
                 }
                 Parse::List => {
                     cfg.mode = Mode::ListArchive;
-                    cfg.ex_arch = FileData::from(&arg);
+                    cfg.arch = FileData::from(&arg);
                 }
                 Parse::Verbose => {
                     cfg.verbose = true;
@@ -383,7 +383,7 @@ impl fmt::Display for Config {
                         \r Block Alignment: {}
                         \r Threads:         {}
                         \r=============================================================\n",
-                        self.out.path.display(),
+                        self.arch.path.display(),
                         match self.method {
                             Method::Cm  => "Context Mixing",
                             Method::Lzw => "LZW",
@@ -412,7 +412,7 @@ impl fmt::Display for Config {
                     write!(f, "
                         \r=============================================================
                         \r Extracting Archive {}:",
-                        self.ex_arch.path.display()
+                        self.arch.path.display()
                     )?;
                     write!(f, "\n
                         \r Output Path: {}
@@ -427,7 +427,7 @@ impl fmt::Display for Config {
                         \r=============================================================
                         \r Adding to archive {}\n
                         \r Inputs:", 
-                        self.ex_arch.path.display()
+                        self.arch.path.display()
                     )?;
                     for input in self.inputs.iter() {
                         write!(f, "
@@ -480,7 +480,7 @@ impl fmt::Display for Config {
                 Mode::MergeArchives => {
                     write!(f, "
                         \r Merging into archive {}:",
-                        self.ex_arch.path.display()
+                        self.arch.path.display()
                     )?;
                     for input in self.inputs.iter() {
                         write!(f, "
@@ -494,7 +494,7 @@ impl fmt::Display for Config {
                     write!(f, "
                         \r=============================================================
                         \r Extracting files from archive {}:", 
-                        self.ex_arch.path.display()
+                        self.arch.path.display()
                     )?;
                     for input in self.inputs.iter() {
                         write!(f, "
@@ -541,7 +541,7 @@ impl Default for Config {
             out:       FileData::default(),
             align:     Align::Fixed,
             method:    Method::Lzw,
-            ex_arch:   FileData::default(),
+            arch:      FileData::default(),
             fv:        Fv::default(),
             verbose:   false,
         }

@@ -37,7 +37,7 @@ impl Extractor {
     /// Create a new Extractor.
     pub fn new(cfg: Config) -> Result<Extractor, ArchiveError> {
         let tp = ThreadPool::new(0, &cfg);
-        let archive = new_input_file(&cfg.ex_arch.path)?;
+        let archive = new_input_file(&cfg.arch.path)?;
         
         Ok(
             Extractor { 
