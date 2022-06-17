@@ -324,7 +324,7 @@ impl fmt::Display for Prisirv {
 fn sort_inputs(inputs: &mut Vec<FileData>, sort: Sort) {
     while expand(inputs).is_some() {}
     inputs.sort_by(|f1, f2|
-        sort_files(&f1.path, &f2.path, sort).unwrap()
+        sort_files(&f1, &f2, sort).unwrap()
     );
 }
 

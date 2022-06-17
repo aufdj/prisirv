@@ -5,7 +5,7 @@ use std::{
     fmt,
 };
 use crate::{
-    filedata::FileData,
+    filedata::{FileData, Type},
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
     error::ArchiveError,
@@ -127,11 +127,12 @@ impl Block {
     
                         self.files.push(
                             FileData {
-                                path:  PathBuf::from(&path_string),
-                                len:   file_len,
+                                path:   PathBuf::from(&path_string),
+                                len:    file_len,
                                 seg_beg,
                                 seg_end,
                                 blk_pos,
+                                kind:   Type::default(),
                             }
                         );
                         path.clear();

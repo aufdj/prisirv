@@ -1,6 +1,7 @@
 use std::{
     fs::DirEntry,
     path::PathBuf,
+    ffi::OsStr,
     fmt,
     io,
 };
@@ -37,6 +38,39 @@ use std::{
 //          seg_end: 100,
 //      }
 //  
+
+/// File type. 
+#[derive(Clone, PartialEq, Eq)]
+pub enum Type {
+    Unknown,
+    Compressed,
+    Text,
+    Binary, 
+    Executable,
+}
+impl From<&OsStr> for Type {
+    fn from(s: &OsStr) -> Type {
+        match s.to_str() {
+            None => Type::Unknown,
+            Some(s) => {
+                match s {
+                    "zip" => Type::Compressed,
+                    "7z"  => Type::Compressed,
+                    "xz"  => Type::Compressed,
+                    "bz2" => Type::Compressed,
+                    "txt" => Type::Text,
+                    "exe" => Type::Executable,
+                    _     => Type::Unknown,
+                }
+            }
+        }
+    }
+}
+impl Default for Type {
+    fn default() -> Type {
+        Type::Unknown
+    }
+}
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct FileData {
     pub path:     PathBuf, // File path
@@ -44,12 +78,17 @@ pub struct FileData {
     pub seg_beg:  u64,     // Beginning segment position
     pub seg_end:  u64,     // End segment position
     pub blk_pos:  u64,     // Starting block position
+    pub kind:     Type,    // File type
 }
 impl FileData {
     pub fn new(path: PathBuf) -> FileData {
         let len = match path.metadata() {
             Ok(file) => file.len(),
             Err(_)   => 0,
+        }; 
+        let kind = match path.extension() {
+            Some(ext) => Type::from(ext),
+            None      => Type::Unknown,
         };
         FileData { 
             path, 
@@ -57,6 +96,7 @@ impl FileData {
             seg_beg: 0,
             seg_end: len,
             blk_pos: 0,
+            kind,  
         }
     }
     // Total size of FileData
