@@ -1,5 +1,6 @@
 use std::{
     time::SystemTimeError,
+    str::Utf8Error,
     path::PathBuf,
     fmt,
     io,
@@ -200,6 +201,7 @@ pub enum ArchiveError {
     IncorrectChecksum(u32),
     IoError(io::Error),
     CreationTimeError(SystemTimeError),
+    InvalidUtf8(Utf8Error),
 }
 impl From<io::Error> for ArchiveError {
     fn from(err: io::Error) -> ArchiveError {
@@ -209,6 +211,11 @@ impl From<io::Error> for ArchiveError {
 impl From<SystemTimeError> for ArchiveError {
     fn from(err: SystemTimeError) -> ArchiveError {
         ArchiveError::CreationTimeError(err)
+    }
+}
+impl From<Utf8Error> for ArchiveError {
+    fn from(err: Utf8Error) -> ArchiveError {
+        ArchiveError::InvalidUtf8(err)
     }
 }
 impl fmt::Display for ArchiveError {
@@ -248,6 +255,11 @@ impl fmt::Display for ArchiveError {
                 )
             }
             ArchiveError::CreationTimeError(err) => {
+                write!(f, "
+                    \r{err}.\n"
+                )
+            }
+            ArchiveError::InvalidUtf8(err) => {
                 write!(f, "
                     \r{err}.\n"
                 )

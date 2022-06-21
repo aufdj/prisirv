@@ -233,9 +233,6 @@ pub fn new_dir(out: &FileData) -> io::Result<()> {
         if let Err(err) = create_dir(&out.path) {
             return Err(err);
         }
-        else {
-            return Ok(());
-        }
     }
     Ok(())
 }

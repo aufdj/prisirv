@@ -148,8 +148,8 @@ impl Prisirv {
         self.cfg.arch = fmt_root(&self.cfg.user_out, &self.cfg.inputs[0].path);
         self.cfg.arch.path.set_extension("prsv");
         self.cfg.arch.new = true;
-        println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
+        println!("{}", self.cfg);
         Archiver::new(self.cfg).create_archive()?;
         Ok(())
     }
@@ -159,8 +159,8 @@ impl Prisirv {
         self.cfg.mode = Mode::AppendFiles;
         self.cfg.clobber = true;
         self.cfg.arch.seg_beg = !0; // Don't truncate archive
-        println!("{}", self.cfg);
         sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
+        println!("{}", self.cfg);
         Archiver::new(self.cfg).append_files()?;
         Ok(())
     }
@@ -325,7 +325,7 @@ impl fmt::Display for Prisirv {
 fn sort_inputs(inputs: &mut Vec<FileData>, sort: Sort) {
     while expand(inputs).is_some() {}
     inputs.sort_by(|f1, f2|
-        sort_files(&f1, &f2, sort).unwrap()
+        sort_files(f1, f2, sort).unwrap()
     );
 }
 

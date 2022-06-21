@@ -12,32 +12,34 @@ use crate::{
 /// Track compression or decompression progress.
 #[derive(Clone, Debug)]
 pub struct Progress {
-    sizei:      u64,     // Input size
-    pub sizeo:  u64,     // Output size
-    current:    u64,     // Portion of input data (de)compressed
-    quiet:      bool,    // Suppress output
-    mode:       Mode,    // (De)compress or add
-    time:       Instant, // Timer
+    sizei:    u64,     // Input size
+    sizeo:    u64,     // Output size
+    current:  u64,     // Portion of input data (de)compressed
+    quiet:    bool,    // Suppress output
+    mode:     Mode,    // (De)compress or add
+    time:     Instant, // Timer
 }
 impl Progress {
     /// Initialize values needed for tracking progress, including starting a timer.
     pub fn new(cfg: &Config) -> Progress {
         let sizei = 
-        if cfg.mode == Mode::CreateArchive {
+        if cfg.mode == Mode::ExtractArchive
+        || cfg.mode == Mode::ExtractFiles {
+            cfg.arch.len
+        }
+        else {
             cfg.inputs.iter()
             .map(|f| f.len)
             .sum()
-        }
-        else {
-            cfg.arch.len
         };
         
         let sizeo =
-        if cfg.mode == Mode::AppendFiles {
-            cfg.arch.len
+        if cfg.mode == Mode::ExtractFiles
+        || cfg.mode == Mode::ExtractArchive {
+            0
         }
         else { 
-            0 
+            cfg.arch.len
         };
         Progress {
             sizei,
@@ -75,15 +77,28 @@ impl Progress {
                 percent,
                 self.time.elapsed()
             );
-            std::io::stdout().flush().unwrap();   
+            std::io::stdout().flush().unwrap();
         }
     }
 }
 impl Drop for Progress {
     fn drop(&mut self) {
         if !self.quiet && self.sizeo > 0 {
-            println!("\r{} bytes -> {} bytes in {:.2?}                                                   ", 
-                self.sizei, self.sizeo, self.time.elapsed());
+            match self.mode {
+                Mode::ExtractFiles |
+                Mode::ExtractArchive => {
+                    println!("\rExtracted {} bytes in {:.2?}                                                   ", 
+                        self.sizeo, self.time.elapsed()
+                    );
+                }
+                _ => {
+                    println!("\r                                                                                   
+                        \rArchive size: {} bytes
+                        \rTime Elapsed: {:.2?}", 
+                        self.sizeo, self.time.elapsed()
+                    );
+                }
+            }
         }
         
     }

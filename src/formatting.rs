@@ -24,13 +24,13 @@ pub fn fmt_root(user_out: &str, ex_arch: &Path) -> FileData {
             ex_arch.with_extension("")
         }
         else if user_out.contains('\\') {
-            PathBuf::from(&user_out)
+            PathBuf::from(&user_out).with_extension("")
         }
         else {
             let mut cmpnts = ex_arch.components();
             cmpnts.next_back().unwrap();
     
-            cmpnts.as_path().join(Path::new(&user_out))
+            cmpnts.as_path().join(Path::new(&user_out)).with_extension("")
         }
     )
 }

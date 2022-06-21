@@ -346,35 +346,36 @@ impl Config {
         } 
         Ok(cfg)
     }
+    pub fn input_total(&self) -> u64 {
+        self.inputs.iter().map(|f| f.len).sum()
+    }
 }
 impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if !self.quiet {
+            let version = Version::current();
             match self.mode {
                 Mode::CreateArchive => {
-                    let version = Version::current();
                     write!(f, "
                         \rPrisirv {version}
                         \r=============================================================
                         \r Creating Archive of Inputs:"
                     )?;
-                    for input in self.inputs.iter() {
+                    for input in self.inputs.iter().take(5) {
                         write!(f, "
                             \r    {} ({})", 
                             input.path.display(),
-                            if input.path.is_file() { 
-                                "File" 
-                            }
-                            else if input.path.is_dir() { 
-                                "Directory" 
-                            }
-                            else { 
-                                "" 
-                            }
+                            input.len,
                         )?;
                     }
+                    if self.inputs.len() > 5 {
+                        write!(f, "
+                            \r    ...")?;
+                    }
+                    
                     let (size, suffix) = format(self.blk_sz);
                     write!(f, "\n
+                        \r Input Size:      {} Bytes
                         \r Output Path:     {}
                         \r Method:          {}
                         \r Sorting by:      {}
@@ -383,6 +384,7 @@ impl fmt::Display for Config {
                         \r Block Alignment: {}
                         \r Threads:         {}
                         \r=============================================================\n",
+                        self.input_total(),
                         self.arch.path.display(),
                         match self.method {
                             Method::Cm  => "Context Mixing",
@@ -410,6 +412,7 @@ impl fmt::Display for Config {
                 }
                 Mode::ExtractArchive => {
                     write!(f, "
+                        \rPrisirv {version}
                         \r=============================================================
                         \r Extracting Archive {}:",
                         self.arch.path.display()
@@ -424,28 +427,26 @@ impl fmt::Display for Config {
                 },
                 Mode::AppendFiles => { 
                     write!(f, "
+                        \rPrisirv {version}
                         \r=============================================================
                         \r Adding to archive {}\n
                         \r Inputs:", 
                         self.arch.path.display()
                     )?;
-                    for input in self.inputs.iter() {
+                    for input in self.inputs.iter().take(5) {
                         write!(f, "
                             \r    {} ({})", 
                             input.path.display(),
-                            if input.path.is_file() { 
-                                "File" 
-                            }
-                            else if input.path.is_dir() { 
-                                "Directory" 
-                            }
-                            else { 
-                                "" 
-                            }
+                            input.len,
                         )?;
+                    }
+                    if self.inputs.len() > 5 {
+                        write!(f, "
+                            \r    ...")?;
                     }
                     let (size, suffix) = format(self.blk_sz);
                     write!(f, "\n
+                        \r Input Size:      {} Bytes
                         \r Method:          {}
                         \r Sorting by:      {}
                         \r Memory Usage:    {} MiB
@@ -453,6 +454,7 @@ impl fmt::Display for Config {
                         \r Block Alignment: {}
                         \r Threads:         {}
                         \r=============================================================\n",
+                        self.input_total(),
                         match self.method {
                             Method::Cm  => "Context Mixing",
                             Method::Lzw => "LZW",
@@ -479,19 +481,31 @@ impl fmt::Display for Config {
                 },
                 Mode::MergeArchives => {
                     write!(f, "
+                        \rPrisirv {version}
+                        \r=============================================================
                         \r Merging into archive {}:",
                         self.arch.path.display()
                     )?;
-                    for input in self.inputs.iter() {
+                    for input in self.inputs.iter().take(5) {
                         write!(f, "
-                            \r    {}",
+                            \r    {} ({})", 
                             input.path.display(),
+                            input.len,
                         )?;
                     }
-                    Ok(())
+                    if self.inputs.len() > 5 {
+                        write!(f, "
+                            \r    ...")?;
+                    }
+                    write!(f, "\n
+                        \r Input Size:      {} Bytes",
+                        self.input_total(),
+                    )?;
+                    writeln!(f, "\r=============================================================")
                 }
                 Mode::ExtractFiles => {
                     write!(f, "
+                        \rPrisirv {version}
                         \r=============================================================
                         \r Extracting files from archive {}:", 
                         self.arch.path.display()

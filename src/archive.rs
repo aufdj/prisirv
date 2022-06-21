@@ -6,7 +6,7 @@ use std::{
 use crate::{
     threads::ThreadPool,
     progress::Progress,
-    config::{Config, Align},
+    config::{Config, Align, Method},
     buffered_io::{
         BufferedRead,
         new_input_file, new_output_file,
@@ -14,6 +14,7 @@ use crate::{
     error::ArchiveError,
     block::Block,
     archiveinfo::ArchiveInfo,
+    filedata::Type,
 };
 
 
@@ -57,20 +58,19 @@ impl Archiver {
     fn archive(&mut self) -> Result<(), ArchiveError> {
         let mut archive = Archive::new(&self.cfg)?;
         let mut tp = ThreadPool::new(archive.info.next_id(), &self.cfg);
-
         let mut blk = Block::new(&self.cfg);
     
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
             // // If remaining files are already compressed, compress
             // // current block and switch method to store.
-            // if file.kind == Type::Compressed {
-            //     if !blk.data.is_empty() {
-            //         tp.compress_block(blk.clone());
-            //     }
-            //     blk.next(); 
-            //     blk.method = Method::Store;
-            // }
+            if file.kind == Type::Compressed {
+                if !blk.data.is_empty() {
+                    tp.compress_block(blk.clone());
+                }
+                blk.next();
+                blk.method = Method::Store;
+            }
 
             let mut file_in = new_input_file(&file.path)?;
             file.blk_pos = blk.data.len() as u64;
@@ -159,7 +159,6 @@ impl Archiver {
         }
         blk.id = archive.info.next_id();
         blk.write_to(&mut archive.file);
-        prg.update(&blk);
         Ok(())
     }
 }

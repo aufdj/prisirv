@@ -2,10 +2,11 @@ use std::{
     fs::File,
     io::{BufWriter, BufReader, Write},
     path::PathBuf,
+    str,
     fmt,
 };
 use crate::{
-    filedata::{FileData, Type},
+    filedata::FileData,
     config::{Config, Method},
     buffered_io::{BufferedWrite, BufferedRead},
     error::ArchiveError,
@@ -116,26 +117,15 @@ impl Block {
             loop {
                 match archive.read_byte() {
                     0 => {
-                        let path_string = path.iter()
-                            .map(|b| *b as char)
-                            .collect::<String>();
+                        let mut file = FileData::default();
 
-                        let file_len = archive.read_u64();
-                        let seg_beg  = archive.read_u64();
-                        let seg_end  = archive.read_u64();
-                        let blk_pos  = archive.read_u64();
+                        file.path    = PathBuf::from(str::from_utf8(&path)?);
+                        file.len     = archive.read_u64();
+                        file.seg_beg = archive.read_u64();
+                        file.seg_end = archive.read_u64();
+                        file.blk_pos = archive.read_u64();
     
-                        self.files.push(
-                            FileData {
-                                path:   PathBuf::from(&path_string),
-                                len:    file_len,
-                                seg_beg,
-                                seg_end,
-                                blk_pos,
-                                kind:   Type::default(),
-                                new:    false,
-                            }
-                        );
+                        self.files.push(file);
                         path.clear();
                         break;
                     }
