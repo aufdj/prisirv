@@ -26,6 +26,7 @@ pub enum Sort {    // Sort By:
 
 /// Sort files by given sorting method.
 pub fn sort_files(f1: &FileData, f2: &FileData, sorting_method: Sort) -> Result<Ordering, SortError> {
+    // Move compressed files to end of inputs list.
     if f1.kind == Type::Compressed {
         return Ok(Ordering::Greater);
     }

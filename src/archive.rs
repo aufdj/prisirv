@@ -62,8 +62,8 @@ impl Archiver {
     
         // Read files into blocks and compress
         for file in self.cfg.inputs.iter_mut() {
-            // // If remaining files are already compressed, compress
-            // // current block and switch method to store.
+            // If remaining files are already compressed, compress
+            // current block and switch method to store.
             if file.kind == Type::Compressed {
                 if !blk.data.is_empty() {
                     tp.compress_block(blk.clone());

@@ -15,7 +15,10 @@ use crate::{
 enum Parse {
     None,
     CreateArchive,
+    AppendFiles,
+    MergeArchives,
     ExtractArchive,
+    ExtractFiles,
     DirOut,
     Sort,
     Inputs,
@@ -26,16 +29,13 @@ enum Parse {
     BlkSz,
     Threads,
     List,
+    Verbose,
     Fv,
     ColScale,
     Width,
     Align,
     Cm,
     Store,
-    AppendFiles,
-    ExtractFiles,
-    MergeArchives,
-    Verbose,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -108,8 +108,8 @@ pub struct Config {
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
     pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
     pub arch:       FileData,      // A Prisirv archive
-    pub fv:         Fv,
-    pub verbose:    bool,
+    pub fv:         Fv,            // File visualization options
+    pub verbose:    bool,          // Print verbose archive contents with 'ls'
 }
 impl Config {
     /// Create a new Config with the specified command line arguments.

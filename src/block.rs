@@ -117,15 +117,16 @@ impl Block {
             loop {
                 match archive.read_byte() {
                     0 => {
-                        let mut file = FileData::default();
-
-                        file.path    = PathBuf::from(str::from_utf8(&path)?);
-                        file.len     = archive.read_u64();
-                        file.seg_beg = archive.read_u64();
-                        file.seg_end = archive.read_u64();
-                        file.blk_pos = archive.read_u64();
-    
-                        self.files.push(file);
+                        self.files.push(
+                            FileData {
+                                path:     PathBuf::from(str::from_utf8(&path)?),
+                                len:      archive.read_u64(), 
+                                seg_beg:  archive.read_u64(), 
+                                seg_end:  archive.read_u64(), 
+                                blk_pos:  archive.read_u64(), 
+                                ..Default::default() 
+                            }
+                        );
                         path.clear();
                         break;
                     }

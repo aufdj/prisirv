@@ -29,10 +29,7 @@ use crate::{
     filedata::FileData,
     config::{Config, Mode, Method},
     sort::{Sort, sort_files},
-    error::{
-        ConfigError, 
-        ArchiveError, 
-    },
+    error::{ConfigError, ArchiveError},
     formatting::fmt_root,
     constant::Version,
 };

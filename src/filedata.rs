@@ -54,10 +54,8 @@ impl From<&OsStr> for Type {
             None => Type::Unknown,
             Some(s) => {
                 match s {
-                    "zip" => Type::Compressed,
-                    "7z"  => Type::Compressed,
-                    "xz"  => Type::Compressed,
-                    "bz2" => Type::Compressed,
+                    "zip"  | "7z"   | "xz"   |
+                    "gz"   | "zstd" | "bz2" => Type::Compressed,
                     "txt" => Type::Text,
                     "exe" => Type::Executable,
                     _     => Type::Unknown,

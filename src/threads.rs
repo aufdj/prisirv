@@ -9,15 +9,13 @@ use std::{
     },
 };
 use crate::{
-    cm::encoder::Encoder,
-    cm::decoder::Decoder,
     progress::Progress,
     crc32::Crc32,
     block::Block,
     config::{Config, Method},
     error::ArchiveError,
     constant::Version,
-    lzw,
+    lzw, cm
 };
 
 pub enum Task {
@@ -78,12 +76,17 @@ impl ThreadPool {
 
                     let blk_out = match blk_in.method {
                         Method::Cm => {
-                            let mut enc = Encoder::new(mem, len);
+                            let mut enc = cm::encoder::Encoder::new(mem, len);
                             enc.compress_block(&blk_in.data);
                             enc.blk_out
                         }
                         Method::Lzw => {
                             lzw::encoder::compress(blk_in.data, mem)
+
+                            // let block = lzw::encoder::compress(blk_in.data, mem);
+                            // let mut enc = lzw::ari_enc::Encoder::new(len);
+                            // enc.compress_block(&block);
+                            // enc.blk_out
                         }
                         Method::Store => {
                             blk_in.data
@@ -122,11 +125,14 @@ impl ThreadPool {
                 Box::new(move || {
                     let blk_out = match blk_in.method {
                         Method::Cm => {
-                            Decoder::new(blk_in.data, mem)
+                            cm::decoder::Decoder::new(blk_in.data, mem)
                             .decompress_block(blk_in.sizei as usize)
                         }
                         Method::Lzw => {
                             lzw::decoder::decompress(blk_in.data, mem)
+                            // let mut dec = lzw::ari_dec::Decoder::new(blk_in.data);
+                            // let block = dec.decompress_block(blk_in.sizei as usize);
+                            // lzw::decoder::decompress(block, mem)
                         }
                         Method::Store => {
                             blk_in.data 
@@ -187,26 +193,22 @@ impl Thread {
 
             match task {
                 Task::Compress(job) => {
-                    match job() {
-                        Ok(blk) => {
-                            { prg.lock().unwrap().update(&blk); }
-                            bq.lock().unwrap().blocks.push(blk);
-                        }
-                        Err(_) => {
-                            break;
-                        }
-                    };
+                    if let Ok(blk) = job() {
+                        prg.lock().unwrap().update(&blk);
+                        bq.lock().unwrap().blocks.push(blk);
+                    }
+                    else {
+                        break;
+                    }
                 }
                 Task::Decompress(job) => {
-                    match job() {
-                        Ok(blk) => {
-                            { prg.lock().unwrap().update(&blk); }
-                            bq.lock().unwrap().blocks.push(blk);
-                        }
-                        Err(_) => {
-                            break;
-                        }
-                    };
+                    if let Ok(blk) = job() {
+                        prg.lock().unwrap().update(&blk);
+                        bq.lock().unwrap().blocks.push(blk);
+                    }
+                    else {
+                        break;
+                    }
                 }
                 Task::Terminate => {
                     break;
@@ -239,8 +241,8 @@ impl BlockQueue {
         }
     }
 
-    /// Try getting the next block to be output. If this block hasn't been
-    /// added to the queue yet, do nothing.
+    /// Get block with highest priority (lowest id).
+    /// Return block if its id equals next out.
     pub fn try_get_block(&mut self) -> Option<Block> {
         if let Some(blk) = self.blocks.peek() {
             if blk.id == self.next_out {

@@ -146,10 +146,219 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
             if code == DATA_END { 
                 break; 
             }
-            if code != 257 && code != 258 {
+            if code != CODE_LEN_UP && code != CODE_LEN_RESET {
                 dict.output_string(code);
             }
         }
     }  
     dict.blk
 }
+
+// use std::cmp::min;
+
+// const DATA_END: u32 = 257;
+// const CODE_LEN_UP: u32 = 258;
+// const CODE_LEN_RESET: u32 = 259;
+
+// struct BitStream {
+//     stream:        Box<dyn Iterator<Item = u8>>,
+//     pub code_len:  u32,
+//     code:          u32,
+//     count:         u32,
+// }
+// impl BitStream {
+//     fn new(blk_in: Vec<u8>) -> BitStream {
+//         BitStream {
+//             stream:    Box::new(blk_in.into_iter()),
+//             code_len:  9,
+//             code:      0,
+//             count:     0,
+//         }
+//     }
+//     fn get_code(&mut self) -> Option<u32> {
+//         loop {
+//             match self.stream.next() {
+//                 Some(byte) => {
+//                     let rem_len = self.code_len - self.count;
+
+//                     let codel = byte as u32 & ((1 << rem_len) - 1);
+//                     let codel_len = min(8, rem_len);
+
+//                     let codeu = byte as u32 >> (codel_len);
+//                     let codeu_len = 8 - codel_len;
+
+//                     if self.count == self.code_len {
+//                         if self.code == CODE_LEN_UP { 
+//                             self.code_len += 1; 
+//                         }
+//                         if self.code == CODE_LEN_RESET { 
+//                             self.code_len = 9;  
+//                         }
+//                         let out = self.code;
+//                         self.code = 0;
+//                         self.count = 0;
+//                         self.code |= codel;
+//                         self.count += codel_len;
+//                         return Some(out);
+//                     }
+//                     else {
+//                         self.code |= codel << self.count;
+//                         self.count += codel_len;
+//                     }
+
+//                     if self.count == self.code_len {
+//                         if self.code == CODE_LEN_UP { 
+//                             self.code_len += 1; 
+//                         }
+//                         if self.code == CODE_LEN_RESET { 
+//                             self.code_len = 9;  
+//                         }
+//                         let out = self.code;
+//                         self.code = 0;
+//                         self.count = 0;
+//                         self.code |= codeu;
+//                         self.count += codeu_len;
+//                         return Some(out);
+//                     }
+//                     else {
+//                         self.code |= codeu << self.count;
+//                         self.count += codeu_len;
+//                     }
+//                 }
+//                 None => return None,
+//             }
+//         }
+//     }
+// }
+
+// struct HashTable {
+//     map:  Vec<Vec<u8>>,
+//     keys: Vec<u32>,
+// }
+// impl HashTable {
+//     fn new(size: usize) -> HashTable {
+//         HashTable {
+//             map:  vec![Vec::new(); size],
+//             keys: vec![0; size],
+//         }
+//     }
+//     fn hash(&self, code: u32) -> usize {
+//         (524287 ^ (code as usize)) & (self.map.len() - 1)
+//     }
+//     fn get(&self, code: u32) -> Option<&[u8]> {
+//         let hash = self.hash(code);
+
+//         if self.map[hash].len() != 0 {
+//             if self.keys[hash] == code {
+//                 return Some(&self.map[hash]);
+//             }
+//         }
+//         None
+//     }
+//     fn insert(&mut self, code: u32, string: Vec<u8>) {
+//         let hash = self.hash(code);
+        
+//         // If slot is not empty, only overwrite if 
+//         // existing code is not one of the first 259.
+//         if self.map[hash].len() != 0 {
+//             if self.map[hash].len() > 1 {
+//                 self.map[hash] = string;
+//                 self.keys[hash] = code;
+//             }
+//         }
+//         // If slot is empty, insert new key-value pair.
+//         else {
+//             self.map[hash] = string;
+//             self.keys[hash] = code;
+//         }
+        
+//     }
+//     fn init(&mut self, code: u32, string: Vec<u8>) {
+//         let hash = self.hash(code);
+
+//         self.map[hash] = string;
+//         self.keys[hash] = code;
+//     }
+//     fn reset(&mut self) {
+//         for vec in self.map.iter_mut() {
+//             vec.clear();
+//         }
+//         for code in self.keys.iter_mut() {
+//             *code = 0;
+//         }
+//         for i in 0u8..=255 {
+//             self.init(i as u32 + 1, vec![i]);
+//         }
+//     }
+// }
+
+// struct Dictionary {
+//     pub map:       HashTable,
+//     pub max_code:  u32,
+//     pub code:      u32,
+//     pub string:    Vec<u8>, // Current string
+//     pub blk:       Vec<u8>,
+// }
+// impl Dictionary {
+//     fn new(mem: usize) -> Dictionary {
+//         let mut map = HashTable::new(mem/4);
+//         map.reset();
+
+//         Dictionary {
+//             map,
+//             max_code:  (mem/4) as u32,
+//             code:      260,
+//             string:    Vec::new(),
+//             blk:       Vec::new(),
+//         }
+//     }
+//     fn reset(&mut self) {
+//         self.code = 260;
+//         self.map.reset();
+//     }
+//     fn output_string(&mut self, code: u32) {
+//         if self.code < self.max_code {
+//             if self.map.get(code).is_none() {
+//                 self.string.push(self.string[0]);
+//                 self.map.insert(code, self.string.clone());
+//                 self.code += 1;
+//             }
+//             else if !self.string.is_empty() {
+//                 self.string.push((self.map.get(code).unwrap())[0]);
+//                 self.map.insert(self.code, self.string.clone());
+//                 self.code += 1;
+//             }
+//         }
+        
+//         let string = self.map.get(code).unwrap();
+//         for byte in string.iter() {
+//             self.blk.push(*byte);
+//         }
+
+//         self.string = string.to_vec();
+
+//         if self.code >= self.max_code {
+//             self.reset();
+//         }
+//     }
+// }
+
+// pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
+//     if blk_in.is_empty() { 
+//         return Vec::new(); 
+//     }
+//     let mut dict = Dictionary::new(mem);
+//     let mut stream = BitStream::new(blk_in);
+    
+//     loop { 
+//         if let Some(code) = stream.get_code() {
+//             if code == DATA_END { 
+//                 break; 
+//             }
+//             if code != CODE_LEN_UP && code != CODE_LEN_RESET {
+//                 dict.output_string(code);
+//             }
+//         }
+//     }  
+//     dict.blk
+// }
