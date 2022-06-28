@@ -166,6 +166,7 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     dict.stream.out
 }
 
+
 // use std::cmp::min;
 
 // const DATA_END: u32 = 257;
@@ -198,7 +199,7 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //         let codel = code & (0xFFFFFFFF >> self.pck_len);
 //         let codel_len = min(self.code_len, rem_len);
 
-//         let codeu = code >> (codel_len % 32);
+//         let codeu = code >> codel_len;
 //         let codeu_len = self.code_len - codel_len;
 
 //         self.pck |= codel << self.pck_len;
@@ -219,20 +220,11 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //             self.pck_len = 0;
 //         }
 
-//         // match code {
-//         //     CODE_LEN_UP    => self.code_len += 1,
-//         //     CODE_LEN_RESET => self.code_len = 9,
-//         //     DATA_END       => self.write_code(self.pck),
-//         //     _ => {}
-//         // }
-//         if code == CODE_LEN_UP { 
-//             self.code_len += 1; 
-//         }
-//         if code == CODE_LEN_RESET { 
-//             self.code_len = 9;  
-//         }
-//         if code == DATA_END {
-//             self.write_code(self.pck);
+//         match code {
+//             CODE_LEN_UP    => self.code_len += 1,
+//             CODE_LEN_RESET => self.code_len = 9,
+//             DATA_END       => self.write_code(self.pck),
+//             _ => {}
 //         }
 //     }
 //     fn write_code(&mut self, code: u32) {
@@ -245,16 +237,20 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 
 
 // struct HashTable {
-//     map:  Vec<u32>,
-//     keys: Vec<Vec<u8>>,
-//     prev: usize,
+//     map:           Vec<u32>,
+//     keys:          Vec<Vec<u8>>,
+//     prev:          usize,
+//     pub code:      u32,
+//     pub max_code:  u32,
 // }
 // impl HashTable {
 //     fn new(size: usize) -> HashTable {
 //         HashTable {
-//             map:  vec![0; size],
-//             keys: vec![Vec::new(); size],
-//             prev: 0,
+//             map:       vec![0; size],
+//             keys:      vec![Vec::new(); size],
+//             prev:      0,
+//             code:      260,
+//             max_code:  size as u32,
 //         }
 //     }
 //     fn hash(&self, string: &[u8]) -> usize {
@@ -263,52 +259,55 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //             hash = hash * 16777619;
 //             hash = hash ^ *s as usize;
 //         }
-//         hash &= self.map.len() - 1;
-//         hash
+//         hash & (self.map.len() - 1)
 //     }
+
 //     fn get(&mut self, string: &[u8]) -> Option<u32> {
 //         let hash = self.hash(string);
-//         self.prev = hash;
-
+        
 //         if self.map[hash] != 0 {
-//             if &self.keys[hash] == &string {
+//             if self.keys[hash] == string {
+//                 self.prev = hash;
 //                 return Some(self.map[hash]);
 //             }
 //         }
-//         None
-//     }
-//     // Insert a new key-value pair into hash table. Because a new unseen 
-//     // string added to the hashtable may overwrite an existing value, a 
-//     // problem can occur if two values have the same hash.
-//     // 
-//     // If 'a' and 'aa' are both hashed to the same slot, the encoder could 
-//     // insert 'aa' into the hashtable, overwriting 'a', and then attempt to 
-//     // output the code for 'a', which no longer exists. 
-//     fn insert(&mut self, string: &[u8], code: u32) {
-//         let hash = self.hash(string);
-        
-//         // If slot is not empty, only overwrite if 
-//         // existing code is not one of the first 259.
+
+//         // Insert a new key-value pair into hash table if selected slot is 
+//         // empty, or if it is not empty but doesn't contain any strings of 
+//         // length 1. Because a new unseen string added to the hashtable may 
+//         // overwrite an existing value, a problem can occur if two values 
+//         // have the same hash.
+//         // 
+//         // If 'a' and 'aa' are both hashed to the same slot, the encoder could 
+//         // insert 'aa' into the hashtable, overwriting 'a', and then attempt to 
+//         // output the code for 'a', which is no longer in the table. To address
+//         // this, the previous hash is recorded and, if it equals the new hash, 
+//         // the current value is not replaced.
 //         if self.map[hash] != 0 {
-//                                     // See problem above
-//             if self.map[hash] > 259 /*&& hash != self.prev*/ {
-//                 self.map[hash] = code;
+//             if self.map[hash] > 259 && hash != self.prev {
+//                 self.map[hash] = self.code;
 //                 self.keys[hash] = string.to_vec();
 //             }
 //         }
-//         // If slot is empty, insert new key-value pair.
 //         else {
-//             self.map[hash] = code;
+//             self.map[hash] = self.code;
 //             self.keys[hash] = string.to_vec();
 //         }
+//         // Increment code unconditionally; in the event of a hash collision with 
+//         // first 256, increment code anyway to keep in sync with decoder.
+//         self.code += 1;
+//         None
 //     }
 //     fn init(&mut self, string: &[u8], code: u32) {
 //         let hash = self.hash(string);
 
+//         assert!(self.map[hash] == 0);
+//         assert!(self.keys[hash].len() == 0);
 //         self.map[hash] = code;
 //         self.keys[hash] = string.to_vec();
 //     }
 //     fn reset(&mut self) {
+//         self.code = 260;
 //         for i in self.map.iter_mut() {
 //             *i = 0;
 //         }
@@ -322,11 +321,9 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 // }
 
 // struct Dictionary {
-//     pub map:       HashTable,
-//     pub max_code:  u32,
-//     pub code:      u32,
-//     pub string:    Vec<u8>,
-//     pub stream:    BitStream,
+//     pub map:     HashTable,
+//     pub string:  Vec<u8>,
+//     pub stream:  BitStream,
 // }
 // impl Dictionary {
 //     fn new(byte: u8, mem: usize) -> Dictionary {
@@ -335,22 +332,11 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         
 //         Dictionary {
 //             map,
-//             max_code:  (mem/4) as u32,
-//             code:      260,
-//             string:    vec![byte],
-//             stream:    BitStream::new(),
+//             string:  vec![byte],
+//             stream:  BitStream::new(),
 //         }
-//     }
-//     fn reset(&mut self) {
-//         self.code = 260;
-//         self.map.reset();
 //     }
 //     fn output_code(&mut self) {
-//         if self.code <= self.max_code {
-//             self.map.insert(&self.string, self.code);
-//             self.code += 1;  
-//         }
-        
 //         let last_char = self.string.pop().unwrap();
         
 //         self.stream.write(
@@ -360,13 +346,13 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //         self.string.clear();
 //         self.string.push(last_char);
 
-//         if self.code == 1 << self.stream.code_len {
+//         if self.map.code == 1 << self.stream.code_len {
 //             self.stream.write(CODE_LEN_UP);
 //         }
 
-//         if self.code >= self.max_code {
+//         if self.map.code >= self.map.max_code {
 //             self.stream.write(CODE_LEN_RESET);
-//             self.reset();
+//             self.map.reset();
 //         }
 //     }
 //     fn output_last_code(&mut self) {

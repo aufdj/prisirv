@@ -154,6 +154,7 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     dict.blk
 }
 
+
 // use std::cmp::min;
 
 // const DATA_END: u32 = 257;
@@ -232,54 +233,56 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 // }
 
 // struct HashTable {
-//     map:  Vec<Vec<u8>>,
-//     keys: Vec<u32>,
+//     map:          Vec<Vec<u8>>,
+//     keys:         Vec<u32>,
+//     prev:         usize,
+//     pub code:     u32,
+//     pub max_code: u32,
 // }
 // impl HashTable {
 //     fn new(size: usize) -> HashTable {
 //         HashTable {
-//             map:  vec![Vec::new(); size],
-//             keys: vec![0; size],
+//             map:       vec![Vec::new(); size],
+//             keys:      vec![0; size],
+//             prev:      0,
+//             code:      260,
+//             max_code:  size as u32,
 //         }
 //     }
-//     fn hash(&self, code: u32) -> usize {
-//         (524287 ^ (code as usize)) & (self.map.len() - 1)
-//     }
-//     fn get(&self, code: u32) -> Option<&[u8]> {
-//         let hash = self.hash(code);
+//     fn get(&mut self, code: u32) -> Option<&[u8]> {
+//         let code = code as usize;
 
-//         if self.map[hash].len() != 0 {
-//             if self.keys[hash] == code {
-//                 return Some(&self.map[hash]);
+//         if self.map[code].len() != 0 {
+//             if self.keys[code] == code as u32 {
+//                 return Some(&self.map[code]);
 //             }
 //         }
 //         None
 //     }
 //     fn insert(&mut self, code: u32, string: Vec<u8>) {
-//         let hash = self.hash(code);
-        
+//         let code = code as usize;
+    
 //         // If slot is not empty, only overwrite if 
 //         // existing code is not one of the first 259.
-//         if self.map[hash].len() != 0 {
-//             if self.map[hash].len() > 1 {
-//                 self.map[hash] = string;
-//                 self.keys[hash] = code;
-//             }
-//         }
-//         // If slot is empty, insert new key-value pair.
-//         else {
-//             self.map[hash] = string;
-//             self.keys[hash] = code;
+//         if self.map[code].len() != 1 /*&& hash != self.prev*/ {
+//             self.map[code] = string;
+//             self.keys[code] = code as u32;
+//             self.code += 1;
 //         }
         
 //     }
 //     fn init(&mut self, code: u32, string: Vec<u8>) {
-//         let hash = self.hash(code);
-
-//         self.map[hash] = string;
-//         self.keys[hash] = code;
+//         let code = code as usize;
+        
+//         // Guarantee that initial 256 one byte strings
+//         // don't overwrite each other.
+//         assert!(self.map[code].len() == 0);
+//         assert!(self.keys[code] == 0);
+//         self.map[code] = string;
+//         self.keys[code] = code as u32;
 //     }
 //     fn reset(&mut self) {
+//         self.code = 260;
 //         for vec in self.map.iter_mut() {
 //             vec.clear();
 //         }
@@ -293,11 +296,9 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 // }
 
 // struct Dictionary {
-//     pub map:       HashTable,
-//     pub max_code:  u32,
-//     pub code:      u32,
-//     pub string:    Vec<u8>, // Current string
-//     pub blk:       Vec<u8>,
+//     pub map:     HashTable,
+//     pub string:  Vec<u8>, // Current string
+//     pub blk:     Vec<u8>,
 // }
 // impl Dictionary {
 //     fn new(mem: usize) -> Dictionary {
@@ -306,28 +307,18 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 
 //         Dictionary {
 //             map,
-//             max_code:  (mem/4) as u32,
-//             code:      260,
-//             string:    Vec::new(),
-//             blk:       Vec::new(),
+//             string:  Vec::new(),
+//             blk:     Vec::new(),
 //         }
 //     }
-//     fn reset(&mut self) {
-//         self.code = 260;
-//         self.map.reset();
-//     }
 //     fn output_string(&mut self, code: u32) {
-//         if self.code < self.max_code {
-//             if self.map.get(code).is_none() {
-//                 self.string.push(self.string[0]);
-//                 self.map.insert(code, self.string.clone());
-//                 self.code += 1;
-//             }
-//             else if !self.string.is_empty() {
-//                 self.string.push((self.map.get(code).unwrap())[0]);
-//                 self.map.insert(self.code, self.string.clone());
-//                 self.code += 1;
-//             }
+//         if self.map.get(code).is_none() {
+//             self.string.push(self.string[0]);
+//             self.map.insert(code, self.string.clone());
+//         }
+//         else if !self.string.is_empty() {
+//             self.string.push((self.map.get(code).unwrap())[0]);
+//             self.map.insert(self.map.code, self.string.clone());
 //         }
         
 //         let string = self.map.get(code).unwrap();
@@ -337,8 +328,8 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 
 //         self.string = string.to_vec();
 
-//         if self.code >= self.max_code {
-//             self.reset();
+//         if self.map.code >= self.map.max_code {
+//             self.map.reset();
 //         }
 //     }
 // }
@@ -355,7 +346,8 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //             if code == DATA_END { 
 //                 break; 
 //             }
-//             if code != CODE_LEN_UP && code != CODE_LEN_RESET {
+//             if code != CODE_LEN_UP 
+//             && code != CODE_LEN_RESET {
 //                 dict.output_string(code);
 //             }
 //         }
