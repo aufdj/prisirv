@@ -185,7 +185,7 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //                     let codel = byte as u32 & ((1 << rem_len) - 1);
 //                     let codel_len = min(8, rem_len);
 
-//                     let codeu = byte as u32 >> (codel_len);
+//                     let codeu = byte as u32 >> codel_len;
 //                     let codeu_len = 8 - codel_len;
 
 //                     if self.count == self.code_len {
@@ -233,65 +233,53 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 // }
 
 // struct HashTable {
-//     map:          Vec<Vec<u8>>,
-//     keys:         Vec<u32>,
-//     prev:         usize,
+//     strings:      Vec<u8>,
+//     codes:        Vec<u32>,
 //     pub code:     u32,
 //     pub max_code: u32,
 // }
 // impl HashTable {
 //     fn new(size: usize) -> HashTable {
 //         HashTable {
-//             map:       vec![Vec::new(); size],
-//             keys:      vec![0; size],
-//             prev:      0,
-//             code:      260,
+//             strings:   Vec::with_capacity(size),
+//             codes:     vec![0; size],
+//             code:      1,
 //             max_code:  size as u32,
 //         }
 //     }
 //     fn get(&mut self, code: u32) -> Option<&[u8]> {
 //         let code = code as usize;
 
-//         if self.map[code].len() != 0 {
-//             if self.keys[code] == code as u32 {
-//                 return Some(&self.map[code]);
-//             }
+//         if self.codes[code] != 0 {
+//             let pos = (self.codes[code] & 0x07FFFFFF) as usize;
+//             let len = (self.codes[code] >> 27) as usize;
+//             return Some(&self.strings[pos..pos+len]);
 //         }
 //         None
 //     }
 //     fn insert(&mut self, code: u32, string: Vec<u8>) {
-//         let code = code as usize;
-    
-//         // If slot is not empty, only overwrite if 
-//         // existing code is not one of the first 259.
-//         if self.map[code].len() != 1 /*&& hash != self.prev*/ {
-//             self.map[code] = string;
-//             self.keys[code] = code as u32;
-//             self.code += 1;
+//         assert!(self.strings.len() < 0x07FFFFFF);
+//         assert!(string.len() < 32);
+//         self.codes[code as usize] = ((string.len() << 27) + self.strings.len()) as u32;
+//         for s in string.iter() {
+//             self.strings.push(*s);
 //         }
-        
-//     }
-//     fn init(&mut self, code: u32, string: Vec<u8>) {
-//         let code = code as usize;
-        
-//         // Guarantee that initial 256 one byte strings
-//         // don't overwrite each other.
-//         assert!(self.map[code].len() == 0);
-//         assert!(self.keys[code] == 0);
-//         self.map[code] = string;
-//         self.keys[code] = code as u32;
+//         self.code += 1;
 //     }
 //     fn reset(&mut self) {
-//         self.code = 260;
-//         for vec in self.map.iter_mut() {
-//             vec.clear();
+//         // Skip code 0
+//         self.code = 1;
+//         for i in self.strings.iter_mut() {
+//             *i = 0;
 //         }
-//         for code in self.keys.iter_mut() {
-//             *code = 0;
+//         for i in self.codes.iter_mut() {
+//             *i = 0;
 //         }
 //         for i in 0u8..=255 {
-//             self.init(i as u32 + 1, vec![i]);
+//             self.insert(self.code, vec![i]);
 //         }
+//         // Skip reserved codes
+//         self.code += 3;
 //     }
 // }
 
