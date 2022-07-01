@@ -326,18 +326,25 @@ fn sort_inputs(inputs: &mut Vec<FileData>, sort: Sort) {
     );
 }
 
-/// Removes a single directory from inputs and pushes the contents of that
-/// directory to inputs. This function may need be run multiple times to
-/// fully expand inputs.
+/// Removes all directories from inputs and pushes the contents of the
+/// directories to inputs. An additional iteration is needed for each 
+/// level of nested directories.
 fn expand(inputs: &mut Vec<FileData>) -> Option<usize> {
-    for (i, input) in inputs.iter_mut().enumerate() {
-        if let Ok(dir) = input.path.read_dir() {
-            for data in dir.map(FileData::from) {
-                inputs.push(data);
-            }
-            inputs.swap_remove(i);
-            return Some(0);
+    let mut dirs: Vec<(usize, PathBuf)> = Vec::new();
+
+    for (i, input) in inputs.iter().enumerate() {
+        if input.path.is_dir() {
+            dirs.push((i, input.path.clone()));
         }
+    }
+    for (i, dir) in dirs.iter() {
+        for file in dir.read_dir().unwrap().map(FileData::from) {
+            inputs.push(file);
+        }
+        inputs.swap_remove(*i);
+    }
+    if !dirs.is_empty() {
+        return Some(0);
     }
     None
 }

@@ -64,7 +64,7 @@ pub enum Method {
 }
 impl Default for Method {
     fn default() -> Method {
-        Method::Cm 
+        Method::Lzw
     }
 }
 impl From<u8> for Method {
@@ -554,7 +554,7 @@ impl Default for Config {
             inputs:    Vec::new(),
             out:       FileData::default(),
             align:     Align::Fixed,
-            method:    Method::Lzw,
+            method:    Method::default(),
             arch:      FileData::default(),
             fv:        Fv::default(),
             verbose:   false,

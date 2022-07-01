@@ -130,6 +130,7 @@ impl ThreadPool {
                         }
                         Method::Lzw => {
                             lzw::decoder::decompress(blk_in.data, mem)
+
                             // let mut dec = lzw::ari_dec::Decoder::new(blk_in.data);
                             // let block = dec.decompress_block(blk_in.sizei as usize);
                             // lzw::decoder::decompress(block, mem)
