@@ -55,10 +55,8 @@
 //         let mut block: Vec<u8> = Vec::with_capacity(size);
 //         for _ in 0..size {
 //             let mut byte = 0;
-//             let mut bits = 0;
-//             while bits < 8 {
+//             for bits in 0..8 {
 //                 byte |= self.decompress_bit() << bits;
-//                 bits += 1;
 //             }
 //             block.push(byte as u8);
 //         }

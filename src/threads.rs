@@ -87,6 +87,10 @@ impl ThreadPool {
                             // let mut enc = lzw::ari_enc::Encoder::new(len);
                             // enc.compress_block(&block);
                             // enc.blk_out
+
+                            // let mut enc = lzw::ari_enc::Encoder::new(len);
+                            // enc.compress_block(&blk_in.data);
+                            // enc.blk_out
                         }
                         Method::Store => {
                             blk_in.data
@@ -134,6 +138,9 @@ impl ThreadPool {
                             // let mut dec = lzw::ari_dec::Decoder::new(blk_in.data);
                             // let block = dec.decompress_block(blk_in.sizei as usize);
                             // lzw::decoder::decompress(block, mem)
+
+                            // let mut dec = lzw::ari_dec::Decoder::new(blk_in.data);
+                            // dec.decompress_block(blk_in.sizei as usize)
                         }
                         Method::Store => {
                             blk_in.data 

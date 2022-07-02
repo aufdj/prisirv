@@ -1,3 +1,5 @@
+#![feature(int_log)]
+
 pub mod filedata;
 mod archive;       
 mod extract;
