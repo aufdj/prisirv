@@ -1,8 +1,14 @@
 use std::cmp::min;
 
+use crate::lzw::{
+    entry::Entry,
+    cull::Cull,
+};
+
 const DATA_END: u32 = 257;
 const CODE_LEN_UP: u32 = 258;
 const CODE_LEN_RESET: u32 = 259;
+
 
 struct BitStream {
     stream:        Box<dyn Iterator<Item = u8>>,
@@ -75,63 +81,90 @@ impl BitStream {
     }
 }
 
-#[derive(Default, Clone)]
-struct Entry {
-    code:    u32,
-    string:  Vec<u8>,
+struct Dictionary {
+    entries:  Vec<Entry>,
+    blk:      Vec<u8>,
+    string:   Vec<u8>,
+    code:     u32,
+    cull:     Cull,
 }
-impl Entry {
-    fn new(code: u32, string: Vec<u8>) -> Entry {
-        Entry { 
-            code, 
-            string
+impl Dictionary {
+    fn new(size: u32, cull: Cull) -> Dictionary {
+        let mut dict = Dictionary {
+            entries:  vec![Entry::default(); size as usize],
+            blk:      Vec::new(),
+            string:   Vec::new(),
+            code:     1,
+            cull,
+        };
+        for i in 0u8..=255 {
+            dict.insert(dict.code, vec![i]);
         }
+        dict.code += 3;
+        dict
     }
-    fn code(&self) -> u32 {
-        self.code & 0x07FFFFFF 
+    pub fn decompress(&mut self, blk_in: Vec<u8>) {
+        let mut stream = BitStream::new(blk_in);
+        loop { 
+            if let Some(code) = stream.get_code() {
+                if code == DATA_END {
+                    break; 
+                }
+                if code != CODE_LEN_UP 
+                && code != CODE_LEN_RESET {
+                    self.output_string(code);
+                }
+            }
+        } 
     }
-    fn count(&self) -> u32 {
-        self.code >> 27
-    }
-    fn count_up(&mut self) {
-        if self.count() < 31 {
-            self.code += 1 << 27;
-        }
-    }
-    fn string(&self) -> &[u8] {
-        &self.string
-    }
-    fn clear(&mut self) {
-        self.code = 0;
-        self.string.clear();
-    }
-    // fn set_code(&mut self, code: u32) {
-    //     self.code = code;
-    // }
-    fn is_empty(&self) -> bool {
-        self.code == 0
-    }
-}
+    fn output_string(&mut self, code: u32) {
+        let string = self.get(code);
 
-struct HashTable {
-    entries:      Vec<Entry>,
-    pub code:     u32,
-    pub max_code: u32,
-}
-impl HashTable {
-    fn new(size: usize) -> HashTable {
-        HashTable {
-            entries:   vec![Entry::default(); size],
-            code:      1,
-            max_code:  size as u32,
+        if string.is_none() {
+            self.string.push(self.string[0]);
+            self.insert(code, self.string.clone());
+
+            let string = self.get(code).unwrap();
+            for byte in string.iter() {
+                self.blk.push(*byte);
+            }
+            self.string = string;
+        }
+        else if !self.string.is_empty() {
+            let string = string.unwrap();
+            self.string.push(string[0]);
+            self.insert(self.code, self.string.clone());
+
+            for byte in string.iter() {
+                self.blk.push(*byte);
+            }
+            self.string = string;
+        }
+        else {
+            let string = string.unwrap();
+            for byte in string.iter() {
+                self.blk.push(*byte);
+            }
+            self.string = string;
+        }
+
+        // if self.code % self.cull.interval == 0 {
+        //     // println!("Before cull");for entry in self.entries.iter() {if !entry.is_empty() && entry.code() > 259 {println!("{entry}");}}
+        //     self.ccull();
+        //     // println!("After cull");for entry in self.entries.iter() {if !entry.is_empty() && entry.code() > 259 {println!("{entry}");}}
+        //     self.stream.code_len = pow2(self.code).log2();
+        // }
+
+        if self.code >= self.entries.len() as u32 {
+            self.reset();
         }
     }
-    fn get(&mut self, code: u32) -> Option<&[u8]> {
+    fn get(&mut self, code: u32) -> Option<Vec<u8>> {
         let code = code as usize;
 
         if !self.entries[code].is_empty() {
             self.entries[code].count_up();
-            return Some(&self.entries[code].string());
+            return Some(self.entries[code].string().to_vec());
         }
         None
     }
@@ -147,95 +180,32 @@ impl HashTable {
             }
         }
     }
-    // fn clean(&mut self) {
-    //     self.code = 260;
-    //     for entry in self.entries.iter_mut() {
-    //         if entry.code() > 259 {
-    //             if entry.count() < 4 && entry.code() < (self.max_code - 1024) {
-    //                 entry.clear();
-    //             }
-    //             else {
-    //                 entry.set_code(self.code);
-    //                 self.code += 1;
-    //             }
-    //         }
+    // fn cull(&mut self) {
+    //     let mut entries = self.entries
+    //         .clone()
+    //         .into_iter()
+    //         .filter(|e| !e.is_empty() && e.code() > 259)
+    //         .collect::<Vec<Entry>>();
+    //     entries.sort_by(|a, b| a.code().cmp(&b.code()));
+
+    //     self.reset();
+
+    //     entries.retain_mut(|entry| !self.cull.cull(entry));
+
+    //     for entry in entries.into_iter() {
+    //         self.insert(self.code, entry.string().to_vec());
     //     }
     // }
-    fn init(&mut self) {
-        for i in 0u8..=255 {
-            self.insert(self.code, vec![i]);
-        }
-        // Skip reserved codes
-        self.code += 3;
-    }
-}
-
-struct Dictionary {
-    pub map:     HashTable,
-    pub string:  Vec<u8>,
-    pub blk:     Vec<u8>,
-    pub stream:  BitStream,
-}
-impl Dictionary {
-    fn new(mem: usize, blk_in: Vec<u8>) -> Dictionary {
-        let mut map = HashTable::new(mem/4);
-        map.init();
-
-        Dictionary {
-            map,
-            string:  Vec::new(),
-            blk:     Vec::new(),
-            stream:  BitStream::new(blk_in),
-        }
-    }
-    pub fn decompress(&mut self) {
-        loop { 
-            if let Some(code) = self.stream.get_code() {
-                if code == DATA_END { 
-                    break; 
-                }
-                if code != CODE_LEN_UP 
-                && code != CODE_LEN_RESET {
-                    self.output_string(code);
-                }
-            }
-        } 
-    }
-    fn output_string(&mut self, code: u32) {
-        let string = self.map.get(code);
-        if string.is_none() {
-            self.string.push(self.string[0]);
-            self.map.insert(code, self.string.clone());
-        }
-        else if !self.string.is_empty() {
-            self.string.push((string.unwrap())[0]);
-            self.map.insert(self.map.code, self.string.clone());
-        }
-        
-        let string = self.map.get(code).unwrap();
-        for byte in string.iter() {
-            self.blk.push(*byte);
-        }
-
-        self.string = string.to_vec();
-
-        // if self.map.code % 524288 == 0 {
-        //     self.map.clean();
-        //     self.stream.code_len = pow2(self.map.code).log2();
-        // }
-
-        if self.map.code >= self.map.max_code {
-            self.map.reset();
-        }
-    }
 }
 
 pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     if blk_in.is_empty() {
         return Vec::new();
     }
-    let mut dict = Dictionary::new(mem, blk_in);
-    dict.decompress();
+    let size = mem as u32 / 4;
+    let cull = Cull::settings(4000, 1, size - 0);
+    let mut dict = Dictionary::new(size, cull);
+    dict.decompress(blk_in);
     dict.blk
 }
 
@@ -248,3 +218,21 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 //     y |= y >> 16;
 //     y + 1
 // }
+
+
+
+// fn clean(&mut self) {
+    //     self.code = 260;
+    //     for entry in self.entries.iter_mut() {
+    //         if entry.code() > 259 {
+    //             if entry.count() < CLEAN_THRESHOLD 
+    //             && entry.code() < (self.max_code - RECENCY_THRESHOLD) {
+    //                 entry.clear();
+    //             }
+    //             else {
+    //                 entry.set_code(self.code);
+    //                 self.code += 1;
+    //             }
+    //         }
+    //     }
+    // }

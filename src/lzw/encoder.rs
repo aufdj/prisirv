@@ -1,5 +1,10 @@
 use std::cmp::min;
 
+use crate::lzw::{
+    entry::Entry,
+    cull::Cull,
+};
+
 const DATA_END: u32 = 257;
 const CODE_LEN_UP: u32 = 258;
 const CODE_LEN_RESET: u32 = 259;
@@ -72,57 +77,89 @@ impl BitStream {
     }
 }
 
-#[derive(Default, Clone)]
-struct Entry {
-    code:    u32,
-    string:  Vec<u8>,
+struct Dictionary {
+    entries:  Vec<Entry>,
+    stream:   BitStream,
+    string:   Vec<u8>,
+    hash:     usize,
+    prev:     usize,
+    code:     u32,
+    cull:     Cull,
 }
-impl Entry {
-    fn new(code: u32, string: Vec<u8>) -> Entry {
-        Entry { 
-            code, 
-            string
+impl Dictionary {
+    fn new(byte: u8, size: u32, cull: Cull) -> Dictionary {
+        let mut dict = Dictionary {
+            entries:  vec![Entry::default(); size as usize],
+            stream:   BitStream::new(),
+            string:   vec![byte],
+            hash:     0,
+            prev:     0,
+            code:     1,
+            cull,
+        };
+        // Initialize dictionary with all strings of length 1.
+        for i in 0u8..=255 {
+            let string = vec![i];
+            let hash = dict.hash(&string);
+            dict.insert(string, hash);
         }
+        // Skip reserved codes.
+        dict.code += 3;
+        dict
     }
-    fn code(&self) -> u32 {
-        self.code & 0x07FFFFFF 
-    }
-    fn count(&self) -> u32 {
-        self.code >> 27
-    }
-    fn count_up(&mut self) {
-        if self.count() < 31 {
-            self.code += 1 << 27;
-        }
-    }
-    fn string(&self) -> &[u8] {
-        &self.string
-    }
-    fn clear(&mut self) {
-        self.code = 0;
-        self.string.clear();
-    }
-    // fn set_code(&mut self, code: u32) {
-    //     self.code = code;
-    // }
-    fn is_empty(&self) -> bool {
-        self.code == 0
-    }
-}
+    fn compress(&mut self, blk: Vec<u8>) {
+        for byte in blk.iter().skip(1) {
+            self.update_string(*byte);
 
-#[repr(align(64))]
-struct HashTable {
-    entries:       Vec<Entry>,
-    pub code:      u32,
-    pub max_code:  u32,
-}
-impl HashTable {
-    fn new(size: usize) -> HashTable {
-        HashTable {
-            entries:   vec![Entry::default(); size],
-            code:      1,
-            max_code:  size as u32,
+            if !self.contains_string() {
+                self.insert(self.string.clone(), self.hash);
+                self.output_code();
+                self.check_code();
+            }
         }
+        self.output_last_code();
+    }
+    fn update_string(&mut self, byte: u8) {
+        self.string.push(byte);
+        self.prev = self.hash;
+        self.hash = self.hash(&self.string);
+    }
+    fn contains_string(&mut self) -> bool {
+        self.get_code().is_some()
+    }
+    fn check_code(&mut self) {
+        if self.code == 1 << self.stream.code_len {
+            self.stream.write(CODE_LEN_UP);
+        }
+
+        // if self.code % self.cull.interval == 0 {
+        //     self.cull();
+        //     self.stream.code_len = pow2(self.code).log2();
+        // }
+
+        if self.code >= self.entries.len() as u32 {
+            self.stream.write(CODE_LEN_RESET);
+            self.reset();
+        }
+    }
+    fn output_code(&mut self) {
+        let last_char = self.string.pop().unwrap();
+        let code = self.get_code_unchecked();
+        self.stream.write(
+            code
+        );
+
+        self.string.clear();
+        self.string.push(last_char);
+    }
+    fn output_last_code(&mut self) {
+        if !self.string.is_empty() {
+            let code = self.get_code_unchecked();
+            self.stream.write(
+                code
+            );
+        }
+        self.stream.write(DATA_END);
     }
     // FNV-1a
     fn hash(&self, string: &[u8]) -> usize {
@@ -133,60 +170,61 @@ impl HashTable {
         }
         hash & (self.entries.len() - 1)
     }
-    fn get(&mut self, string: &[u8]) -> Option<u32> {
-        let hash = self.hash(string);
-        
-        if !self.entries[hash].is_empty() {
-            if self.entries[hash].string() == string {
-                self.entries[hash].count_up();
-                return Some(self.entries[hash].code());
+    fn get_code(&self) -> Option<u32> {
+        if !self.entries[self.hash].is_empty() {
+            if self.entries[self.hash].string() == &self.string {
+                return Some(self.entries[self.hash].code());
             }
             else {
                 // Check adjacent slots
                 for i in 1..16 {
-                    let adj = (hash^i) % self.entries.len();
-                    if self.entries[adj].string() == string {
-                        self.entries[adj].count_up();
+                    let adj = (self.hash^i) % self.entries.len();
+                    if self.entries[adj].string() == &self.string {
                         return Some(self.entries[adj].code());
                     }
                 }
             }
         }
-        // Pass hash in to avoid recomputing.
-        self.insert(string, hash);
         None
+    }
+    fn get_code_unchecked(&mut self) -> u32 {
+        let hash = self.hash(&self.string);
+        if !self.entries[hash].is_empty() {
+            if self.entries[hash].string() == &self.string {
+                self.entries[hash].count_up();
+                return self.entries[hash].code();
+            }
+            else {
+                // Check adjacent slots
+                for i in 1..16 {
+                    let adj = (hash^i) % self.entries.len();
+                    if self.entries[adj].string() == &self.string {
+                        self.entries[adj].count_up();
+                        return self.entries[adj].code();
+                    }
+                }
+            }
+        }
+        panic!("No code found.");
     }
     // Insert a new entry into hash table if selected
     // slot is empty. If slot is not empty, search up to 16 
     // adjacent slots. If no adjacent slots are empty, don't insert.
-    fn insert(&mut self, string: &[u8], hash: usize) {
+    fn insert(&mut self, string: Vec<u8>, hash: usize) {
         if self.entries[hash].is_empty() {
-            self.entries[hash] = Entry::new(self.code, string.to_vec());
+            self.entries[hash] = Entry::new(self.code, string);
         }
         else {
             // Check adjacent slots
             for i in 1..16 {
                 let adj = (hash^i) % self.entries.len();
                 if self.entries[adj].is_empty() {
-                    self.entries[adj] = Entry::new(self.code, string.to_vec());
+                    self.entries[adj] = Entry::new(self.code, string);
                     break;
                 }
             }
         }
-    
-        // Increment code unconditionally; in the event no empty slot is
-        // found, increment code anyway to keep in sync with decoder.
         self.code += 1;
-    }
-    fn init(&mut self) {
-        // Initialize dictionary with all strings of length 1.
-        for i in 0u8..=255 {
-            let hash = self.hash(&[i]);
-            self.entries[hash] = Entry::new(self.code, vec![i]);
-            self.code += 1;
-        }
-        // Skip reserved codes.
-        self.code += 3;
     }
     fn reset(&mut self) {
         self.code = 260;
@@ -196,21 +234,41 @@ impl HashTable {
             }
         }
     }
-    // fn clean(&mut self) {
-    //     self.code = 260;
-    //     for entry in self.entries.iter_mut() {
-    //         if entry.code() > 259 {
-    //             if entry.count() < 1 && entry.code() < (self.max_code - 512) {
-    //                 entry.clear();
-    //             }
-    //             else {
-    //                 entry.set_code(self.code);
-    //                 self.code += 1;
-    //             }
-    //         }
+    // fn cull(&mut self) {
+    //     let mut entries = self.entries
+    //         .clone()
+    //         .into_iter()
+    //         .filter(|e| !e.is_empty() && e.code() > 259)
+    //         .collect::<Vec<Entry>>();
+    //     entries.sort_by(|a, b| a.code().cmp(&b.code()));
+
+    //     self.reset();
+
+    //     entries.retain_mut(|entry| !self.cull.cull(entry));
+
+    //     for entry in entries.into_iter() {
+    //         let hash = self.hash(entry.string());
+    //         self.insert(entry.string().to_vec(), hash);
     //     }
     // }
 }
+
+
+pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
+    match blk_in.first() {
+        Some(byte) => {
+            let size = mem as u32 / 4;
+            let cull = Cull::settings(4000, 1, size - 0);
+            let mut dict = Dictionary::new(*byte, size, cull);
+            dict.compress(blk_in);
+            dict.stream.out
+        }
+        None => {
+            Vec::new()
+        }
+    }
+}
+
 
 // fn pow2(x: u32) -> u32 {
 //     let mut y = x + 1;
@@ -222,85 +280,13 @@ impl HashTable {
 //     y + 1
 // }
 
-struct Dictionary {
-    pub map:     HashTable,
-    pub string:  Vec<u8>,
-    pub stream:  BitStream,
-}
-impl Dictionary {
-    fn new(byte: u8, mem: usize) -> Dictionary {
-        let mut map = HashTable::new(mem/4);
-        map.init();
-        
-        Dictionary {
-            map,
-            string:  vec![byte],
-            stream:  BitStream::new(),
-        }
-    }
-    fn output_code(&mut self) {
-        let last_char = self.string.pop().unwrap();
-        
-        self.stream.write(
-            self.map.get(&self.string).unwrap()
-        );
-
-        self.string.clear();
-        self.string.push(last_char);
-
-        if self.map.code == 1 << self.stream.code_len {
-            self.stream.write(CODE_LEN_UP);
-        }
-
-        // if self.map.code % 524288 == 0 {
-        //     self.map.clean();
-        //     self.stream.code_len = pow2(self.map.code).log2();
-        // }
-
-        if self.map.code >= self.map.max_code {
-            self.stream.write(CODE_LEN_RESET);
-            self.map.reset();
-        }
-    }
-    fn output_last_code(&mut self) {
-        if !self.string.is_empty() {
-            self.stream.write(
-                self.map.get(&self.string).unwrap()
-            );
-        }
-        self.stream.write(DATA_END);
-    }
-    fn update_string(&mut self, byte: u8) {
-        self.string.push(byte);
-    }
-    fn contains_string(&mut self) -> bool {
-        self.map.get(&self.string).is_some()
-    }
-}
-
-
-pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
-    if blk_in.is_empty() { 
-        return Vec::new();
-    }
-    let mut blk = blk_in.iter();
-    let byte = blk.next().unwrap();
-    let mut dict = Dictionary::new(*byte, mem);
-
-    'c: loop {
-        while dict.contains_string() {
-            match blk.next() {
-                Some(byte) => {
-                    dict.update_string(*byte);
-                }
-                None => {
-                    break 'c;
-                }
-            } 
-        }
-        dict.output_code();
-    }
-    dict.output_last_code();
-    dict.stream.out
-}
-
+// #[test]
+// fn clean_test() {
+//     let mut dict = Dictionary::new(0, 2048, Cull::settings(4000, 1, 0));
+//     dict.insert(260, vec![97, 97]);
+//     dict.insert(261, vec![97, 98]);
+//     dict.get_unchecked(260);
+//     dict.get_unchecked(261);
+//     dict.get_unchecked(261);
+//     assert!(dict.entries.contains(Entry { code: 260, string: vec![97, 97] }));
+// }
