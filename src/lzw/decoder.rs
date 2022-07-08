@@ -107,31 +107,34 @@ impl Dictionary {
         let mut stream = BitStream::new(blk_in);
         loop { 
             if let Some(code) = stream.get_code() {
-                if code == DATA_END {
-                    break; 
-                }
-                if code != CODE_LEN_UP 
-                && code != CODE_LEN_RESET {
-                    self.output_string(code);
+                match code {
+                    DATA_END       => break,
+                    CODE_LEN_UP    => {},
+                    CODE_LEN_RESET => {},
+                    _ => {
+                        self.output_string(code);
+                        self.check_code();
+                    }
                 }
             }
         } 
     }
     fn output_string(&mut self, code: u32) {
-        let string = self.get(code);
+        let entry = self.get_entry(code);
 
-        if string.is_none() {
+        if entry.is_none() {
             self.string.push(self.string[0]);
             self.insert(code, self.string.clone());
 
-            let string = self.get(code).unwrap();
+            let entry = self.get_entry(code).unwrap();
+            let string = self.entries[entry].string().to_vec();
             for byte in string.iter() {
                 self.blk.push(*byte);
             }
             self.string = string;
         }
         else if !self.string.is_empty() {
-            let string = string.unwrap();
+            let string = self.entries[entry.unwrap()].string().to_vec();
             self.string.push(string[0]);
             self.insert(self.code, self.string.clone());
 
@@ -141,17 +144,16 @@ impl Dictionary {
             self.string = string;
         }
         else {
-            let string = string.unwrap();
+            let string = self.entries[entry.unwrap()].string().to_vec();
             for byte in string.iter() {
                 self.blk.push(*byte);
             }
             self.string = string;
         }
-
+    }
+    fn check_code(&mut self) {
         // if self.code % self.cull.interval == 0 {
-        //     // println!("Before cull");for entry in self.entries.iter() {if !entry.is_empty() && entry.code() > 259 {println!("{entry}");}}
-        //     self.ccull();
-        //     // println!("After cull");for entry in self.entries.iter() {if !entry.is_empty() && entry.code() > 259 {println!("{entry}");}}
+        //     self.cull();
         //     self.stream.code_len = pow2(self.code).log2();
         // }
 
@@ -159,12 +161,9 @@ impl Dictionary {
             self.reset();
         }
     }
-    fn get(&mut self, code: u32) -> Option<Vec<u8>> {
-        let code = code as usize;
-
-        if !self.entries[code].is_empty() {
-            self.entries[code].count_up();
-            return Some(self.entries[code].string().to_vec());
+    fn get_entry(&mut self, code: u32) -> Option<usize> {
+        if !self.entries[code as usize].is_empty() {
+            return Some(code as usize);
         }
         None
     }
@@ -221,7 +220,7 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
 
 
 
-// fn clean(&mut self) {
+// fn cull(&mut self) {
     //     self.code = 260;
     //     for entry in self.entries.iter_mut() {
     //         if entry.code() > 259 {

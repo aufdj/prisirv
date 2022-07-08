@@ -1,9 +1,9 @@
 use std::fmt;
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
-    pub code:    u32,
-    string:  Vec<u8>,
+    pub code:  u32,
+    string:    Vec<u8>,
 }
 impl Entry {
     pub fn new(code: u32, string: Vec<u8>) -> Entry {
@@ -18,7 +18,7 @@ impl Entry {
     pub fn count(&self) -> u32 {
         self.code >> 27
     }
-    pub fn count_up(&mut self) {
+    pub fn increase_count(&mut self) {
         if self.count() < 31 {
             self.code += 1 << 27;
         }
