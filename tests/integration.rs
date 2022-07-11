@@ -14,13 +14,13 @@ mod tests {
         .create_archive()?;
 
         Prisirv::default()
-        .ex_arch("tests/data/calgary.prsv")?
+        .arch("tests/data/calgary.prsv")?
         .inputs(&["tests/data/canterbury"])?
         .append_files()?;
 
         Prisirv::default()
         .clobber()
-        .ex_arch("tests/data/calgary.prsv")?
+        .arch("tests/data/calgary.prsv")?
         .extract_archive()?;
         
         let calgary_crc  = Path::new("tests/data/calgary/calgary.tar").crc32();

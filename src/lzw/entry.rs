@@ -2,8 +2,8 @@ use std::fmt;
 
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
-    pub code:  u32,
-    string:    Vec<u8>,
+    pub code:    u32,
+    pub string:  Vec<u8>,
 }
 impl Entry {
     pub fn new(code: u32, string: Vec<u8>) -> Entry {

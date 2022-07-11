@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use crate::lzw::{
     entry::Entry,
-    cull::Cull,
+    cull::{Cull, pow2},
 };
 
 const DATA_END: u32 = 257;
@@ -81,10 +81,9 @@ struct Dictionary {
     entries:  Vec<Entry>,
     stream:   BitStream,
     string:   Vec<u8>,
-    hash:     usize,
-    prev:     usize,
     code:     u32,
     cull:     Cull,
+    entry:    usize,
 }
 impl Dictionary {
     fn new(size: u32, cull: Cull) -> Dictionary {
@@ -92,16 +91,13 @@ impl Dictionary {
             entries:  vec![Entry::default(); size as usize],
             stream:   BitStream::new(),
             string:   Vec::new(),
-            hash:     0,
-            prev:     0,
             code:     1,
             cull,
+            entry:    0,
         };
         // Initialize dictionary with all strings of length 1.
         for i in 0u8..=255 {
-            let string = vec![i];
-            let hash = dict.hash(&string);
-            dict.insert(string, hash);
+            dict.insert(vec![i], dict.code);
         }
         // Skip reserved codes.
         dict.code += 3;
@@ -112,46 +108,36 @@ impl Dictionary {
             self.update_string(*byte);
 
             if self.get_entry(&self.string).is_none() {
-                self.insert(self.string.clone(), self.hash);
+                self.cull.count += 1;
+
+                self.insert(self.string.clone(), self.code);
                 self.output_code();
-                self.check_code();
+
+                if self.code >= self.entries.len() as u32 {
+                    self.stream.write(CODE_LEN_RESET);
+                    self.reset();
+                }
+
+                // if self.cull.count == self.cull.interval {
+                //     self.cull.count = 0;
+                //     self.cull();
+                //     self.stream.code_len = pow2(self.code).log2();
+                // }
+            
+                if self.code == 1 << self.stream.code_len {
+                    self.stream.write(CODE_LEN_UP);
+                }
             }
         }
 
         if let Some(entry) = self.get_entry(&self.string) {
+            self.entries[entry].increase_count();
             self.stream.write(self.entries[entry].code());
         }
         self.stream.write(DATA_END);
     }
     fn update_string(&mut self, byte: u8) {
         self.string.push(byte);
-        self.prev = self.hash;
-        self.hash = self.hash(&self.string);
-    }
-    fn check_code(&mut self) {
-        if self.code == 1 << self.stream.code_len {
-            self.stream.write(CODE_LEN_UP);
-        }
-
-        // if self.code % self.cull.interval == 0 {
-        //     self.cull();
-        //     self.stream.code_len = pow2(self.code).log2();
-        // }
-
-        if self.code >= self.entries.len() as u32 {
-            self.stream.write(CODE_LEN_RESET);
-            self.reset();
-        }
-    }
-    fn output_code(&mut self) {
-        let last_char = self.string.pop().unwrap();
-
-        let entry = self.get_entry(&self.string).unwrap();
-        self.entries[entry].increase_count();
-        self.stream.write(self.entries[entry].code());
-
-        self.string.clear();
-        self.string.push(last_char);
     }
     // FNV-1a
     fn hash(&self, string: &[u8]) -> usize {
@@ -161,6 +147,16 @@ impl Dictionary {
             hash = hash * 16777619;
         }
         hash & (self.entries.len() - 1)
+    }
+    fn output_code(&mut self) {
+        let last_char = self.string.pop().unwrap();
+        let entry = self.get_entry(&self.string).unwrap();
+        self.entry = entry;
+        self.entries[entry].increase_count();
+        self.stream.write(self.entries[entry].code());
+
+        self.string.clear();
+        self.string.push(last_char);
     }
     fn get_entry(&self, string: &[u8]) -> Option<usize> {
         let hash = self.hash(&string);
@@ -183,16 +179,18 @@ impl Dictionary {
     // Insert a new entry into hash table if selected
     // slot is empty. If slot is not empty, search up to 16 
     // adjacent slots. If no adjacent slots are empty, don't insert.
-    fn insert(&mut self, string: Vec<u8>, hash: usize) {
+    fn insert(&mut self, string: Vec<u8>, code: u32) {
+        assert!(code != 0);
+        let hash = self.hash(&string);
         if self.entries[hash].is_empty() {
-            self.entries[hash] = Entry::new(self.code, string);
+            self.entries[hash] = Entry::new(code, string);
         }
         else {
             // Check adjacent slots
             for i in 1..16 {
                 let adj = (hash^i) % self.entries.len();
                 if self.entries[adj].is_empty() {
-                    self.entries[adj] = Entry::new(self.code, string);
+                    self.entries[adj] = Entry::new(code, string);
                     break;
                 }
             }
@@ -206,24 +204,45 @@ impl Dictionary {
                 entry.clear();
             }
         }
+        // println!("{:#?}", self.entries);
     }
-    // fn cull(&mut self) {
-    //     let mut entries = self.entries
-    //         .clone()
-    //         .into_iter()
-    //         .filter(|e| !e.is_empty() && e.code() > 259)
-    //         .collect::<Vec<Entry>>();
-    //     entries.sort_by(|a, b| a.code().cmp(&b.code()));
+    fn cull(&mut self) {
+        let mut entries = self.entries
+            .clone()
+            .into_iter()
+            .filter(|e| !e.is_empty() && e.code() > 259)
+            .collect::<Vec<Entry>>();
+        entries.sort_by(|a, b| a.code().cmp(&b.code()));
 
-    //     self.reset();
+        // for entry in entries.iter() {
+        //     println!("{}", entry.count());
+        // }
 
-    //     entries.retain_mut(|entry| !self.cull.cull(entry));
+        self.reset();
 
-    //     for entry in entries.into_iter() {
-    //         let hash = self.hash(entry.string());
-    //         self.insert(entry.string().to_vec(), hash);
-    //     }
-    // }
+        entries.retain_mut(|entry| !self.cull.cull(entry));
+
+        // println!("culled {} entries", len - entries.len());
+
+        // for entry in entries.iter() {
+        //     println!("{entry}");
+        // }
+
+        for entry in entries.iter() {
+            self.insert(entry.string().to_vec(), self.code);
+        }
+
+        // let mut entries = self.entries
+        //     .clone()
+        //     .into_iter()
+        //     .filter(|e| !e.is_empty() && e.code() > 259)
+        //     .collect::<Vec<Entry>>();
+        // entries.sort_by(|a, b| a.code().cmp(&b.code()));
+
+        // for entry in entries.iter() {
+        //     println!("{entry}");
+        // }
+    }
 }
 
 
@@ -232,30 +251,9 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let cull = Cull::settings(4000, 1, size - 0);
+    let interval = 1 << 19;
+    let cull = Cull::settings(interval, 1, (interval + 260) - 1);
     let mut dict = Dictionary::new(size, cull);
     dict.compress(blk_in);
     dict.stream.out
 }
-
-
-// fn pow2(x: u32) -> u32 {
-//     let mut y = x + 1;
-//     y |= y >> 1;
-//     y |= y >> 2;
-//     y |= y >> 4;
-//     y |= y >> 8;
-//     y |= y >> 16;
-//     y + 1
-// }
-
-// #[test]
-// fn clean_test() {
-//     let mut dict = Dictionary::new(0, 2048, Cull::settings(4000, 1, 0));
-//     dict.insert(260, vec![97, 97]);
-//     dict.insert(261, vec![97, 98]);
-//     dict.get_unchecked(260);
-//     dict.get_unchecked(261);
-//     dict.get_unchecked(261);
-//     assert!(dict.entries.contains(Entry { code: 260, string: vec![97, 97] }));
-// }

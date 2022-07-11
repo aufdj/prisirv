@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use crate::lzw::{
     entry::Entry,
-    cull::Cull,
+    cull::{Cull, pow2},
 };
 
 const DATA_END: u32 = 257;
@@ -107,58 +107,65 @@ impl Dictionary {
         let mut stream = BitStream::new(blk_in);
         loop { 
             if let Some(code) = stream.get_code() {
+                assert!(code > 0);
+                assert!(code < self.entries.len() as u32);
                 match code {
-                    DATA_END       => break,
-                    CODE_LEN_UP    => {},
-                    CODE_LEN_RESET => {},
+                    DATA_END => {
+                        break;
+                    }
+                    CODE_LEN_UP => { 
+
+                    },
+                    CODE_LEN_RESET => {
+
+                    },
                     _ => {
+                        self.cull.count += 1;
                         self.output_string(code);
-                        self.check_code();
+
+                        if self.code >= self.entries.len() as u32 {
+                            self.reset();
+                        }
+                        // if self.cull.count == self.cull.interval {
+                        //     self.cull.count = 0;
+                        //     self.cull();
+                        //     stream.code_len = pow2(self.code).log2();
+                        // }
+                        
                     }
                 }
             }
         } 
     }
     fn output_string(&mut self, code: u32) {
-        let entry = self.get_entry(code);
+        if let Some(entry) = self.get_entry(code) {
+            let string = self.entries[entry].string().to_vec();
+            self.entries[entry].increase_count();
+            
+            if !self.string.is_empty() {
+                self.string.push(string[0]);
+                self.insert(self.code, self.string.clone());
+            }
 
-        if entry.is_none() {
+            for byte in string.iter() {
+                self.blk.push(*byte);
+            }
+
+            self.string = string;
+        }
+        else {
             self.string.push(self.string[0]);
             self.insert(code, self.string.clone());
 
             let entry = self.get_entry(code).unwrap();
             let string = self.entries[entry].string().to_vec();
+            self.entries[entry].increase_count();
+            
             for byte in string.iter() {
                 self.blk.push(*byte);
             }
-            self.string = string;
-        }
-        else if !self.string.is_empty() {
-            let string = self.entries[entry.unwrap()].string().to_vec();
-            self.string.push(string[0]);
-            self.insert(self.code, self.string.clone());
 
-            for byte in string.iter() {
-                self.blk.push(*byte);
-            }
             self.string = string;
-        }
-        else {
-            let string = self.entries[entry.unwrap()].string().to_vec();
-            for byte in string.iter() {
-                self.blk.push(*byte);
-            }
-            self.string = string;
-        }
-    }
-    fn check_code(&mut self) {
-        // if self.code % self.cull.interval == 0 {
-        //     self.cull();
-        //     self.stream.code_len = pow2(self.code).log2();
-        // }
-
-        if self.code >= self.entries.len() as u32 {
-            self.reset();
         }
     }
     fn get_entry(&mut self, code: u32) -> Option<usize> {
@@ -179,22 +186,43 @@ impl Dictionary {
             }
         }
     }
-    // fn cull(&mut self) {
-    //     let mut entries = self.entries
-    //         .clone()
-    //         .into_iter()
-    //         .filter(|e| !e.is_empty() && e.code() > 259)
-    //         .collect::<Vec<Entry>>();
-    //     entries.sort_by(|a, b| a.code().cmp(&b.code()));
+    fn cull(&mut self) {
+        let mut entries = self.entries
+            .clone()
+            .into_iter()
+            .filter(|e| !e.is_empty() && e.code() > 259)
+            .collect::<Vec<Entry>>();
+        entries.sort_by(|a, b| a.code().cmp(&b.code()));
 
-    //     self.reset();
+        // for entry in entries.iter() {
+        //     println!("{}", entry.count());
+        // }
 
-    //     entries.retain_mut(|entry| !self.cull.cull(entry));
+        self.reset();
 
-    //     for entry in entries.into_iter() {
-    //         self.insert(self.code, entry.string().to_vec());
-    //     }
-    // }
+        entries.retain_mut(|entry| !self.cull.cull(entry));
+
+        // println!("culled {} entries", len - entries.len());
+
+        // for entry in entries.iter() {
+        //     println!("{entry}");
+        // }
+
+        for entry in entries.iter() {
+            self.insert(self.code, entry.string().to_vec());
+        }
+
+        // let mut entries = self.entries
+        //     .clone()
+        //     .into_iter()
+        //     .filter(|e| !e.is_empty() && e.code() > 259)
+        //     .collect::<Vec<Entry>>();
+        // entries.sort_by(|a, b| a.code().cmp(&b.code()));
+
+        // for entry in entries.iter() {
+        //     println!("{entry}");
+        // }
+    }
 }
 
 pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
@@ -202,36 +230,9 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let cull = Cull::settings(4000, 1, size - 0);
+    let interval = 1 << 19;
+    let cull = Cull::settings(interval, 1, (interval + 260) - 1);
     let mut dict = Dictionary::new(size, cull);
     dict.decompress(blk_in);
     dict.blk
 }
-
-// fn pow2(x: u32) -> u32 {
-//     let mut y = x + 1;
-//     y |= y >> 1;
-//     y |= y >> 2;
-//     y |= y >> 4;
-//     y |= y >> 8;
-//     y |= y >> 16;
-//     y + 1
-// }
-
-
-
-// fn cull(&mut self) {
-    //     self.code = 260;
-    //     for entry in self.entries.iter_mut() {
-    //         if entry.code() > 259 {
-    //             if entry.count() < CLEAN_THRESHOLD 
-    //             && entry.code() < (self.max_code - RECENCY_THRESHOLD) {
-    //                 entry.clear();
-    //             }
-    //             else {
-    //                 entry.set_code(self.code);
-    //                 self.code += 1;
-    //             }
-    //         }
-    //     }
-    // }
