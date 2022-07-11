@@ -16,9 +16,8 @@ impl Cull {
         }
     }
     pub fn cull(&self, entry: &Entry) -> bool {
-        if entry.count() < self.threshold &&
-        entry.code()  < self.recency {
-            // println!("Culled {entry}");
+        if entry.count() < self.threshold 
+        && entry.code()  < self.recency {
             true
         }
         else {

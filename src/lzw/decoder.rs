@@ -87,6 +87,7 @@ struct Dictionary {
     string:   Vec<u8>,
     code:     u32,
     cull:     Cull,
+    max:      usize,
 }
 impl Dictionary {
     fn new(size: u32, cull: Cull) -> Dictionary {
@@ -96,6 +97,7 @@ impl Dictionary {
             string:   Vec::new(),
             code:     1,
             cull,
+            max:      1 << 19,
         };
         for i in 0u8..=255 {
             dict.insert(dict.code, vec![i]);
@@ -113,25 +115,15 @@ impl Dictionary {
                     DATA_END => {
                         break;
                     }
-                    CODE_LEN_UP => { 
-
-                    },
-                    CODE_LEN_RESET => {
-
-                    },
+                    CODE_LEN_UP => {},
+                    CODE_LEN_RESET => {},
                     _ => {
-                        self.cull.count += 1;
                         self.output_string(code);
 
-                        if self.code >= self.entries.len() as u32 {
-                            self.reset();
+                        if self.code >= self.max as u32 {
+                            self.cull();
+                            stream.code_len = pow2(self.code).log2();
                         }
-                        // if self.cull.count == self.cull.interval {
-                        //     self.cull.count = 0;
-                        //     self.cull();
-                        //     stream.code_len = pow2(self.code).log2();
-                        // }
-                        
                     }
                 }
             }
@@ -180,6 +172,7 @@ impl Dictionary {
     }
     fn reset(&mut self) {
         self.code = 260;
+        self.cull.count = 0;
         for entry in self.entries.iter_mut() {
             if entry.code() > 259 {
                 entry.clear();
@@ -194,34 +187,13 @@ impl Dictionary {
             .collect::<Vec<Entry>>();
         entries.sort_by(|a, b| a.code().cmp(&b.code()));
 
-        // for entry in entries.iter() {
-        //     println!("{}", entry.count());
-        // }
-
         self.reset();
 
         entries.retain_mut(|entry| !self.cull.cull(entry));
 
-        // println!("culled {} entries", len - entries.len());
-
-        // for entry in entries.iter() {
-        //     println!("{entry}");
-        // }
-
         for entry in entries.iter() {
             self.insert(self.code, entry.string().to_vec());
         }
-
-        // let mut entries = self.entries
-        //     .clone()
-        //     .into_iter()
-        //     .filter(|e| !e.is_empty() && e.code() > 259)
-        //     .collect::<Vec<Entry>>();
-        // entries.sort_by(|a, b| a.code().cmp(&b.code()));
-
-        // for entry in entries.iter() {
-        //     println!("{entry}");
-        // }
     }
 }
 
@@ -231,7 +203,7 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     }
     let size = mem as u32 / 4;
     let interval = 1 << 19;
-    let cull = Cull::settings(interval, 1, (interval + 260) - 1);
+    let cull = Cull::settings(interval, 1, interval - 1);
     let mut dict = Dictionary::new(size, cull);
     dict.decompress(blk_in);
     dict.blk
