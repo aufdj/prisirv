@@ -83,7 +83,6 @@ struct Dictionary {
     string:   Vec<u8>,
     code:     u32,
     cull:     Cull,
-    max:  usize,
 }
 impl Dictionary {
     fn new(size: u32, cull: Cull) -> Dictionary {
@@ -93,7 +92,6 @@ impl Dictionary {
             string:   Vec::new(),
             code:     1,
             cull,
-            max:      1 << 19,
         };
         // Initialize dictionary with all strings of length 1.
         for i in 0u8..=255 {
@@ -111,8 +109,7 @@ impl Dictionary {
                 self.insert(self.string.clone(), self.code);
                 self.output_code();
 
-                if self.code >= self.max as u32 + 1 {
-                    self.cull.count = 0;
+                if self.code >= self.cull.max as u32 + 1 {
                     self.cull();
                     self.stream.code_len = pow2(self.code).log2();
                 }
@@ -191,7 +188,6 @@ impl Dictionary {
     }
     fn reset(&mut self) {
         self.code = 260;
-        self.cull.count = 0;
         for entry in self.entries.iter_mut() {
             if entry.code() > 259 {
                 entry.clear();
@@ -208,7 +204,7 @@ impl Dictionary {
 
         self.reset();
 
-        entries.retain_mut(|entry| !self.cull.cull(entry));
+        entries.retain(|entry| !self.cull.cull(entry));
 
         for entry in entries.iter() {
             self.insert(entry.string().to_vec(), self.code);
@@ -222,8 +218,8 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let interval = 1 << 19;
-    let cull = Cull::settings(interval, 1, interval - 1);
+    let max = 1 << 19;
+    let cull = Cull::settings(1, max - 1, max);
     let mut dict = Dictionary::new(size, cull);
     dict.compress(blk_in);
     dict.stream.out

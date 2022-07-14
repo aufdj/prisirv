@@ -1,28 +1,21 @@
 use crate::lzw::entry::Entry;
 
 pub struct Cull {
-    pub count:      u32,
-    pub interval:   u32,
     pub threshold:  u32,
     pub recency:    u32,
+    pub max:        u32,
 }
 impl Cull {
-    pub fn settings(interval: u32, threshold: u32, recency: u32) -> Cull {
+    pub fn settings(threshold: u32, recency: u32, max: u32) -> Cull {
         Cull {
-            count: 0,
-            interval,
             threshold,
             recency,
+            max,
         }
     }
     pub fn cull(&self, entry: &Entry) -> bool {
-        if entry.count() < self.threshold 
-        && entry.code()  < self.recency {
-            true
-        }
-        else {
-            false
-        }
+        entry.count() < self.threshold && 
+        entry.code()  < self.recency
     }
 }
 
