@@ -129,8 +129,8 @@ impl Dictionary {
     }
     fn output_string(&mut self, code: u32) {
         if let Some(entry) = self.get_entry(code) {
-            let string = self.entries[entry].string().to_vec();
-            self.entries[entry].increase_count();
+            let string = entry.string().to_vec();
+            entry.increase_count();
             
             if !self.string.is_empty() {
                 self.string.push(string[0]);
@@ -148,8 +148,8 @@ impl Dictionary {
             self.insert(code, self.string.clone());
 
             let entry = self.get_entry(code).unwrap();
-            let string = self.entries[entry].string().to_vec();
-            self.entries[entry].increase_count();
+            let string = entry.string().to_vec();
+            entry.increase_count();
             
             for byte in string.iter() {
                 self.blk.push(*byte);
@@ -158,9 +158,9 @@ impl Dictionary {
             self.string = string;
         }
     }
-    fn get_entry(&mut self, code: u32) -> Option<usize> {
+    fn get_entry(&mut self, code: u32) -> Option<&mut Entry> {
         if !self.entries[code as usize].is_empty() {
-            return Some(code as usize);
+            return Some(&mut self.entries[code as usize]);
         }
         None
     }
