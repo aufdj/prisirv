@@ -2,12 +2,12 @@ use std::cmp::min;
 
 use crate::lzw::{
     entry::Entry,
-    cull::{Cull, pow2},
+    cull::Cull,
 };
 
 const DATA_END: u32 = 257;
-const CODE_LEN_UP: u32 = 258;
-const CODE_LEN_RESET: u32 = 259;
+const LEN_UP: u32 = 258;
+const CULL: u32 = 259;
 
 
 struct BitStream {
@@ -38,12 +38,6 @@ impl BitStream {
                     let codeu_len = 8 - codel_len;
 
                     if self.count == self.code_len {
-                        if self.code == CODE_LEN_UP { 
-                            self.code_len += 1; 
-                        }
-                        if self.code == CODE_LEN_RESET { 
-                            self.code_len = 9;  
-                        }
                         let out = self.code;
                         self.code = 0;
                         self.count = 0;
@@ -57,12 +51,6 @@ impl BitStream {
                     }
 
                     if self.count == self.code_len {
-                        if self.code == CODE_LEN_UP {
-                            self.code_len += 1;
-                        }
-                        if self.code == CODE_LEN_RESET {
-                            self.code_len = 9;
-                        }
                         let out = self.code;
                         self.code = 0;
                         self.count = 0;
@@ -113,15 +101,15 @@ impl Dictionary {
                     DATA_END => {
                         break;
                     }
-                    CODE_LEN_UP => {},
-                    CODE_LEN_RESET => {},
+                    LEN_UP => {
+                        stream.code_len += 1;
+                    },
+                    CULL => {
+                        self.cull();
+                        stream.code_len = (self.code+1).next_power_of_two().log2();
+                    },
                     _ => {
                         self.output_string(code);
-
-                        if self.code >= self.cull.max as u32 {
-                            self.cull();
-                            stream.code_len = pow2(self.code+1).log2();
-                        }
                     }
                 }
             }
@@ -130,7 +118,6 @@ impl Dictionary {
     fn output_string(&mut self, code: u32) {
         if let Some(entry) = self.get_entry(code) {
             let string = entry.string().to_vec();
-            entry.increase_count();
             
             if !self.string.is_empty() {
                 self.string.push(string[0]);
@@ -149,7 +136,6 @@ impl Dictionary {
 
             let entry = self.get_entry(code).unwrap();
             let string = entry.string().to_vec();
-            entry.increase_count();
             
             for byte in string.iter() {
                 self.blk.push(*byte);
@@ -158,9 +144,11 @@ impl Dictionary {
             self.string = string;
         }
     }
-    fn get_entry(&mut self, code: u32) -> Option<&mut Entry> {
-        if !self.entries[code as usize].is_empty() {
-            return Some(&mut self.entries[code as usize]);
+    fn get_entry(&mut self, code: u32) -> Option<&Entry> {
+        let entry = &mut self.entries[code as usize];
+        if !entry.is_empty() {
+            entry.increase_count();
+            return Some(entry);
         }
         None
     }
@@ -199,8 +187,8 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let max = 1 << 19;
-    let cull = Cull::settings(1, max - 1, max);
+    let max = (size as f64 * 0.6) as u32;
+    let cull = Cull::settings(3, max - 1, max);
     let mut dict = Dictionary::new(size, cull);
     dict.decompress(blk_in);
     dict.blk

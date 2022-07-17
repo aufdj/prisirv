@@ -35,7 +35,8 @@ impl Progress {
         
         let sizeo =
         if cfg.mode == Mode::ExtractFiles
-        || cfg.mode == Mode::ExtractArchive {
+        || cfg.mode == Mode::ExtractArchive
+        || cfg.mode == Mode::CreateArchive {
             0
         }
         else { 

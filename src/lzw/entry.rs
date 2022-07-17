@@ -7,8 +7,8 @@ pub struct Entry {
 }
 impl Entry {
     pub fn new(code: u32, string: Vec<u8>) -> Entry {
-        Entry { 
-            code, 
+        Entry {
+            code,
             string
         }
     }

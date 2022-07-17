@@ -2,12 +2,12 @@ use std::cmp::min;
 
 use crate::lzw::{
     entry::Entry,
-    cull::{Cull, pow2},
+    cull::Cull,
 };
 
 const DATA_END: u32 = 257;
-const CODE_LEN_UP: u32 = 258;
-const CODE_LEN_RESET: u32 = 259;
+const LEN_UP: u32 = 258;
+const CULL: u32 = 259;
 
 struct BitStream {
     pck:           u32,
@@ -24,12 +24,12 @@ impl BitStream {
             code_len:  9,
         }
     }
+    /// Split code in two, assuming it crosses a packed code boundary.
+    /// If the entire code fits in the current packed code, codeu will
+    /// simply be 0. Otherwise, add the first part of the code (codel)
+    /// to the current packed code, output the packed code, reset it,
+    /// and add the remaining part of the code (codeu).
     fn write(&mut self, code: u32) {
-        // Split code in two, assuming it crosses a packed code boundary.
-        // If the entire code fits in the current packed code, codeu will
-        // simply be 0. Otherwise, add the first part of the code (codel)
-        // to the current packed code, output the packed code, reset it,
-        // and add the remaining part of the code (codeu).
         let rem_len = 32 - self.pck_len;
 
         let codel = code & (0xFFFFFFFF >> self.pck_len);
@@ -57,11 +57,8 @@ impl BitStream {
         }
 
         match code {
-            CODE_LEN_UP => {
+            LEN_UP => {
                 self.code_len += 1;
-            }
-            CODE_LEN_RESET => {
-                self.code_len = 9;
             }
             DATA_END => {
                 self.write_code(self.pck);
@@ -75,6 +72,18 @@ impl BitStream {
         self.out.push(((code >> 16) & 0xFF) as u8);
         self.out.push((code >> 24) as u8);
     }
+}
+
+#[test]
+fn bitstream_test() {
+    let mut stream = BitStream::new();
+    stream.code_len = 11;
+    stream.write(100); //  0000000000 00000000000 00001100100 <<
+    assert!(stream.pck == 100);
+    stream.write(670); //  0000000000 00001100100 01010011110 <<
+    assert!(stream.pck == 1372260);
+    stream.write(431); // X0110101111 00001100100 01010011110 <<
+    assert!(stream.pck == 0);
 }
 
 struct Dictionary {
@@ -102,19 +111,20 @@ impl Dictionary {
     fn compress(&mut self, blk: Vec<u8>) -> BitStream {
         let mut stream = BitStream::new();
         for byte in blk.iter() {
-            self.update_string(*byte);
+            self.string.push(*byte);
 
             if self.get_entry().is_none() {
                 self.insert(self.string.clone(), self.code);
                 stream.write(self.output_code());
 
-                if self.code >= self.cull.max as u32 + 1 {
+                if self.code >= self.cull.max as u32 {
+                    stream.write(CULL);
                     self.cull();
-                    stream.code_len = pow2(self.code).log2();
+                    stream.code_len = self.code.next_power_of_two().log2();
                 }
 
                 if self.code == 1 << stream.code_len {
-                    stream.write(CODE_LEN_UP);
+                    stream.write(LEN_UP);
                 }
             }
         }
@@ -126,15 +136,12 @@ impl Dictionary {
         stream.write(DATA_END);
         stream
     }
-    fn update_string(&mut self, byte: u8) {
-        self.string.push(byte);
-    }
     // FNV-1a
     fn hash(&self, string: &[u8]) -> usize {
         let mut hash = 2166136261usize;
         for s in string.iter() {
             hash = hash ^ *s as usize;
-            hash = hash * 16777619;
+            hash = hash.wrapping_mul(16777619);
         }
         hash & (self.entries.len() - 1)
     }
@@ -168,10 +175,11 @@ impl Dictionary {
         None
     }
     // Insert a new entry into hash table if selected
-    // slot is empty. If slot is not empty, search up to 16 
+    // slot is empty. If slot is not empty, search up to 16
     // adjacent slots. If no adjacent slots are empty, don't insert.
     fn insert(&mut self, string: Vec<u8>, code: u32) {
         assert!(code != 0);
+        
         let hash = self.hash(&string);
         if self.entries[hash].is_empty() {
             self.entries[hash] = Entry::new(code, string);
@@ -220,8 +228,8 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let max = 1 << 19;
-    let cull = Cull::settings(1, max - 1, max);
+    let max = (size as f64 * 0.6) as u32;
+    let cull = Cull::settings(3, max - 1, max);
     let mut dict = Dictionary::new(size, cull);
     dict.compress(blk_in).out
 }

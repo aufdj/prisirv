@@ -58,7 +58,7 @@ impl ThreadPool {
             );
         }
         ThreadPool { 
-            threads, sndr, bq 
+            threads, sndr, bq
         }
     }
 
@@ -110,7 +110,7 @@ impl ThreadPool {
                             crtd,
                             ..blk_in
                         }
-                    ) 
+                    )
                 })
             )
         ).unwrap();
@@ -123,7 +123,7 @@ impl ThreadPool {
             return Err(ArchiveError::InvalidVersion(blk_in.ver));
         }
         let len = blk_in.data.len();
-        let mem = blk_in.mem as usize;    
+        let mem = blk_in.mem as usize; 
         self.sndr.send(
             Task::Decompress(
                 Box::new(move || {
@@ -143,7 +143,7 @@ impl ThreadPool {
                             // dec.decompress_block(blk_in.sizei as usize)
                         }
                         Method::Store => {
-                            blk_in.data 
+                            blk_in.data
                         }
                     };
                     
@@ -164,7 +164,7 @@ impl ThreadPool {
                     )
                 })
             )
-        ).unwrap();   
+        ).unwrap();
         Ok(())
     }
 }
@@ -236,7 +236,7 @@ impl Thread {
 /// added to a BlockQueue, which handles outputting in the correct order.
 pub struct BlockQueue {
     pub blocks:   BinaryHeap<Block>, // Priority Queue based on block id
-    pub offset:   u32, // Starting id when appending to archive
+    pub offset:   u32, // Starting id (non zero when appending to archive)
     pub next_out: u32, // Next block to be output
 }
 impl BlockQueue {
