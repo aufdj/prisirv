@@ -9,7 +9,6 @@ const DATA_END: u32 = 257;
 const LEN_UP: u32 = 258;
 const CULL: u32 = 259;
 
-
 struct BitStream {
     stream:        Box<dyn Iterator<Item = u8>>,
     pub code_len:  u32,
@@ -187,8 +186,8 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let max = (size as f64 * 0.6) as u32;
-    let cull = Cull::settings(3, max - 1, max);
+    let max = (size as f64 * 0.4) as u32;
+    let cull = Cull::settings(1, max - 1, max);
     let mut dict = Dictionary::new(size, cull);
     dict.decompress(blk_in);
     dict.blk

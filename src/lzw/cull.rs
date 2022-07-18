@@ -15,6 +15,7 @@ impl Cull {
     }
     pub fn cull(&self, entry: &Entry) -> bool {
         entry.count() < self.min_count &&
-        entry.code()  < self.recent
+        entry.code()  < self.recent &&
+        entry.code()  > 259
     }
 }

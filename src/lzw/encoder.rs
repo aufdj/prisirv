@@ -9,6 +9,8 @@ const DATA_END: u32 = 257;
 const LEN_UP: u32 = 258;
 const CULL: u32 = 259;
 
+const PROBE_DIST: usize = 128;
+
 struct BitStream {
     pck:           u32,
     pck_len:       u32,
@@ -116,7 +118,7 @@ impl Dictionary {
             if self.get_entry().is_none() {
                 self.insert(self.string.clone(), self.code);
                 stream.write(self.output_code());
-
+                
                 if self.code >= self.cull.max as u32 {
                     stream.write(CULL);
                     self.cull();
@@ -164,7 +166,7 @@ impl Dictionary {
             }
             else {
                 // Check adjacent slots
-                for i in 1..16 {
+                for i in 1..PROBE_DIST {
                     let adj = (hash^i) % self.entries.len();
                     if self.entries[adj].string() == &self.string {
                         return Some(&mut self.entries[adj]);
@@ -186,7 +188,7 @@ impl Dictionary {
         }
         else {
             // Check adjacent slots
-            for i in 1..16 {
+            for i in 1..PROBE_DIST {
                 let adj = (hash^i) % self.entries.len();
                 if self.entries[adj].is_empty() {
                     self.entries[adj] = Entry::new(code, string);
@@ -228,8 +230,8 @@ pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
         return Vec::new();
     }
     let size = mem as u32 / 4;
-    let max = (size as f64 * 0.6) as u32;
-    let cull = Cull::settings(3, max - 1, max);
+    let max = (size as f64 * 0.4) as u32;
+    let cull = Cull::settings(1, max - 1, max);
     let mut dict = Dictionary::new(size, cull);
     dict.compress(blk_in).out
 }
