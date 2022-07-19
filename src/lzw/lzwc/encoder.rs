@@ -1,92 +1,17 @@
-use std::cmp::min;
-
 use crate::lzw::{
-    entry::Entry,
-    cull::Cull,
+    code::CodeWriter,
+    lzwc::{ 
+        entry::Entry,
+        cull::Cull,
+    },
+    constant::{
+        DATA_END,
+        LEN_UP,
+        CULL,
+    }
 };
 
-const DATA_END: u32 = 257;
-const LEN_UP: u32 = 258;
-const CULL: u32 = 259;
-
 const PROBE_DIST: usize = 128;
-
-struct BitStream {
-    pck:           u32,
-    pck_len:       u32,
-    pub out:       Vec<u8>,
-    pub code_len:  u32,
-}
-impl BitStream {
-    fn new() -> BitStream {
-        BitStream {
-            pck:       0,
-            pck_len:   0,
-            out:       Vec::new(),
-            code_len:  9,
-        }
-    }
-    /// Split code in two, assuming it crosses a packed code boundary.
-    /// If the entire code fits in the current packed code, codeu will
-    /// simply be 0. Otherwise, add the first part of the code (codel)
-    /// to the current packed code, output the packed code, reset it,
-    /// and add the remaining part of the code (codeu).
-    fn write(&mut self, code: u32) {
-        let rem_len = 32 - self.pck_len;
-
-        let codel = code & (0xFFFFFFFF >> self.pck_len);
-        let codel_len = min(self.code_len, rem_len);
-
-        let codeu = code >> codel_len;
-        let codeu_len = self.code_len - codel_len;
-
-        self.pck |= codel << self.pck_len;
-        self.pck_len += codel_len;
-
-        if self.pck_len == 32 {
-            self.write_code(self.pck);
-            self.pck = 0;
-            self.pck_len = 0;
-        }
-
-        self.pck |= codeu << self.pck_len;
-        self.pck_len += codeu_len;
-
-        if self.pck_len == 32 {
-            self.write_code(self.pck);
-            self.pck = 0;
-            self.pck_len = 0;
-        }
-
-        match code {
-            LEN_UP => {
-                self.code_len += 1;
-            }
-            DATA_END => {
-                self.write_code(self.pck);
-            }
-            _ => {},
-        }
-    }
-    fn write_code(&mut self, code: u32) {
-        self.out.push((code & 0xFF) as u8);
-        self.out.push(((code >> 8) & 0xFF) as u8);
-        self.out.push(((code >> 16) & 0xFF) as u8);
-        self.out.push((code >> 24) as u8);
-    }
-}
-
-#[test]
-fn bitstream_test() {
-    let mut stream = BitStream::new();
-    stream.code_len = 11;
-    stream.write(100); //  0000000000 00000000000 00001100100 <<
-    assert!(stream.pck == 100);
-    stream.write(670); //  0000000000 00001100100 01010011110 <<
-    assert!(stream.pck == 1372260);
-    stream.write(431); // X0110101111 00001100100 01010011110 <<
-    assert!(stream.pck == 0);
-}
 
 struct Dictionary {
     entries:  Vec<Entry>,
@@ -107,11 +32,11 @@ impl Dictionary {
             dict.insert(vec![i], dict.code);
         }
         // Skip reserved codes.
-        dict.code += 3;
+        dict.code += 4;
         dict
     }
-    fn compress(&mut self, blk: Vec<u8>) -> BitStream {
-        let mut stream = BitStream::new();
+    fn compress(&mut self, blk: Vec<u8>) -> CodeWriter {
+        let mut stream = CodeWriter::new();
         for byte in blk.iter() {
             self.string.push(*byte);
 
@@ -199,9 +124,9 @@ impl Dictionary {
         self.code += 1;
     }
     fn reset(&mut self) {
-        self.code = 260;
+        self.code = 261;
         for entry in self.entries.iter_mut() {
-            if entry.code() > 259 {
+            if entry.code() > 260 {
                 entry.clear();
             }
         }
@@ -210,7 +135,7 @@ impl Dictionary {
         let mut entries = self.entries
             .clone()
             .into_iter()
-            .filter(|e| !e.is_empty() && e.code() > 259)
+            .filter(|e| !e.is_empty() && e.code() > 260)
             .collect::<Vec<Entry>>();
         entries.sort_by(|a, b| a.code().cmp(&b.code()));
 

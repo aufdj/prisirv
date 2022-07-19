@@ -1,4 +1,4 @@
-pub mod encoder;
-pub mod decoder;
-pub mod entry;
-pub mod cull;
+pub mod lzwc;
+pub mod lzws;
+pub mod code;
+pub mod constant;

@@ -35,6 +35,7 @@ enum Parse {
     Width,
     Align,
     Cm,
+    Lzwc,
     Store,
 }
 
@@ -59,19 +60,21 @@ pub enum Align {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
     Cm,
-    Lzw,
+    Lzwc,
+    Lzws,
     Store,
 }
 impl Default for Method {
     fn default() -> Method {
-        Method::Lzw
+        Method::Lzws
     }
 }
 impl From<u8> for Method {
     fn from(num: u8) -> Method {
         match num {
             0 => Method::Cm,
-            1 => Method::Lzw,
+            1 => Method::Lzwc,
+            2 => Method::Lzws,
             _ => Method::Store,
         }
     }
@@ -191,6 +194,9 @@ impl Config {
                 }
                 "-cm" => {
                     parser = Parse::Cm;
+                }
+                "-lzwc" => {
+                    parser = Parse::Lzwc;
                 }
                 "-store" => {
                     parser = Parse::Store;
@@ -338,6 +344,9 @@ impl Config {
                 Parse::Cm => {
                     cfg.method = Method::Cm;
                 }
+                Parse::Lzwc => {
+                    cfg.method = Method::Lzwc;
+                }
                 Parse::Store => {
                     cfg.method = Method::Store;
                 }
@@ -387,9 +396,10 @@ impl fmt::Display for Config {
                         self.input_total(),
                         self.arch.path.display(),
                         match self.method {
-                            Method::Cm  => "Context Mixing",
-                            Method::Lzw => "LZW",
-                            _           => "No Compression",
+                            Method::Cm    => "Context Mixing",
+                            Method::Lzwc  => "LZWC",
+                            Method::Lzws  => "LZWS",
+                            Method::Store => "No Compression",
                         },
                         match self.sort {
                             Sort::None      => "None",
@@ -456,9 +466,10 @@ impl fmt::Display for Config {
                         \r=============================================================\n",
                         self.input_total(),
                         match self.method {
-                            Method::Cm  => "Context Mixing",
-                            Method::Lzw => "LZW",
-                            _           => "No Compression",
+                            Method::Cm    => "Context Mixing",
+                            Method::Lzwc  => "LZWC",
+                            Method::Lzws  => "LZWS",
+                            Method::Store => "No Compression",
                         },
                         match self.sort {
                             Sort::None      => "None",

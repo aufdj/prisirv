@@ -1,72 +1,15 @@
-use std::cmp::min;
-
 use crate::lzw::{
-    entry::Entry,
-    cull::Cull,
+    code::CodeReader,
+    lzwc::{
+        entry::Entry,
+        cull::Cull,
+    }, 
+    constant::{
+        DATA_END,
+        LEN_UP,
+        CULL,
+    }
 };
-
-const DATA_END: u32 = 257;
-const LEN_UP: u32 = 258;
-const CULL: u32 = 259;
-
-struct BitStream {
-    stream:        Box<dyn Iterator<Item = u8>>,
-    pub code_len:  u32,
-    code:          u32,
-    count:         u32,
-}
-impl BitStream {
-    fn new(blk_in: Vec<u8>) -> BitStream {
-        BitStream {
-            stream:    Box::new(blk_in.into_iter()),
-            code_len:  9,
-            code:      0,
-            count:     0,
-        }
-    }
-    fn get_code(&mut self) -> Option<u32> {
-        loop {
-            match self.stream.next() {
-                Some(byte) => {
-                    let rem_len = self.code_len - self.count;
-
-                    let codel = byte as u32 & ((1 << rem_len) - 1);
-                    let codel_len = min(8, rem_len);
-
-                    let codeu = byte as u32 >> codel_len;
-                    let codeu_len = 8 - codel_len;
-
-                    if self.count == self.code_len {
-                        let out = self.code;
-                        self.code = 0;
-                        self.count = 0;
-                        self.code |= codel;
-                        self.count += codel_len;
-                        return Some(out);
-                    }
-                    else {
-                        self.code |= codel << self.count;
-                        self.count += codel_len;
-                    }
-
-                    if self.count == self.code_len {
-                        let out = self.code;
-                        self.code = 0;
-                        self.count = 0;
-                        self.code |= codeu;
-                        self.count += codeu_len;
-                        return Some(out);
-                    }
-                    else {
-                        self.code |= codeu << self.count;
-                        self.count += codeu_len;
-                    }
-                }
-                None => return None,
-            }
-        }
-    }
-}
 
 struct Dictionary {
     entries:  Vec<Entry>,
@@ -87,11 +30,11 @@ impl Dictionary {
         for i in 0u8..=255 {
             dict.insert(dict.code, vec![i]);
         }
-        dict.code += 3;
+        dict.code += 4;
         dict
     }
     pub fn decompress(&mut self, blk_in: Vec<u8>) {
-        let mut stream = BitStream::new(blk_in);
+        let mut stream = CodeReader::new(blk_in);
         loop { 
             if let Some(code) = stream.get_code() {
                 assert!(code > 0);
@@ -156,9 +99,9 @@ impl Dictionary {
         self.code += 1;
     }
     fn reset(&mut self) {
-        self.code = 260;
+        self.code = 261;
         for entry in self.entries.iter_mut() {
-            if entry.code() > 259 {
+            if entry.code() > 260 {
                 entry.clear();
             }
         }
@@ -167,7 +110,7 @@ impl Dictionary {
         let mut entries = self.entries
             .clone()
             .into_iter()
-            .filter(|e| !e.is_empty() && e.code() > 259)
+            .filter(|e| !e.is_empty() && e.code() > 260)
             .collect::<Vec<Entry>>();
         entries.sort_by(|a, b| a.code().cmp(&b.code()));
 

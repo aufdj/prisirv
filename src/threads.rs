@@ -80,17 +80,11 @@ impl ThreadPool {
                             enc.compress_block(&blk_in.data);
                             enc.blk_out
                         }
-                        Method::Lzw => {
-                            lzw::encoder::compress(blk_in.data, mem)
-
-                            // let block = lzw::encoder::compress(blk_in.data, mem);
-                            // let mut enc = lzw::ari_enc::Encoder::new(len);
-                            // enc.compress_block(&block);
-                            // enc.blk_out
-
-                            // let mut enc = lzw::ari_enc::Encoder::new(len);
-                            // enc.compress_block(&blk_in.data);
-                            // enc.blk_out
+                        Method::Lzwc => {
+                            lzw::lzwc::encoder::compress(blk_in.data, mem)
+                        }
+                        Method::Lzws => {
+                            lzw::lzws::encoder::compress(blk_in.data, mem)
                         }
                         Method::Store => {
                             blk_in.data
@@ -132,15 +126,11 @@ impl ThreadPool {
                             cm::decoder::Decoder::new(blk_in.data, mem)
                             .decompress_block(blk_in.sizei as usize)
                         }
-                        Method::Lzw => {
-                            lzw::decoder::decompress(blk_in.data, mem)
-
-                            // let mut dec = lzw::ari_dec::Decoder::new(blk_in.data);
-                            // let block = dec.decompress_block(blk_in.sizei as usize);
-                            // lzw::decoder::decompress(block, mem)
-
-                            // let mut dec = lzw::ari_dec::Decoder::new(blk_in.data);
-                            // dec.decompress_block(blk_in.sizei as usize)
+                        Method::Lzwc => {
+                            lzw::lzwc::decoder::decompress(blk_in.data, mem)
+                        }
+                        Method::Lzws => {
+                            lzw::lzws::decoder::decompress(blk_in.data, mem)
                         }
                         Method::Store => {
                             blk_in.data

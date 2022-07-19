@@ -64,8 +64,8 @@ impl Prisirv {
     }
 
     /// Use LZW compression.
-    pub fn lzw(mut self) -> Self {
-        self.cfg.method = Method::Lzw;
+    pub fn method(mut self, method: Method) -> Self {
+        self.cfg.method = method;
         self
     }
 

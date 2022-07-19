@@ -1,4 +1,4 @@
-use crate::lzw::entry::Entry;
+use crate::lzw::lzwc::entry::Entry;
 
 pub struct Cull {
     pub min_count: u32,
