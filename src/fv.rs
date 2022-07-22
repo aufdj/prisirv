@@ -1,6 +1,6 @@
 use std::{
     time::Instant,
-    io::{self, BufWriter},
+    io::BufWriter,
     fs::File,
 };
 
@@ -11,6 +11,7 @@ use crate::{
     },
     filedata::FileData,
     config::Config,
+    error::ArchiveError,
 };
 
 
@@ -88,6 +89,7 @@ impl Ilog {
         i as i32
     }
 }
+
 fn clamp(c: i32) -> u8 {
     if c > 255 { 
         255 
@@ -155,7 +157,7 @@ impl Image {
         }
     }
 }
-pub fn new(cfg: &Config) -> io::Result<()> {
+pub fn new(cfg: &Config) -> Result<(), ArchiveError> {
     let name = cfg.inputs[0].path
         .file_stem()
         .unwrap()

@@ -7,7 +7,10 @@ use std::{
     },
 };
 
-use crate::filedata::FileData;
+use crate::{
+    filedata::FileData,
+    error::ArchiveError,
+};
 
 // Indicates an empty or non-empty buffer. 
 #[derive(PartialEq, Eq)]
@@ -199,14 +202,27 @@ impl BufferedWrite for BufWriter<File> {
 
 
 /// Takes a file path and returns an input file wrapped in a BufReader.
-pub fn new_input_file(path: &Path) -> io::Result<BufReader<File>> {
+pub fn new_input_file(path: &Path) -> Result<BufReader<File>, ArchiveError> {
     match File::open(path) {
         Ok(file) => Ok(BufReader::with_capacity(4096, file)),
-        Err(err) => Err(err),
+        Err(err) => {
+            match err.kind() {
+                ErrorKind::PermissionDenied => {
+                    return Err(
+                        ArchiveError::FileAccessDenied(path.to_path_buf())
+                    );
+                }
+                _ => {
+                    return Err(
+                        ArchiveError::IoError(err)
+                    );
+                }
+            }
+        }
     }
 }
 
-pub fn new_output_file(file: &FileData, clobber: bool) -> io::Result<BufWriter<File>> {
+pub fn new_output_file(file: &FileData, clobber: bool) -> Result<BufWriter<File>, ArchiveError> {
     if !file.path.exists() || file.len == 0 || clobber {
         match OpenOptions::new()
             .write(true)
@@ -217,12 +233,23 @@ pub fn new_output_file(file: &FileData, clobber: bool) -> io::Result<BufWriter<F
                     Ok(BufWriter::with_capacity(4096, file))
                 },
                 Err(err) => {
-                    Err(err)
+                    match err.kind() {
+                        ErrorKind::PermissionDenied => {
+                            return Err(
+                                ArchiveError::FileAccessDenied(file.path.clone())
+                            );
+                        }
+                        _ => {
+                            return Err(
+                                ArchiveError::IoError(err)
+                            );
+                        }
+                    }
                 }
         }
     }
     else {
-        Err(io::Error::from(ErrorKind::AlreadyExists))
+        Err(ArchiveError::FileAlreadyExists(file.path.clone()))
     }
     
 }

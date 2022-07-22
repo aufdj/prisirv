@@ -200,6 +200,8 @@ pub enum ArchiveError {
     FileNotFound(PathBuf),
     IncorrectChecksum(u32),
     IoError(io::Error),
+    FileAlreadyExists(PathBuf),
+    FileAccessDenied(PathBuf),
     CreationTimeError(SystemTimeError),
     InvalidUtf8(Utf8Error),
 }
@@ -252,6 +254,18 @@ impl fmt::Display for ArchiveError {
             ArchiveError::IoError(err) => {
                 write!(f, "
                     \r{err}.\n"
+                )
+            }
+            ArchiveError::FileAlreadyExists(path) => {
+                write!(f, "
+                    \r{} already exists.\n",
+                    path.display()
+                )
+            }
+            ArchiveError::FileAccessDenied(path) => {
+                write!(f, "
+                    \rAccess to {} is denied.\n",
+                    path.display()
                 )
             }
             ArchiveError::CreationTimeError(err) => {

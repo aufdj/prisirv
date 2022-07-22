@@ -1,6 +1,5 @@
 use std::{
     io::{
-        self, 
         BufWriter, BufReader, 
         Seek, SeekFrom
     },
@@ -22,7 +21,7 @@ use crate::{
 };
 
 /// Format and return new output file.
-fn next_file(file_in: &FileData, dir_out: &FileData, clobber: bool) -> io::Result<BufWriter<File>> {
+fn next_file(file_in: &FileData, dir_out: &FileData, clobber: bool) -> Result<BufWriter<File>, ArchiveError> {
     let file_out = fmt_file_out_extract(dir_out, file_in);
     new_output_file(&file_out, clobber)
 }
@@ -57,9 +56,11 @@ impl Extractor {
         loop {
             blk.read_from(&mut self.archive)?;
             self.tp.decompress_block(blk.clone())?;
+
             if blk.data.is_empty() {
                 break;
             }
+            
             blk.next();
         }
 
@@ -102,16 +103,19 @@ impl Extractor {
         // Read and decompress blocks
         loop {
             blk.read_from(&mut self.archive)?;
+
             if blk.files.iter().any(|f| paths.contains(&f.path)) {
                 blk.id = id;
                 id += 1;
                 self.tp.decompress_block(blk.clone())?;
             }
+
             if blk.data.is_empty() {
                 blk.id = id;
                 self.tp.decompress_block(blk.clone())?;
                 break;
             }
+
             blk.next();
         }
 
