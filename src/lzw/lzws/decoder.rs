@@ -7,38 +7,43 @@ use crate::lzw::{
     },
 };
 
-struct HashTable {
+struct Dictionary {
     strings:      Vec<u8>,
     codes:        Vec<u32>,
     pub code:     u32,
-    pub max_code: u32,
 }
-impl HashTable {
-    fn new(size: usize) -> HashTable {
-        HashTable {
+impl Dictionary {
+    fn new(size: usize) -> Dictionary {
+        let mut dict = Dictionary {
             strings:   Vec::with_capacity(size),
             codes:     vec![0; size],
             code:      1,
-            max_code:  size as u32,
-        }
+        };
+        dict.reset();
+        dict
     }
-    fn get(&mut self, code: u32) -> Option<&[u8]> {
-        let code = code as usize;
+    fn get(&self, code: u32) -> Option<&[u8]> {
+        let code = self.codes[code as usize];
 
-        if self.codes[code] != 0 {
-            let pos = (self.codes[code] & 0x07FFFFFF) as usize;
-            let len = (self.codes[code] >> 27) as usize;
+        if code != 0 {
+            let pos = (code & 0x07FFFFFF) as usize;
+            let len = (code >> 27) as usize;
             return Some(&self.strings[pos..pos+len]);
         }
         None
     }
-    fn insert(&mut self, code: u32, string: Vec<u8>) {
+    fn insert(&mut self, string: &[u8], code: u32) {
         assert!(self.strings.len() < 0x07FFFFFF);
         assert!(string.len() < 32);
-        self.codes[code as usize] = ((string.len() << 27) + self.strings.len()) as u32;
+
+        let len = string.len() << 27;
+        let pos = self.strings.len();
+        self.codes[code as usize] = (len + pos) as u32;
+
         for s in string.iter() {
             self.strings.push(*s);
         }
+
         self.code += 1;
     }
     fn reset(&mut self) {
@@ -51,48 +56,80 @@ impl HashTable {
             *i = 0;
         }
         for i in 0u8..=255 {
-            self.insert(self.code, vec![i]);
+            self.insert(&[i], self.code);
         }
         // Skip reserved codes
         self.code += 3;
     }
 }
 
-struct Dictionary {
-    pub map:     HashTable,
-    pub string:  Vec<u8>, // Current string
-    pub blk:     Vec<u8>,
+struct Decoder {
+    dict:    Dictionary,
+    string:  Vec<u8>,
+    code:    u32,
+    pub blk: Vec<u8>,
 }
-impl Dictionary {
-    fn new(mem: usize) -> Dictionary {
-        let mut map = HashTable::new(mem/4);
-        map.reset();
-
-        Dictionary {
-            map,
-            string:  Vec::new(),
-            blk:     Vec::new(),
+impl Decoder {
+    fn new(mem: usize) -> Decoder {
+        Decoder {
+            dict:   Dictionary::new(mem/4),
+            string: Vec::new(),
+            code:   0,
+            blk:    Vec::new(),
         }
     }
+    fn decompress(&mut self, blk_in: Vec<u8>) {
+        let mut stream = CodeReader::new(blk_in);
+
+        loop { 
+            if let Some(code) = stream.get_code() {
+                match code {
+                    DATA_END => {
+                        break;
+                    }
+                    LEN_UP => {
+                        stream.code_len += 1;
+                    }
+                    RESET => {
+                        stream.code_len = 9;
+                        self.dict.reset();
+                        self.string.clear();
+                    }
+                    _ => {
+                        self.output_string(code);
+                    }
+                }
+            }
+        }  
+    }
     fn output_string(&mut self, code: u32) {
-        if self.map.get(code).is_none() {
+        let string = self.dict.get(code);
+
+        if string.is_some() {
+            let string = string.unwrap().to_vec();
+
+            if !self.string.is_empty() {
+                self.string.push(string[0]);
+                self.dict.insert(&self.string, self.dict.code);
+            }
+
+            for byte in string.iter() {
+                self.blk.push(*byte);
+            }
+
+            self.string = string;
+        }
+        else {
             self.string.push(self.string[0]);
-            self.map.insert(code, self.string.clone());
-        }
-        else if !self.string.is_empty() {
-            self.string.push((self.map.get(code).unwrap())[0]);
-            self.map.insert(self.map.code, self.string.clone());
-        }
-        
-        let string = self.map.get(code).unwrap();
-        for byte in string.iter() {
-            self.blk.push(*byte);
-        }
+            self.dict.insert(&self.string, code);
 
-        self.string = string.to_vec();
+            let string = self.dict.get(code).unwrap();
 
-        if self.map.code >= self.map.max_code {
-            self.map.reset();
+            for byte in string.iter() {
+                self.blk.push(*byte);
+            }
+
+            self.string = string.to_vec();
         }
     }
 }
@@ -101,26 +138,8 @@ pub fn decompress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     if blk_in.is_empty() { 
         return Vec::new(); 
     }
-    let mut dict = Dictionary::new(mem);
-    let mut stream = CodeReader::new(blk_in);
     
-    loop { 
-        if let Some(code) = stream.get_code() {
-            match code {
-                DATA_END => {
-                    break;
-                }
-                LEN_UP => {
-                    stream.code_len += 1;
-                }
-                RESET => {
-                    stream.code_len = 9;
-                }
-                _ => {
-                    dict.output_string(code);
-                }
-            }
-        }
-    }  
-    dict.blk
+    let mut dec = Decoder::new(mem);
+    dec.decompress(blk_in);
+    dec.blk
 }
