@@ -37,7 +37,6 @@ impl BufferedRead for BufReader<File> {
                 self.consume(self.capacity());
 
                 if let Err(e) = self.fill_buf() {
-                    println!("Function read_byte failed.");
                     println!("Error: {}", e);
                 }
             }
@@ -55,7 +54,6 @@ impl BufferedRead for BufReader<File> {
                 self.consume(self.capacity());
 
                 if let Err(e) = self.fill_buf() {
-                    println!("Function read_u16 failed.");
                     println!("Error: {}", e);
                 }
                 if len < 2 {
@@ -76,7 +74,6 @@ impl BufferedRead for BufReader<File> {
                 self.consume(self.capacity());
 
                 if let Err(e) = self.fill_buf() {
-                    println!("Function read_u32 failed.");
                     println!("Error: {}", e);
                 }
                 if len < 4 {
@@ -99,7 +96,6 @@ impl BufferedRead for BufReader<File> {
                 self.consume(self.capacity());
                 
                 if let Err(e) = self.fill_buf() {
-                    println!("Function read_u64 failed.");
                     println!("Error: {}", e);
                 }
                 if len < 8 {
@@ -117,7 +113,6 @@ impl BufferedRead for BufReader<File> {
     fn fill_buffer(&mut self) -> BufferState {
         self.consume(self.capacity());
         if let Err(e) = self.fill_buf() {
-            println!("Function fill_buffer failed.");
             println!("Error: {}", e);
         }
         if self.buffer().is_empty() {
@@ -139,39 +134,33 @@ impl BufferedWrite for BufWriter<File> {
     /// Write one byte to an output file.
     fn write_byte(&mut self, output: u8) {
         if let Err(e) = self.write(&[output]) {
-            println!("Function write_byte failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_byte failed.");
                 println!("Error: {}", e);
             }
         }
     }
     fn write_u16(&mut self, output: u16) {
         if let Err(e) = self.write(&output.to_le_bytes()[..]) {
-            println!("Function write_u16 failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_u16 failed.");
                 println!("Error: {}", e);
             }
         }
     }
     fn write_u32(&mut self, output: u32) {
         if let Err(e) = self.write(&output.to_le_bytes()[..]) {
-            println!("Function write_32 failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_32 failed.");
                 println!("Error: {}", e);
             }
         }
@@ -179,13 +168,11 @@ impl BufferedWrite for BufWriter<File> {
     /// Write 8 bytes to an output file.
     fn write_u64(&mut self, output: u64) {
         if let Err(e) = self.write(&output.to_le_bytes()[..]) {
-            println!("Function write_u64 failed.");
             println!("Error: {}", e);
         }
         
         if self.buffer().len() >= self.capacity() {
             if let Err(e) = self.flush() {
-                println!("Function write_u64 failed.");
                 println!("Error: {}", e);
             }
         }
@@ -194,7 +181,6 @@ impl BufferedWrite for BufWriter<File> {
     /// Flush buffer to file.
     fn flush_buffer(&mut self) {
         if let Err(e) = self.flush() {
-            println!("Function flush_buffer failed.");
             println!("Error: {}", e);
         }    
     }
