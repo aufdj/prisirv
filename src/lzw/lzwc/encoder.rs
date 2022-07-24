@@ -15,15 +15,13 @@ const PROBE_DIST: usize = 128;
 
 struct Dictionary {
     entries:  Vec<Entry>,
-    string:   Vec<u8>,
     code:     u32,
     cull:     Cull,
 }
 impl Dictionary {
-    fn new(size: u32, cull: Cull) -> Dictionary {
+    fn new(size: usize, cull: Cull) -> Dictionary {
         let mut dict = Dictionary {
-            entries:  vec![Entry::default(); size as usize],
-            string:   Vec::new(),
+            entries:  vec![Entry::default(); size],
             code:     1,
             cull,
         };
@@ -35,34 +33,6 @@ impl Dictionary {
         dict.code += 4;
         dict
     }
-    fn compress(&mut self, blk: Vec<u8>) -> CodeWriter {
-        let mut stream = CodeWriter::new();
-        for byte in blk.iter() {
-            self.string.push(*byte);
-
-            if self.get_entry().is_none() {
-                self.insert(self.string.clone(), self.code);
-                stream.write(self.output_code());
-                
-                if self.code >= self.cull.max as u32 {
-                    stream.write(CULL);
-                    self.cull();
-                    stream.code_len = self.code.next_power_of_two().log2();
-                }
-
-                if self.code == 1 << stream.code_len {
-                    stream.write(LEN_UP);
-                }
-            }
-        }
-
-        if let Some(entry) = self.get_entry() {
-            entry.increase_count();
-            stream.write(entry.code());
-        }
-        stream.write(DATA_END);
-        stream
-    }
     // FNV-1a
     fn hash(&self, string: &[u8]) -> usize {
         let mut hash = 2166136261usize;
@@ -72,28 +42,18 @@ impl Dictionary {
         }
         hash & (self.entries.len() - 1)
     }
-    fn output_code(&mut self) -> u32 {
-        let last_char = self.string.pop().unwrap();
-        let entry = self.get_entry().unwrap();
-        entry.increase_count();
-        let code = entry.code();
+    fn get_entry(&mut self, string: &[u8]) -> Option<&mut Entry> {
+        let hash = self.hash(string);
 
-        self.string.clear();
-        self.string.push(last_char);
-
-        code
-    }
-    fn get_entry(&mut self) -> Option<&mut Entry> {
-        let hash = self.hash(&self.string);
         if !self.entries[hash].is_empty() {
-            if self.entries[hash].string() == &self.string {
+            if self.entries[hash].string() == string {
                 return Some(&mut self.entries[hash]);
             }
             else {
                 // Check adjacent slots
                 for i in 1..PROBE_DIST {
                     let adj = (hash^i) % self.entries.len();
-                    if self.entries[adj].string() == &self.string {
+                    if self.entries[adj].string() == string {
                         return Some(&mut self.entries[adj]);
                     }
                 }
@@ -108,6 +68,7 @@ impl Dictionary {
         assert!(code != 0);
         
         let hash = self.hash(&string);
+
         if self.entries[hash].is_empty() {
             self.entries[hash] = Entry::new(code, string);
         }
@@ -137,6 +98,7 @@ impl Dictionary {
             .into_iter()
             .filter(|e| !e.is_empty() && e.code() > 260)
             .collect::<Vec<Entry>>();
+
         entries.sort_by(|a, b| a.code().cmp(&b.code()));
 
         self.reset();
@@ -149,14 +111,69 @@ impl Dictionary {
     }
 }
 
+struct Encoder {
+    dict:    Dictionary,
+    string:  Vec<u8>,
+}
+impl Encoder {
+    fn new(size: usize, cull: Cull) -> Encoder {
+        Encoder {
+            dict:    Dictionary::new(size, cull),
+            string:  Vec::new(),
+        }
+    }
+    fn compress(&mut self, blk: Vec<u8>) -> CodeWriter {
+        let mut stream = CodeWriter::new();
+
+        for byte in blk.iter() {
+            self.string.push(*byte);
+
+            if self.dict.get_entry(&self.string).is_none() {
+                self.dict.insert(self.string.clone(), self.dict.code);
+                stream.write(self.output_code());
+                
+                if self.dict.code >= self.dict.cull.max {
+                    stream.write(CULL);
+                    self.dict.cull();
+                    stream.code_len = self.dict.code.next_power_of_two().log2();
+                }
+
+                if self.dict.code == 1 << stream.code_len {
+                    stream.write(LEN_UP);
+                }
+            }
+        }
+
+        if let Some(entry) = self.dict.get_entry(&self.string) {
+            entry.increase_count();
+            stream.write(entry.code());
+        }
+
+        stream.write(DATA_END);
+        stream
+    }
+    fn output_code(&mut self) -> u32 {
+        let last_char = self.string.pop().unwrap();
+        let entry = self.dict.get_entry(&self.string).unwrap();
+        entry.increase_count();
+        let code = entry.code();
+
+        self.string.clear();
+        self.string.push(last_char);
+
+        code
+    }
+}
+
 
 pub fn compress(blk_in: Vec<u8>, mem: usize) -> Vec<u8> {
     if blk_in.is_empty() {
         return Vec::new();
     }
-    let size = mem as u32 / 4;
+    let size = mem / 4;
     let max = (size as f64 * 0.4) as u32;
     let cull = Cull::settings(1, max - 1, max);
-    let mut dict = Dictionary::new(size, cull);
-    dict.compress(blk_in).out
+
+    let mut enc = Encoder::new(size, cull);
+    enc.compress(blk_in).out
 }

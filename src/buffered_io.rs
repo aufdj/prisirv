@@ -12,7 +12,7 @@ use crate::{
     error::ArchiveError,
 };
 
-// Indicates an empty or non-empty buffer. 
+// Indicates an empty or non-empty buffer.
 #[derive(PartialEq, Eq)]
 pub enum BufferState {
     NotEmpty,

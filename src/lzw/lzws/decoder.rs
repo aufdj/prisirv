@@ -8,16 +8,16 @@ use crate::lzw::{
 };
 
 struct Dictionary {
-    strings:      Vec<u8>,
-    codes:        Vec<u32>,
-    pub code:     u32,
+    strings:   Vec<u8>,
+    codes:     Vec<u32>,
+    pub code:  u32,
 }
 impl Dictionary {
     fn new(size: usize) -> Dictionary {
         let mut dict = Dictionary {
-            strings:   Vec::with_capacity(size),
-            codes:     vec![0; size],
-            code:      1,
+            strings:  Vec::with_capacity(size),
+            codes:    vec![0; size],
+            code:     1,
         };
         dict.reset();
         dict
@@ -66,7 +66,6 @@ impl Dictionary {
 struct Decoder {
     dict:    Dictionary,
     string:  Vec<u8>,
-    code:    u32,
     pub blk: Vec<u8>,
 }
 impl Decoder {
@@ -74,7 +73,6 @@ impl Decoder {
         Decoder {
             dict:   Dictionary::new(mem/4),
             string: Vec::new(),
-            code:   0,
             blk:    Vec::new(),
         }
     }
