@@ -1,7 +1,5 @@
 # prisirv
 
-Prisirv is a file archiver based on [lpaq1 by Matt Mahoney.](http://mattmahoney.net/dc/#lpaq)
-
 <pre>
 USAGE: PROG_NAME [REQUIRED] [OPTIONS|FLAGS]
     
