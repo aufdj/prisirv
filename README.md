@@ -12,7 +12,6 @@ REQUIRED:
    p,  pick              Extract select files from archive
    m,  merge             Merge archives together
    ls                    List info about archive
-   fv                    Visualize file
         
 One of the above commands must be used, and all are mutually exclusive.
         
@@ -30,9 +29,9 @@ FLAGS:
   -q,  -quiet            Suppresses output other than errors
   -clobber               Allow file clobbering
   -file-align            Truncate blocks to align with file boundaries
-  -cm                    Use Context Mixing compression method
+  -store                 Store files with no compression
         
-Flags '-file-align' and '-cm' have no effect on extraction.
+Flags '-file-align' and '-store' have no effect on extraction.
         
 Sorting Methods:
   -sort ext      Sort by extension
@@ -77,8 +76,4 @@ Merge archives [archive2.prsv] and [archive3.prsv] into [archive1.prsv]:
 List information about archive [/foo/qux.prsv]:
        
     prisirv ls /foo/qux.prsv
-       
-Visualize file [foo.bin]:
-       
-    prisirv fv foo.bin
 </pre>

@@ -30,12 +30,7 @@ enum Parse {
     Threads,
     List,
     Verbose,
-    Fv,
-    ColScale,
-    Width,
     Align,
-    Cm,
-    Lzwc,
     Store,
 }
 
@@ -47,7 +42,6 @@ pub enum Mode {
     ExtractFiles,
     MergeArchives,
     ListArchive,
-    Fv,
     None,
 }
 
@@ -59,41 +53,22 @@ pub enum Align {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
-    Cm,
-    Lzwc,
-    Lzws,
+    Lzw,
     Store,
 }
 impl Default for Method {
     fn default() -> Method {
-        Method::Lzws
+        Method::Lzw
     }
 }
 impl From<u8> for Method {
     fn from(num: u8) -> Method {
         match num {
-            0 => Method::Cm,
-            1 => Method::Lzwc,
-            2 => Method::Lzws,
+            0 => Method::Lzw,
             _ => Method::Store,
         }
     }
 }
-
-#[derive(Clone, Debug)]
-pub struct Fv {
-    pub col_scale:  f64,
-    pub width:      i32,
-}
-impl Default for Fv {
-    fn default() -> Fv {
-        Fv {
-            col_scale:  10.0,
-            width:      512,
-        }
-    }
-}
-
 
 /// User defined configuration settings.
 #[derive(Clone, Debug)]
@@ -109,9 +84,8 @@ pub struct Config {
     pub blk_sz:     usize,         // Block size
     pub threads:    usize,         // Maximum number of threads
     pub align:      Align,         // Block size exactly as specified or truncated to file boundary
-    pub method:     Method,        // Compression method, 0 = Context Mixing, 1 = LZW, 2 = No compression
+    pub method:     Method,        // Compression method, 0 = LZW, 1 = No compression
     pub arch:       FileData,      // A Prisirv archive
-    pub fv:         Fv,            // File visualization options
     pub verbose:    bool,          // Print verbose archive contents with 'ls'
 }
 impl Config {
@@ -148,17 +122,6 @@ impl Config {
                 "-verbose" => {
                     parser = Parse::Verbose;
                 }
-                "fv" => {
-                    parser = Parse::Fv;
-                }
-                "-col-scale" => {
-                    parser = Parse::ColScale;
-                    continue;
-                }
-                "-width" => {
-                    parser = Parse::Width;
-                    continue;
-                }
                 "-i" | "-inputs" => { 
                     parser = Parse::Inputs;
                     continue;
@@ -192,12 +155,6 @@ impl Config {
                 "-file-align" => {
                     parser = Parse::Align;
                 }
-                "-cm" => {
-                    parser = Parse::Cm;
-                }
-                "-lzwc" => {
-                    parser = Parse::Lzwc;
-                }
                 "-store" => {
                     parser = Parse::Store;
                 }
@@ -229,26 +186,6 @@ impl Config {
                 }
                 Parse::Verbose => {
                     cfg.verbose = true;
-                }
-                Parse::Fv => {
-                    cfg.mode = Mode::Fv;
-                    parser = Parse::Inputs;
-                }
-                Parse::ColScale => {
-                    if let Ok(c) = arg.parse::<f64>() {
-                        cfg.fv.col_scale = c;
-                    }
-                    else {
-                        return Err(ConfigError::InvalidColorScale(arg));
-                    }
-                }
-                Parse::Width => {
-                    if let Ok(w) = arg.parse::<i32>() {
-                        cfg.fv.width = w;
-                    }
-                    else {
-                        return Err(ConfigError::InvalidImageWidth(arg));
-                    }
                 }
                 Parse::Inputs => {
                     let path = PathBuf::from(&arg);
@@ -341,12 +278,6 @@ impl Config {
                 Parse::Align => {
                     cfg.align = Align::File;
                 }
-                Parse::Cm => {
-                    cfg.method = Method::Cm;
-                }
-                Parse::Lzwc => {
-                    cfg.method = Method::Lzwc;
-                }
                 Parse::Store => {
                     cfg.method = Method::Store;
                 }
@@ -396,9 +327,7 @@ impl fmt::Display for Config {
                         self.input_total(),
                         self.arch.path.display(),
                         match self.method {
-                            Method::Cm    => "Context Mixing",
-                            Method::Lzwc  => "LZWC",
-                            Method::Lzws  => "LZWS",
+                            Method::Lzw   => "LZW",
                             Method::Store => "No Compression",
                         },
                         match self.sort {
@@ -466,9 +395,7 @@ impl fmt::Display for Config {
                         \r=============================================================\n",
                         self.input_total(),
                         match self.method {
-                            Method::Cm    => "Context Mixing",
-                            Method::Lzwc  => "LZWC",
-                            Method::Lzws  => "LZWS",
+                            Method::Lzw   => "LZW",
                             Method::Store => "No Compression",
                         },
                         match self.sort {
@@ -538,9 +465,6 @@ impl fmt::Display for Config {
                 Mode::ListArchive => {
                     Ok(())
                 }
-                Mode::Fv => {
-                    Ok(())
-                }
                 Mode::None => {
                     Ok(())
                 }
@@ -567,7 +491,6 @@ impl Default for Config {
             align:     Align::Fixed,
             method:    Method::default(),
             arch:      FileData::default(),
-            fv:        Fv::default(),
             verbose:   false,
         }
     }

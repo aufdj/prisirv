@@ -15,7 +15,7 @@ use crate::{
     config::{Config, Method},
     error::ArchiveError,
     constant::Version,
-    lzw, cm
+    lzw
 };
 
 pub enum Task {
@@ -65,7 +65,6 @@ impl ThreadPool {
     /// Create a new task consisting of compressing an
     /// input block and returning the compressed block.
     pub fn compress_block(&mut self, blk_in: Block) {
-        let len = blk_in.data.len();
         let mem = blk_in.mem as usize;
         
         self.sndr.send(
@@ -75,16 +74,8 @@ impl ThreadPool {
                     let sizei = blk_in.data.len() as u64;
 
                     let blk_out = match blk_in.method {
-                        Method::Cm => {
-                            let mut enc = cm::encoder::Encoder::new(mem, len);
-                            enc.compress_block(&blk_in.data);
-                            enc.blk_out
-                        }
-                        Method::Lzwc => {
-                            lzw::lzwc::encoder::compress(blk_in.data, mem)
-                        }
-                        Method::Lzws => {
-                            lzw::lzws::encoder::compress(blk_in.data, mem)
+                        Method::Lzw => {
+                            lzw::encoder::compress(blk_in.data, mem)
                         }
                         Method::Store => {
                             blk_in.data
@@ -122,15 +113,8 @@ impl ThreadPool {
             Task::Decompress(
                 Box::new(move || {
                     let blk_out = match blk_in.method {
-                        Method::Cm => {
-                            cm::decoder::Decoder::new(blk_in.data, mem)
-                            .decompress_block(blk_in.sizei as usize)
-                        }
-                        Method::Lzwc => {
-                            lzw::lzwc::decoder::decompress(blk_in.data, mem)
-                        }
-                        Method::Lzws => {
-                            lzw::lzws::decoder::decompress(blk_in.data, mem)
+                        Method::Lzw => {
+                            lzw::decoder::decompress(blk_in.data, mem)
                         }
                         Method::Store => {
                             blk_in.data

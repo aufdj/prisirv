@@ -7,10 +7,8 @@ mod sort;
 mod buffered_io;  
 mod formatting;    
 mod threads;
-mod progress; 
-mod fv;
+mod progress;
 mod block;
-mod cm;
 mod lzw;
 mod constant;
 pub mod config;
@@ -198,16 +196,6 @@ impl Prisirv {
         println!("{}", self.cfg);
         ArchiveInfo::new(&self.cfg.arch)
     }
-
-    /// Visualize file.
-    pub fn fv(mut self) -> Result<(), ArchiveError> {
-        self.cfg.mode = Mode::Fv;
-        println!("{}", self.cfg);
-        self.cfg.out = fmt_root(&self.cfg.user_out, &self.cfg.arch.path);
-        sort_inputs(&mut self.cfg.inputs, self.cfg.sort);
-        fv::new(&self.cfg)?;
-        Ok(())
-    }
 }
 
 impl fmt::Display for Prisirv {
@@ -250,7 +238,6 @@ impl fmt::Display for Prisirv {
            p,  pick             Extract select files from archive
            m,  merge            Merge archives together
            ls                   List info about archive
-           fv                   Visualize file
                 
         One of the above commands must be used, and all are mutually exclusive.
                 
@@ -268,9 +255,9 @@ impl fmt::Display for Prisirv {
           -q,  -quiet           Suppresses output other than errors
           -clobber              Allow file clobbering
           -file-align           Truncate blocks to align with file boundaries
-          -cm                   Use Context Mixing compression method
+          -store                Store files with no compression
                 
-        Flags '-file-align' and '-cm' have no effect on extraction.
+        Flags '-file-align' and 'store' have no effect on extraction.
                 
         Sorting Methods:
           -sort ext      Sort by extension
@@ -311,10 +298,6 @@ impl fmt::Display for Prisirv {
         List information about archive [/foo/qux.prsv]:
                
             prisirv ls /foo/qux.prsv
-               
-        Visualize file [foo.bin]:
-               
-            prisirv fv foo.bin
         
         "
         )

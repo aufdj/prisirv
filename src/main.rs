@@ -73,11 +73,6 @@ fn main() {
                         Err(err) => println!("{err}"),
                     }
                 }
-                Mode::Fv => {
-                    if let Err(err) = Prisirv::new(cfg).fv() {
-                        println!("{err}");
-                    }
-                }
                 Mode::None => {
                     print!("{}", Prisirv::default());
                 }
